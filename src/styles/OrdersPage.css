@@ -1,0 +1,272 @@
+
+.orders-page-content .table-section .table td {
+  padding-top: 22px;
+  padding-bottom: 22px;
+  vertical-align: middle;
+}
+.orders-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.search-filter-section {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-grow: 1; /* <-- Add this line */
+}
+
+.filter-section .filter-dropdown {
+  flex-grow: 1;
+  flex-basis: 0;
+  min-width: 180px;
+}
+
+.order-id-cell {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.product-list { max-width: 250px; }
+.product-names { font-size: 0.9rem; line-height: 1.4; }
+
+/* Specific Badge Colors for Orders Page */
+.payment-status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 80px;
+  display: inline-block;
+}
+.payment-status-badge.paid { background-color: #d4edda; color: #155724; }
+.payment-status-badge.cash { background-color: #d1ecf1; color: #0c5460; }
+.payment-status-badge.gcash { background-color: #cce7ff; color: #004085; }
+.payment-status-badge.card { background-color: #e2e3e5; color: #383d41; }
+.payment-status-badge.cash-on-delivery { background-color: #fff3cd; color: #856404; }
+.payment-status-badge.refunded { background-color: #f8d7da; color: #721c24; }
+.payment-status-badge.partially-refunded { background-color: #ffe5d0; color: #a04900; }
+.payment-status-badge.cancelled { background-color: #e2e3e5; color: #383d41; }
+.payment-status-badge.unpaid { background-color: #fff3cd; color: #856404; }
+
+
+.order-status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 80px;
+  display: inline-block;
+}
+.order-status-badge.pending { background-color: #fff3cd; color: #856404; }
+.order-status-badge.processing { background-color: #d1ecf1; color: #0c5460; }
+.order-status-badge.shipping { background-color: #d4edda; color: #155724; }
+.order-status-badge.out-for-delivery { background-color: #cce7ff; color: #004085; }
+.order-status-badge.canceled, .order-status-badge.cancelled { background-color: #fc8f98; color: #721c24; }
+.order-status-badge.completed { background-color: #d4edda; color: #155724; }
+.order-status-badge.returned { background-color: #6c757d; color: white; }
+.order-status-badge.partially-returned { background-color: var(--color-warning); color: white; }
+
+
+.action-buttons { display: flex; gap: 8px; }
+.view-btn, .return-btn, .view-returns-btn {
+  border: none;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+.view-btn { background-color: var(--color-info); }
+.view-btn:hover { background-color: #138496; }
+
+.return-btn { background-color: var(--color-danger); }
+.return-btn:hover { background-color: #c82333; }
+
+.view-returns-btn { background-color: var(--color-primary); }
+.view-returns-btn:hover { background-color: var(--color-primary-dark); }
+
+
+/* Order Modal Specifics */
+.order-modal-content { max-width: 1000px !important; max-height: 85vh !important; }
+.order-id-section h3 { margin: 0; font-size: 1.3rem; color: var(--color-primary); font-weight: 600; }
+.order-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+.customer-info-section,
+.delivery-payment-section {
+  background: var(--color-bg);
+  padding: 20px;
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-primary);
+}
+.customer-info-section h4,
+.delivery-payment-section h4 { margin: 0 0 15px 0; font-size: 1.1rem; font-weight: 600; }
+.customer-details p,
+.delivery-details p { margin: 8px 0; font-size: 0.95rem; }
+.customer-details p strong,
+.delivery-details p strong { color: var(--color-text-dark); min-width: 120px; display: inline-block; }
+
+.items-display { width: 100%; }
+.table-responsive { overflow-x: auto; }
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+.items-table th {
+  background: var(--color-bg);
+  padding: 12px 15px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  font-size: 0.9rem;
+  border-bottom: 2px solid var(--color-border);
+}
+.items-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--color-border-light);
+  vertical-align: middle;
+}
+.quantity-badge {
+  background-color: var(--color-border);
+  color: #495057;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.price-text { font-weight: 600; }
+.items-table .item-total-row { background: var(--color-bg); font-weight: 600; }
+.total-label-cell { text-align: right; padding-right: 20px !important; }
+.final-total { font-size: 1.1rem !important; color: var(--color-success) !important; font-weight: 700 !important; }
+.no-items-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--color-text-light);
+  background-color: var(--color-bg);
+  border-radius: var(--radius-md);
+  border: 2px dashed var(--color-border);
+}
+
+/* Return Modal Specifics */
+.return-modal-body { padding: 20px; }
+.return-header-info { background-color: var(--color-bg); padding: 15px; border-radius: var(--radius-md); margin-bottom: 20px; }
+.info-row { display: flex; gap: 30px; flex-wrap: wrap; }
+.info-item { display: flex; flex-direction: column; gap: 4px; }
+.info-label { font-size: 0.85rem; color: var(--color-text-light); font-weight: 600; text-transform: uppercase; }
+.info-value { font-size: 1rem; color: var(--color-text-dark); font-weight: 500; }
+.return-items-section { margin-bottom: 25px; }
+.return-items-section h4 { margin: 0 0 15px 0; font-size: 1.1rem; font-weight: 600; }
+.return-items-table { width: 100%; border-collapse: collapse; background: white; border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
+.return-items-table thead { background-color: var(--color-bg); }
+.return-items-table th { padding: 12px; text-align: left; font-weight: 600; color: #495057; font-size: 0.9rem; border-bottom: 2px solid var(--color-border); }
+.return-items-table td { padding: 12px; border-bottom: 1px solid var(--color-border); font-size: 0.95rem; }
+.return-items-table tbody tr:hover { background-color: #f8f9fa; }
+.return-items-table tbody tr.selected-row { background-color: #e7f3ff; }
+.return-details-section { margin-bottom: 25px; }
+.refund-method-radios { display: flex; gap: 15px; margin-top: 8px; }
+.refund-summary {
+  background-color: var(--color-bg);
+  padding: 15px 20px;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  border: 2px solid var(--color-success);
+}
+.summary-row { display: flex; justify-content: space-between; align-items: center; }
+.summary-label { font-size: 1.1rem; color: #495057; font-weight: 600; }
+.summary-value { font-size: 1.5rem; color: var(--color-success); font-weight: 700; }
+
+/* Receipt */
+.refund-receipt-modal .receipt-content { padding: 30px; font-family: 'Courier New', monospace; line-height: 1.6; }
+.receipt-title { text-align: center; margin: 10px 0; font-size: 0.85rem; }
+.receipt-header h3 { font-weight: 700; letter-spacing: 1px; }
+.receipt-info div, .receipt-details div, .receipt-footer div { clear: both; overflow: hidden; }
+
+.search-filter-section .filter-dropdown {
+  flex-grow: 1;
+  flex-basis: 0;
+  min-width: 180px;
+}
+
+.orders-page-content .card {
+  /* New Rule: Top: 20px, Right: 30px, Bottom: 20px, Left: 30px */
+  padding: 16px 30px 2px 30px;
+}
+
+/* --- NEW PRINT STYLES --- */
+@media print {
+  /* Hide all non-receipt elements */
+  body > *:not(.refund-receipt-modal),
+  .admin-layout > *:not(.admin-main),
+  .admin-main > *:not(.admin-container),
+  .admin-container > *:not(.modal-overlay),
+  .modal-overlay > *:not(.modal-content),
+  .modal-header,
+  .modal-actions {
+    display: none !important;
+  }
+
+  /* Reset modal styles for printing */
+  .modal-overlay {
+    position: static;
+    background: none;
+    padding: 0;
+  }
+
+  .modal-content {
+    box-shadow: none;
+    border: none;
+    max-width: 100%;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .modal-body {
+    padding: 0;
+  }
+
+  .receipt-content {
+    padding: 0;
+    font-family: 'Courier New', monospace;
+    color: #000;
+  }
+
+  /* Fix the float-based layout using flexbox */
+  .receipt-details div,
+  .receipt-footer div {
+    display: flex;
+    justify-content: space-between;
+    clear: both; /* Clear any lingering floats */
+    overflow: visible;
+  }
+  
+  .receipt-details span:nth-child(1) { flex-grow: 1; } /* Item Name */
+  .receipt-details span:nth-child(2) { flex-shrink: 0; width: 60px; text-align: right; } /* Total */
+  .receipt-details span:nth-child(3) { flex-shrink: 0; width: 40px; text-align: center; } /* Qty */
+  
+  .receipt-footer span:nth-child(1) { flex-grow: 1; } /* Label */
+  .receipt-footer span:nth-child(2) { flex-shrink: 0; width: 100px; text-align: right; } /* Amount */
+
+  /* Ensure no backgrounds are printed */
+  .receipt-header {
+    border-top: 1px dashed #000 !important;
+    border-bottom: 1px dashed #000 !important;
+  }
+  .receipt-details, .receipt-footer {
+    border-top: 1px solid #000 !important;
+  }
+}
+/* --- END OF NEW PRINT STYLES --- */

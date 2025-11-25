@@ -1,0 +1,157 @@
+/* Inventory Page Specific Styles */
+/* All layout, table, modal, and form styles are now in Admin.css */
+
+.product-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.product-brand {
+  margin: 0 0 2px 0;
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+}
+
+.quantity-cell {
+  font-weight: 600;
+  color: var(--color-text-dark);
+  text-align: left; /* <-- This is the change */
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-btn {
+  background: none;
+  border: none;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary); /* Blue icon color */
+}
+.edit-btn:hover {
+  background-color: #e3f2fd; /* Light blue hover background */
+}
+
+.stock-in-btn {
+  background-color: var(--color-info);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.stock-in-btn:hover {
+  background-color: #117a8b;
+}
+
+.inventory-controls {
+  display: flex;
+  justify-content: space-between; /* Change this back */
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.search-filter-section {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-section {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-buttons-section {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.alert-text {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #e9ecef;
+  border-radius: 4px;
+  border-left: 4px solid var(--color-primary);
+}
+
+.alert-text p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  font-style: italic;
+}
+
+.filter-section .filter-dropdown {
+  width: auto;
+  min-width: 180px; /* Reduced min-width slightly */
+  flex-grow: 1;
+  flex-basis: 0;
+}
+
+.inventory-controls {
+  display: flex;
+  justify-content: space-between; /* Change this back */
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.search-filter-section {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-section {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-buttons-section {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.alert-text {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #e9ecef;
+  border-radius: 4px;
+  border-left: 4px solid var(--color-primary);
+}
+
+.alert-text p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  font-style: italic;
+}
+
+.filter-section .filter-dropdown {
+  width: auto;
+  min-width: 180px; /* Reduced min-width slightly */
+  flex-grow: 1;
+  flex-basis: 0;
+}

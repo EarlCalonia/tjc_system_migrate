@@ -1,0 +1,919 @@
+/* =================================================================== */
+/* TJC SIMS GLOBAL ADMIN STYLESHEET */
+/* =================================================================== */
+
+:root {
+  --color-primary: #2478bd; /* Brand Blue */
+  --color-primary-dark: #1a5a8e;
+  --color-secondary: #f1ce44; /* Brand Yellow */
+  --color-secondary-dark: #e6c13d;
+  
+  --color-success: #28a745;
+  --color-danger: #dc3545;
+  --color-warning: #fd7e14; /* Low Stock */
+  --color-info: #17a2b8;
+  
+  --color-text-dark: #2c3e50;
+  --color-text-light: #666;
+  --color-text-white: #ffffff;
+  
+  --color-bg: #f8f9fa;
+  --color-bg-white: #ffffff;
+  --color-border: #e1e8ed;
+  --color-border-light: #f2f2f2;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 8px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
+  
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+* {
+  font-family: 'Poppins', sans-serif;
+  box-sizing: border-box;
+}
+
+/* =================================================================== */
+/* 1. LAYOUT & NAVBAR */
+/* =================================================================== */
+
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-bg);
+}
+
+.admin-main {
+  flex: 1;
+  padding: 90px 20px 20px; /* Top padding for fixed navbar */
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  width: 100%;
+}
+
+.admin-container {
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 15px;
+}
+
+.admin-navbar {
+  background-color: var(--color-secondary);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: 70px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.navbar-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  margin-right: 30px;
+}
+
+.navbar-logo {
+  height: 40px;
+  width: auto;
+}
+
+.navbar-nav {
+  display: flex;
+  flex-direction: row; 
+  align-items: center;
+  flex-grow: 1;
+  height: 100%;
+  gap: 10px;
+}
+
+.nav-link {
+  color: var(--color-text-dark);
+  text-decoration: none;
+  padding: 0 20px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  margin: 0 5px;
+}
+
+.nav-link:hover {
+  color: #000;
+  background-color: rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+}
+
+/* UPDATED: Added specific hover rule and !important to ensure white text */
+.nav-link.active,
+.nav-link.active:hover {
+  color: #ffffff !important; 
+  background-color: var(--color-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.navbar-profile {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 0 15px;
+  height: 70px;
+  transition: all 0.2s;
+  margin-left: 15px;
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  background: none;
+  border: none;
+}
+
+.profile-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.profile-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-light);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--color-bg-white);
+}
+
+.chevron-down {
+  color: var(--color-text-light);
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.admin-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--color-text-dark);
+}
+
+.admin-role {
+  font-size: 12px;
+  color: var(--color-text-light);
+  font-weight: 400;
+}
+
+.profile-dropdown {
+  position: absolute;
+  right: 0;
+  top: 70px;
+  background: var(--color-bg-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  z-index: 1001;
+}
+
+.profile-dropdown .dropdown-item {
+  display: block;
+  padding: 10px 16px;
+  color: var(--color-text-dark);
+  font-size: 14px;
+  text-decoration: none;
+  width: 180px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border-light);
+}
+.profile-dropdown .dropdown-item:last-child {
+  border-bottom: none;
+}
+.profile-dropdown .dropdown-item:hover {
+  background: var(--color-bg);
+}
+
+
+/* =================================================================== */
+/* 2. PAGE HEADER & CARDS */
+/* =================================================================== */
+
+.page-header {
+  margin-bottom: 30px;
+  text-align: left;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  margin: 0 0 8px 0;
+}
+
+.page-subtitle {
+  font-size: 1rem;
+  color: var(--color-text-light);
+  margin: 0;
+}
+
+/* Base card for content sections */
+.card {
+  background: var(--color-bg-white);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 20px;
+}
+
+.card h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-dark);
+  margin: 0 0 8px 0;
+}
+.card .section-sub {
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+  margin: 0 0 20px 0;
+}
+
+/* Stat cards (Dashboard, Reports) */
+.dashboard-stats, .reports-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background: var(--color-bg-white);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+  border-left: 4px solid var(--color-primary); /* Default blue */
+}
+
+/* Remove the old :nth-child rules and add these specific ones */
+.stat-card.sales { border-color: var(--color-primary); }       /* Blue */
+.stat-card.revenue { border-color: var(--color-success); }     /* Green */
+.stat-card.low-stock { border-color: var(--color-warning); }   /* Orange */
+.stat-card.inventory { border-color: #6f42c1; }             /* Purple */
+.stat-card.in-stock { border-color: var(--color-success); }    /* Green */
+.stat-card.out-of-stock { border-color: var(--color-danger); } /* Red */
+.stat-card.returns { border-color: var(--color-danger); }      /* Red */
+
+.stat-card h3, .stat-info .stat-title {
+  margin: 0 0 5px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-light);
+  text-transform: uppercase;
+}
+
+.stat-card .stat-value, .stat-info .stat-value {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+
+.stat-card .stat-value.revenue { color: var(--color-success); }
+.stat-card .stat-value.sales { color: var(--color-primary); }
+.stat-card .stat-value.avg-sale { color: var(--color-info); }
+.stat-card .stat-value.inventory { color: #6f42c1; } /* Specific purple */
+.stat-card .stat-value.out-of-stock { color: var(--color-danger); }
+.stat-card .stat-value.low-stock { color: var(--color-warning); }
+.stat-card .stat-value.returns { color: var(--color-danger); }
+.stat-card .stat-value.in-stock { color: var(--color-success); }
+
+/* --- New styles for Stat Card Icons --- */
+/* --- Fix for Inventory Page Stat Card Icons --- */
+
+.stat-info-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* This is the new wrapper style */
+.stat-icon {
+  width: 48px;  /* Set a fixed size */
+  height: 48px;
+  border-radius: var(--radius-md); /* 8px rounded corners */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem; /* 24px icon */
+  opacity: 1; /* Reset opacity */
+}
+
+/* --- Color Pairings --- */
+
+/* Total Products (Purple) */
+.stat-icon.inventory {
+  background-color: #ede9fe; /* Light Purple */
+  color: #6f42c1;           /* Dark Purple */
+}
+
+/* In Stock (Green) - matches role-staff */
+.stat-icon.in-stock {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+/* Low on Stock (Orange) */
+.stat-icon.low-stock {
+  background-color: #fff7ed; /* Light Orange */
+  color: var(--color-warning); /* #fd7e14 */
+}
+
+/* Out of Stock (Red) - matches role-admin */
+.stat-icon.out-of-stock {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Dashboard Card */
+/* ... */
+.dashboard-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); /* REVISION: Was --shadow-md */
+  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+/* ... */
+/* =================================================================== */
+/* 3. FORMS & CONTROLS */
+/* =================================================================== */
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--color-text-dark);
+  font-size: 0.875rem;
+}
+
+.form-input,
+.form-select,
+.filter-dropdown,
+.date-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  color: var(--color-text-dark);
+  transition: all 0.2s ease;
+  background-color: var(--color-bg-white);
+}
+
+.form-input:focus,
+.form-select:focus,
+.filter-dropdown:focus,
+.date-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(36, 120, 189, 0.1);
+}
+
+.form-input.readonly {
+  background-color: var(--color-bg);
+  color: var(--color-text-light);
+  cursor: not-allowed;
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-family: 'Poppins', sans-serif;
+  resize: vertical;
+  min-height: 100px;
+}
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(36, 120, 189, 0.1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-bg-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-width: 350px;
+  height: 40px;
+  position: relative; /* <-- Add this line */
+  top: 12px;           /* <-- Add this line */
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  height: 100%; /* <-- CHANGE from 40px */
+  padding: 0 12px;
+  font-size: 0.9rem;
+  background: transparent; /* <-- ADD THIS LINE */
+}
+
+.search-btn {
+  height: 100%; /* <-- CHANGE from 40px */
+  padding: 0 14px;
+  border: none;
+  background-color: var(--color-secondary);
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 0; /* <-- ADD THIS LINE to prevent weird corner radius */
+}
+.search-btn:hover {
+  background-color: var(--color-secondary-dark);
+}
+
+/* =================================================================== */
+/* 4. BUTTONS */
+/* =================================================================== */
+
+.btn {
+  height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-white);
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: var(--color-text-white);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: #5a6268;
+}
+
+.btn-success {
+  background-color: var(--color-success);
+  color: var(--color-text-white);
+}
+.btn-success:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.btn-danger {
+  background-color: var(--color-danger);
+  color: var(--color-text-white);
+}
+.btn-danger:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.btn-warning {
+  background-color: var(--color-secondary);
+  color: var(--color-text-dark);
+}
+.btn-warning:hover:not(:disabled) {
+  background-color: var(--color-secondary-dark);
+}
+
+.btn-info {
+  background-color: var(--color-info);
+  color: var(--color-text-white);
+}
+.btn-info:hover:not(:disabled) {
+  background-color: #138496;
+}
+
+.btn-outline {
+  background-color: var(--color-bg-white);
+  color: var(--color-text-dark);
+  border: 1px solid var(--color-border);
+}
+.btn-outline:hover:not(:disabled) { 
+  background-color: var(--color-bg);
+}
+
+/* =================================================================== */
+/* 5. TABLES */
+/* =================================================================== */
+
+.table-section {
+  background: var(--color-bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  margin-top: 25px;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.table th {
+  background-color: var(--color-primary);
+  color: var(--color-text-white);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-dark);
+}
+
+.table tbody tr:nth-child(odd) {
+  background-color: #f5f9ff;
+}
+
+.table tbody tr:nth-child(even) {
+  background-color: #e0e0e0 !important;
+}
+
+.table tbody tr:hover {
+  background-color: #e1efff;
+  transition: background-color 0.2s ease;
+}
+
+.table-footer {
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fdfdfd;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.results-info {
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+}
+
+.pagination {
+  display: flex;
+  gap: 5px;
+}
+
+.pagination-btn {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-white);
+  color: var(--color-text-dark);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: var(--color-bg);
+}
+
+.pagination-btn.active {
+  background-color: var(--color-primary);
+  color: var(--color-text-white);
+  border-color: var(--color-primary);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =================================================================== */
+/* 6. MODALS */
+/* =================================================================== */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: var(--color-bg-white);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 20px 25px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2, .modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--color-text-light);
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.3s ease;
+}
+
+.close-btn:hover {
+  background-color: var(--color-bg);
+}
+
+.modal-body {
+  padding: 25px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.modal-actions {
+  padding: 20px 25px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background-color: #fdfdfd;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+/* Aliases for modal buttons */
+.cancel-btn {
+  background-color: var(--color-bg-white);
+  color: var(--color-text-light);
+  border: 1px solid var(--color-border);
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.cancel-btn:hover {
+  background-color: var(--color-bg);
+}
+
+.save-btn, .confirm-btn {
+  height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background-color: var(--color-success);
+  color: var(--color-text-white);
+}
+.save-btn:hover, .confirm-btn:hover {
+  background-color: #218838;
+}
+
+/* =================================================================== */
+/* 7. BADGES & UTILITIES */
+/* =================================================================== */
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.active,
+.status-badge.in-stock,
+.status-badge.completed,
+.status-badge.paid {
+  background-color: #e8f5e8;
+  color: #2e7d32;
+}
+
+.status-badge.inactive,
+.status-badge.out-of-stock,
+.status-badge.cancelled,
+.status-badge.returned {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.status-badge.low-stock,
+.status-badge.pending,
+.status-badge.processing,
+.status-badge.partially-returned {
+  background-color: #fff8e1;
+  color: #e65100;
+}
+
+.category-badge {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.price-cell {
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.loading-state, .error-state, .empty-state {
+  padding: 40px;
+  text-align: center;
+  color: var(--color-text-light);
+}
+
+.error-state {
+  color: var(--color-danger);
+}
+
+/* Dashboard-specific (from old Admin.css) */
+.dashboard-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.dashboard-col {
+  flex: 1;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Card Tabs (for Dashboard) --- */
+.card-tabs {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.card-tab-btn {
+  padding: 10px 16px;
+  border: none;
+  background-color: transparent;
+  color: var(--color-text-light);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px; /* Aligns with the parent border */
+}
+
+.card-tab-btn:hover {
+  background-color: var(--color-bg);
+  color: var(--color-text-dark);
+}
+
+.card-tab-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ... (all existing Admin.css styles) ... */
+
+
+/* 8. CARD HEADER WITH ACTION BUTTON */
+/* This new class creates the flex layout for the title and button */
+.card-header-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px; /* Provides space below the header */
+}
+
+/* This makes the h2 inside the new header smaller */
+.card-header-action h2 {
+  margin: 0; /* Remove default margin */
+  font-size: 1.15rem; /* Smaller font size (was 1.25rem) */
+}
+
+/* A new small button variant */
+.btn.btn-small {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Specific style for the small blue outline button */
+.btn-outline.btn-small {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.btn-outline.btn-small:hover {
+  background-color: #e3f2fd; /* Light blue hover */
+  color: var(--color-primary-dark);
+}
