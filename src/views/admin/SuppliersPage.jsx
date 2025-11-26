@@ -1,213 +1,286 @@
-import React, { useState, useEffect } from 'react';
-// Navbar import removed
-import { suppliersAPI } from '../../utils/api';
-import { BsPlusLg, BsPencil, BsTrash } from 'react-icons/bs';
-import '../../styles/Admin.css'; 
+import React, { useState, useEffect } from 'react'
+import {
+  CContainer,
+  CRow,
+  CCol,
+  CCard,
+  CCardBody,
+  CCardHeader,
+  CTable,
+  CTableHead,
+  CTableRow,
+  CTableHeaderCell,
+  CTableBody,
+  CTableDataCell,
+  CButton,
+  CFormInput,
+  CFormLabel,
+  CFormTextarea,
+  CModal,
+  CModalHeader,
+  CModalTitle,
+  CModalBody,
+  CModalFooter,
+  CBadge,
+} from '@coreui/react'
+import CIcon from '@coreui/icons-react'
+import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
+import { suppliersAPI } from '../../utils/api'
 
 const SuppliersPage = () => {
-  const [suppliers, setSuppliers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
+  // --- STATE ---
+  const [suppliers, setSuppliers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
   const [formData, setFormData] = useState({
-    name: '', contact_person: '', email: '', phone: '', address: '', status: 'Active'
-  });
-  const [selectedId, setSelectedId] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+    name: '',
+    contact_person: '',
+    email: '',
+    phone: '',
+    address: '',
+    status: 'Active',
+  })
+  const [selectedId, setSelectedId] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
 
+  // --- EFFECTS ---
   useEffect(() => {
-    fetchSuppliers();
-  }, []);
+    fetchSuppliers()
+  }, [])
 
+  // --- API ---
   const fetchSuppliers = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const res = await suppliersAPI.getAll();
-      setSuppliers(res.data || []);
+      const res = await suppliersAPI.getAll()
+      setSuppliers(res.data || [])
     } catch (error) {
-      console.error(error);
+      console.error(error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     try {
       if (isEditMode) {
-        await suppliersAPI.update(selectedId, formData);
+        await suppliersAPI.update(selectedId, formData)
       } else {
-        await suppliersAPI.create(formData);
+        await suppliersAPI.create(formData)
       }
-      fetchSuppliers();
-      setIsModalOpen(false);
-      resetForm();
+      fetchSuppliers()
+      setIsModalOpen(false)
+      resetForm()
     } catch (error) {
-      alert('Operation failed: ' + error.message);
+      alert('Operation failed: ' + error.message)
     }
-  };
+  }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure?')) {
-      await suppliersAPI.delete(id);
-      fetchSuppliers();
+    if (window.confirm('Are you sure you want to delete this supplier?')) {
+      await suppliersAPI.delete(id)
+      fetchSuppliers()
     }
-  };
+  }
 
+  // --- HELPERS ---
   const openAdd = () => {
-    resetForm();
-    setIsEditMode(false);
-    setIsModalOpen(true);
-  };
+    resetForm()
+    setIsEditMode(false)
+    setIsModalOpen(true)
+  }
 
   const openEdit = (supplier) => {
-    setFormData(supplier);
-    setSelectedId(supplier.id);
-    setIsEditMode(true);
-    setIsModalOpen(true);
-  };
+    setFormData(supplier)
+    setSelectedId(supplier.id)
+    setIsEditMode(true)
+    setIsModalOpen(true)
+  }
 
   const resetForm = () => {
-    setFormData({ name: '', contact_person: '', email: '', phone: '', address: '', status: 'Active' });
-    setSelectedId(null);
-  };
+    setFormData({
+      name: '',
+      contact_person: '',
+      email: '',
+      phone: '',
+      address: '',
+      status: 'Active',
+    })
+    setSelectedId(null)
+  }
 
-  // Pagination logic
-  const totalPages = Math.ceil(suppliers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, suppliers.length);
-  const currentSuppliers = suppliers.slice(startIndex, endIndex);
+  // Pagination
+  const totalPages = Math.ceil(suppliers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const currentSuppliers = suppliers.slice(startIndex, startIndex + itemsPerPage)
 
   const handlePageChange = (page) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-      document.querySelector('.table-container')?.scrollTo(0, 0);
-    }
-  };
+    if (page >= 1 && page <= totalPages) setCurrentPage(page)
+  }
 
+  // --- RENDER ---
   return (
-    <div className="admin-container">
-      <div className="page-header mb-4">
-        <h1 className="page-title">Supplier Management</h1>
-        <p className="page-subtitle">Manage your list of suppliers and sources</p>
+    <CContainer fluid>
+      <div className="mb-4 d-flex justify-content-between align-items-center">
+        <div>
+          <h2>Supplier Management</h2>
+          <div className="text-medium-emphasis">Manage your list of suppliers and sources</div>
+        </div>
+        <CButton color="primary" onClick={openAdd}>
+          <CIcon icon={cilPlus} className="me-2" /> Add Supplier
+        </CButton>
       </div>
 
-      <div className="card">
-        <div className="card-header-action">
-          <h2>All Suppliers</h2>
-          <button className="btn btn-primary" onClick={openAdd}>
-            <BsPlusLg /> Add Supplier
-          </button>
-        </div>
-        
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Contact Person</th>
-                <th>Phone</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? <tr><td colSpan="6">Loading...</td></tr> : currentSuppliers.length === 0 ? (
-                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>No suppliers found.</td></tr>
-              ) : currentSuppliers.map(s => (
-                <tr key={s.id}>
-                  <td>{s.supplier_id}</td>
-                  <td>{s.name}</td>
-                  <td>{s.contact_person}</td>
-                  <td>{s.phone}</td>
-                  <td><span className={`status-badge ${s.status?.toLowerCase()}`}>{s.status}</span></td>
-                  <td>
-                    <div style={{display: 'flex', gap: '5px'}}>
-                        <button className="btn btn-outline btn-small" onClick={() => openEdit(s)}><BsPencil /></button>
-                        <button className="btn btn-danger btn-small" onClick={() => handleDelete(s.id)}><BsTrash /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="table-footer">
-          <div className="results-info">
-            Showing {suppliers.length > 0 ? startIndex + 1 : 0} to {endIndex} of {suppliers.length} suppliers
-          </div>
-          {totalPages > 1 && (
-            <div className="pagination">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
+      <CCard className="mb-4">
+        <CCardHeader>All Suppliers</CCardHeader>
+        <CCardBody>
+          {loading ? (
+            <div className="text-center py-4">Loading...</div>
+          ) : (
+            <CTable hover responsive>
+              <CTableHead>
+                <CTableRow>
+                  <CTableHeaderCell>ID</CTableHeaderCell>
+                  <CTableHeaderCell>Name</CTableHeaderCell>
+                  <CTableHeaderCell>Contact Person</CTableHeaderCell>
+                  <CTableHeaderCell>Phone</CTableHeaderCell>
+                  <CTableHeaderCell>Status</CTableHeaderCell>
+                  <CTableHeaderCell>Actions</CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
+                {currentSuppliers.length === 0 ? (
+                  <CTableRow>
+                    <CTableDataCell colSpan="6" className="text-center">
+                      No suppliers found.
+                    </CTableDataCell>
+                  </CTableRow>
+                ) : (
+                  currentSuppliers.map((s) => (
+                    <CTableRow key={s.id}>
+                      <CTableDataCell>{s.supplier_id}</CTableDataCell>
+                      <CTableDataCell className="fw-bold">{s.name}</CTableDataCell>
+                      <CTableDataCell>{s.contact_person}</CTableDataCell>
+                      <CTableDataCell>{s.phone}</CTableDataCell>
+                      <CTableDataCell>
+                        <CBadge color={s.status === 'Active' ? 'success' : 'secondary'}>
+                          {s.status}
+                        </CBadge>
+                      </CTableDataCell>
+                      <CTableDataCell>
+                        <CButton
+                          size="sm"
+                          color="info"
+                          variant="ghost"
+                          onClick={() => openEdit(s)}
+                          className="me-1"
+                        >
+                          <CIcon icon={cilPencil} />
+                        </CButton>
+                        <CButton
+                          size="sm"
+                          color="danger"
+                          variant="ghost"
+                          onClick={() => handleDelete(s.id)}
+                        >
+                          <CIcon icon={cilTrash} />
+                        </CButton>
+                      </CTableDataCell>
+                    </CTableRow>
+                  ))
+                )}
+              </CTableBody>
+            </CTable>
+          )}
+
+          {/* PAGINATION */}
+          <div className="d-flex justify-content-between align-items-center mt-3">
+            <small className="text-medium-emphasis">
+              Showing {suppliers.length > 0 ? startIndex + 1 : 0} to{' '}
+              {Math.min(startIndex + itemsPerPage, suppliers.length)} of {suppliers.length}
+            </small>
+            <div>
+              <CButton
+                size="sm"
+                variant="outline"
                 disabled={currentPage === 1}
-                className="pagination-btn"
+                onClick={() => handlePageChange(currentPage - 1)}
               >
                 Previous
-              </button>
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map(page => (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
+              </CButton>
+              <span className="mx-2">{currentPage}</span>
+              <CButton
+                size="sm"
+                variant="outline"
                 disabled={currentPage === totalPages}
-                className="pagination-btn"
+                onClick={() => handlePageChange(currentPage + 1)}
               >
                 Next
-              </button>
+              </CButton>
             </div>
-          )}
-        </div>
-      </div>
-
-      {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{isEditMode ? 'Edit Supplier' : 'Add Supplier'}</h2>
-              <button className="close-btn" onClick={() => setIsModalOpen(false)}>×</button>
-            </div>
-            <form onSubmit={handleSubmit} className="modal-body">
-              <div className="form-group">
-                <label>Supplier Name *</label>
-                <input required className="form-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-              </div>
-              <div className="form-group">
-                <label>Contact Person</label>
-                <input className="form-input" value={formData.contact_person} onChange={e => setFormData({...formData, contact_person: e.target.value})} />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Email</label>
-                  <input className="form-input" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label>Phone</label>
-                  <input className="form-input" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Address</label>
-                <textarea className="form-textarea" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="cancel-btn" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                <button type="submit" className="save-btn">Save</button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
-    </div>
-  );
-};
+        </CCardBody>
+      </CCard>
 
-export default SuppliersPage;
+      {/* MODAL */}
+      <CModal visible={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <CModalHeader>
+          <CModalTitle>{isEditMode ? 'Edit Supplier' : 'Add Supplier'}</CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          <div className="mb-3">
+            <CFormLabel>Supplier Name</CFormLabel>
+            <CFormInput
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
+          </div>
+          <div className="mb-3">
+            <CFormLabel>Contact Person</CFormLabel>
+            <CFormInput
+              value={formData.contact_person}
+              onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+            />
+          </div>
+          <CRow className="mb-3">
+            <CCol md={6}>
+              <CFormLabel>Email</CFormLabel>
+              <CFormInput
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </CCol>
+            <CCol md={6}>
+              <CFormLabel>Phone</CFormLabel>
+              <CFormInput
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </CCol>
+          </CRow>
+          <div className="mb-3">
+            <CFormLabel>Address</CFormLabel>
+            <CFormTextarea
+              rows={3}
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            />
+          </div>
+        </CModalBody>
+        <CModalFooter>
+          <CButton color="secondary" onClick={() => setIsModalOpen(false)}>
+            Cancel
+          </CButton>
+          <CButton color="primary" onClick={handleSubmit}>
+            Save
+          </CButton>
+        </CModalFooter>
+      </CModal>
+    </CContainer>
+  )
+}
+
+export default SuppliersPage

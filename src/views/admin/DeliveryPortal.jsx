@@ -1,193 +1,396 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BsSearch } from 'react-icons/bs';
-import '../../styles/DeliveryPortal.css';
-import tcjLogo from '../../assets/tcj_logo.png';
-import { salesAPI } from '../../utils/api';
-import { serialNumberAPI } from '../../utils/serialNumberApi';
-
-// --- CUSTOM MESSAGE BOX COMPONENT ---
-const MessageBox = ({ isOpen, title, message, type, onClose, onConfirm }) => {
-  if (!isOpen) return null;
-  let headerColor = '#f8f9fa';
-  let titleColor = '#2c3e50';
-  if (type === 'error') { headerColor = '#fee2e2'; titleColor = '#b91c1c'; } 
-  else if (type === 'success') { headerColor = '#dcfce7'; titleColor = '#166534'; } 
-  else if (type === 'warning') { headerColor = '#fff7ed'; titleColor = '#c2410c'; }
-
-  return (
-    <div className="modal-overlay" style={{ zIndex: 9999 }}>
-      <div className="modal-content" style={{ maxWidth: '400px', width: '90%', borderRadius: '12px', overflow: 'hidden' }}>
-        <div className="modal-header" style={{ backgroundColor: headerColor, borderBottom: '1px solid rgba(0,0,0,0.05)', padding: '15px 20px' }}>
-          <h3 style={{ color: titleColor, fontSize: '1.1rem', margin: 0, fontWeight: '600' }}>{title}</h3>
-          <button onClick={onClose} className="close-btn">×</button>
-        </div>
-        <div className="modal-body" style={{ padding: '25px 20px' }}>
-          <p style={{ margin: 0, fontSize: '0.95rem', color: '#4b5563', lineHeight: '1.5' }}>{message}</p>
-        </div>
-        <div className="modal-actions" style={{ padding: '15px 20px', backgroundColor: '#f9fafb' }}>
-          <button onClick={onClose} className="confirm-btn" style={{ marginLeft: 'auto' }}>OK</button>
-        </div>
-      </div>
-    </div>
-  );
-};
+import React, { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  CContainer,
+  CRow,
+  CCol,
+  CCard,
+  CCardBody,
+  CCardHeader,
+  CTable,
+  CTableHead,
+  CTableRow,
+  CTableHeaderCell,
+  CTableBody,
+  CTableDataCell,
+  CButton,
+  CFormInput,
+  CFormSelect,
+  CFormLabel,
+  CModal,
+  CModalHeader,
+  CModalTitle,
+  CModalBody,
+  CModalFooter,
+  CBadge,
+  CInputGroup,
+  CInputGroupText,
+  CNavbar,
+  CNavbarBrand,
+  CNavbarNav,
+  CNavItem,
+  CAvatar,
+  CSpinner,
+} from '@coreui/react'
+import CIcon from '@coreui/icons-react'
+import {
+  cilSearch,
+  cilTruck,
+  cilUser,
+  cilAccountLogout,
+  cilCheckCircle,
+  cilDescription,
+  cilCloudUpload,
+} from '@coreui/icons'
+import tcjLogo from '../../assets/tcj_logo.png'
+import { salesAPI } from '../../utils/api'
+import { serialNumberAPI } from '../../utils/serialNumberApi'
 
 const DeliveryPortal = () => {
-  const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const ordersPerPage = 10;
-  const riderName = localStorage.getItem('username') || localStorage.getItem('userEmail') || 'Rider';
-  const riderAvatar = localStorage.getItem('avatar');
+  const navigate = useNavigate()
+  const [searchTerm, setSearchTerm] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  
+  // Rider Info
+  const riderName = localStorage.getItem('username') || localStorage.getItem('userEmail') || 'Rider'
+  const riderAvatar = localStorage.getItem('avatar')
 
-  // Message Box State
-  const [msgBox, setMsgBox] = useState({ isOpen: false, title: '', message: '', type: 'info' });
-  const showMessage = (title, message, type = 'info') => setMsgBox({ isOpen: true, title, message, type });
-  const closeMessage = () => setMsgBox(prev => ({ ...prev, isOpen: false }));
+  // Modals & Selection
+  const [selectedOrder, setSelectedOrder] = useState(null)
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false)
+  const [deliveryProof, setDeliveryProof] = useState(null)
+  const [uploadingProof, setUploadingProof] = useState(false)
+  const [msgModal, setMsgModal] = useState({ visible: false, title: '', message: '', color: 'info' })
 
+  const ordersPerPage = 10
+
+  // --- EFFECTS ---
+  useEffect(() => {
+    let mounted = true
+    setLoading(true)
+    fetchOrders()
+      .then((mapped) => { if (mounted) setOrders(mapped) })
+      .catch((e) => { if (mounted) setError(e.message) })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  // --- API & LOGIC ---
   const fetchOrders = async () => {
     try {
-      const list = await salesAPI.getSales({ delivery_type: 'Company Delivery' });
-      const activeDeliveryList = (list || []).filter(s => s.status === 'Pending' || s.status === 'Processing' || s.status === 'Out for Delivery');
+      const list = await salesAPI.getSales({ delivery_type: 'Company Delivery' })
+      const activeDeliveryList = (list || []).filter(
+        (s) => s.status === 'Pending' || s.status === 'Processing' || s.status === 'Out for Delivery',
+      )
+
       const mappedPromises = activeDeliveryList.map(async (s) => {
-        let productListString = 'See details'; let items = [];
+        let productListString = 'See details'
+        let items = []
         try {
-          const itemsResponse = await salesAPI.getSaleItems(s.id);
-          const serialsResponse = await serialNumberAPI.getBySaleId(s.id);
-          const allSerials = serialsResponse.data || [];
-          items = itemsResponse.map(item => { const serial_numbers = allSerials.filter(sn => sn.sale_item_id === item.id).map(sn => sn.serial_number); return { ...item, serial_numbers }; });
-          productListString = (items || []).map(item => `${item.product_name} (x${item.quantity})`).join(', ');
-        } catch (e) { console.error(`Failed to fetch details for sale ${s.id}:`, e); }
-        return { id: s.sale_number, saleId: s.id, customerName: s.customer_name, orderDate: new Date(s.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }), productList: productListString, items: items, paymentStatus: s.payment_status, paymentMethod: s.payment, orderStatus: s.status, address: s.address || '', contact: s.contact || '', deliveryProof: s.delivery_proof || null };
-      });
-      return await Promise.all(mappedPromises);
-    } catch (e) { setError(e.message); return []; }
+          const itemsResponse = await salesAPI.getSaleItems(s.id)
+          const serialsResponse = await serialNumberAPI.getBySaleId(s.id)
+          const allSerials = serialsResponse.data || []
+          items = itemsResponse.map((item) => {
+            const serial_numbers = allSerials
+              .filter((sn) => sn.sale_item_id === item.id)
+              .map((sn) => sn.serial_number)
+            return { ...item, serial_numbers }
+          })
+          productListString = (items || [])
+            .map((item) => `${item.product_name} (x${item.quantity})`)
+            .join(', ')
+        } catch (e) {
+          console.error(`Failed items fetch for ${s.id}`, e)
+        }
+        return {
+          id: s.sale_number,
+          saleId: s.id,
+          customerName: s.customer_name,
+          orderDate: new Date(s.created_at).toLocaleDateString(),
+          productList: productListString,
+          items: items,
+          paymentStatus: s.payment_status,
+          paymentMethod: s.payment,
+          orderStatus: s.status,
+          address: s.address || '',
+          contact: s.contact || '',
+          deliveryProof: s.delivery_proof || null,
+        }
+      })
+      return await Promise.all(mappedPromises)
+    } catch (e) {
+      throw new Error(e.message)
+    }
   }
 
-  useEffect(() => {
-    let mounted = true; setLoading(true);
-    fetchOrders().then(mapped => { if (mounted) setOrders(mapped); }).finally(() => mounted && setLoading(false));
-    return () => { mounted = false; };
-  }, []);
+  const showMessage = (title, message, color = 'info') => {
+    setMsgModal({ visible: true, title, message, color })
+  }
 
-  const handleLogout = () => { localStorage.removeItem('userRole'); localStorage.removeItem('userEmail'); localStorage.removeItem('userName'); localStorage.removeItem('userAvatar'); navigate('/admin/login'); };
-  const handleViewOrder = (order) => { setSelectedOrder(order); setIsViewModalOpen(true); };
-  const handleCompleteDelivery = (order) => { setSelectedOrder(order); setDeliveryProof(null); setIsCompleteModalOpen(true); };
+  const handleLogout = () => {
+    localStorage.clear() // Or remove specific keys
+    navigate('/admin/login')
+  }
 
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
-  const [deliveryProof, setDeliveryProof] = useState(null);
-  const [uploadingProof, setUploadingProof] = useState(false);
-
-  const handlePaymentStatusChange = async (orderId, newPaymentStatus) => {
-    const target = orders.find(o => o.id === orderId); if (!target) return;
+  const handlePaymentStatusChange = async (orderId, newStatus) => {
+    const target = orders.find((o) => o.id === orderId)
+    if (!target) return
     try {
-      await salesAPI.updateSale(target.saleId, { payment_status: newPaymentStatus });
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus: newPaymentStatus } : o));
-      if (newPaymentStatus === 'Paid' && target.paymentMethod === 'Cash on Delivery') showMessage('Payment Updated', 'Payment status updated to Paid. You can now complete the delivery.', 'success');
-    } catch (e) { showMessage('Error', `Failed to update payment status: ${e.message}`, 'error'); }
-  };
+      await salesAPI.updateSale(target.saleId, { payment_status: newStatus })
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, paymentStatus: newStatus } : o)))
+      if (newStatus === 'Paid') showMessage('Success', 'Payment marked as Paid', 'success')
+    } catch (e) {
+      showMessage('Error', e.message, 'danger')
+    }
+  }
 
   const handleOrderStatusChange = async (orderId, newStatus) => {
-    const target = orders.find(o => o.id === orderId); if (!target) return;
+    const target = orders.find((o) => o.id === orderId)
+    if (!target) return
     try {
-      await salesAPI.updateSale(target.saleId, { status: newStatus });
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
-    } catch (e) { showMessage('Error', `Failed to update status: ${e.message}`, 'error'); }
-  };
-
-  const handleSubmitCompleteDelivery = async (e) => {
-    e.preventDefault();
-    if (!selectedOrder) return;
-    if (!deliveryProof) { showMessage('Missing Proof', 'Please upload a delivery proof photo before completing the delivery', 'warning'); return; }
-    try {
-      setUploadingProof(true);
-      await salesAPI.uploadDeliveryProof(selectedOrder.saleId, deliveryProof);
-      await salesAPI.updateSale(selectedOrder.saleId, { status: 'Completed' });
-      const mapped = await fetchOrders(); setOrders(mapped);
-      setDeliveryProof(null); setIsCompleteModalOpen(false);
-      showMessage('Success', 'Delivery completed successfully!', 'success');
-    } catch (e) { showMessage('Error', `Failed to complete delivery: ${e.message}`, 'error'); } finally { setUploadingProof(false); }
-  };
-
-  const handleProofFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) { showMessage('Invalid File', 'Please select an image file', 'warning'); return; }
-      setDeliveryProof(file);
+      await salesAPI.updateSale(target.saleId, { status: newStatus })
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, orderStatus: newStatus } : o)))
+    } catch (e) {
+      showMessage('Error', e.message, 'danger')
     }
-  };
+  }
 
+  const handleCompleteDelivery = async () => {
+    if (!selectedOrder) return
+    if (!deliveryProof) return showMessage('Missing Proof', 'Upload proof first', 'warning')
+    
+    setUploadingProof(true)
+    try {
+      await salesAPI.uploadDeliveryProof(selectedOrder.saleId, deliveryProof)
+      await salesAPI.updateSale(selectedOrder.saleId, { status: 'Completed' })
+      
+      const updated = await fetchOrders()
+      setOrders(updated)
+      
+      setDeliveryProof(null)
+      setIsCompleteModalOpen(false)
+      showMessage('Success', 'Delivery Completed', 'success')
+    } catch (e) {
+      showMessage('Error', e.message, 'danger')
+    } finally {
+      setUploadingProof(false)
+    }
+  }
+
+  // Filtering & Pagination
   const filteredOrders = useMemo(() => {
-    const s = searchTerm.toLowerCase();
-    return orders.filter(order => order.id.toLowerCase().includes(s) || (order.customerName || '').toLowerCase().includes(s) || (order.productList || '').toLowerCase().includes(s));
-  }, [orders, searchTerm]);
+    const s = searchTerm.toLowerCase()
+    return orders.filter(
+      (o) =>
+        o.id.toLowerCase().includes(s) ||
+        (o.customerName || '').toLowerCase().includes(s) ||
+        (o.productList || '').toLowerCase().includes(s),
+    )
+  }, [orders, searchTerm])
 
-  const indexOfLastOrder = currentPage * ordersPerPage; const indexOfFirstOrder = indexOfLastOrder - ordersPerPage; const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder); const totalPages = Math.ceil(filteredOrders.length / ordersPerPage) || 1;
-  const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
-  const getPaymentStatusClass = (status) => status === 'Paid' ? 'status-paid' : 'status-unpaid';
-  const getOrderStatusClass = (status) => { if (status === 'Completed') return 'status-completed'; if (status === 'Out for Delivery') return 'status-delivery'; return 'status-processing'; };
+  const totalPages = Math.ceil(filteredOrders.length / ordersPerPage) || 1
+  const startIndex = (currentPage - 1) * ordersPerPage
+  const currentOrders = filteredOrders.slice(startIndex, startIndex + ordersPerPage)
 
+  // --- RENDER ---
   return (
-    <div className="delivery-portal">
-      <nav className="delivery-navbar"><div className="navbar-left"><img src={tcjLogo} alt="TJC Logo" className="navbar-logo" /><span className="navbar-divider">|</span><span className="navbar-title">Delivery Portal</span></div><div className="navbar-right"><div className="rider-profile">{riderAvatar ? (<img src={riderAvatar.startsWith('http') ? riderAvatar : `http://localhost:5000${riderAvatar}`} alt="Rider" className="profile-avatar" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '2px solid #2478bd' }} />) : (<div className="profile-icon"><i className="fas fa-user-circle"></i></div>)}<span className="rider-name">{riderName}</span></div><span className="navbar-divider">|</span><button onClick={handleLogout} className="logout-btn">Logout</button></div></nav>
-      <div className="delivery-container">
-        <div className="delivery-header"><h1 className="delivery-title">My Delivery Orders</h1><p className="delivery-subtitle">Orders assigned for delivery today. Update status as you complete deliveries.</p></div>
-        <div className="search-section"><div className="delivery-search-box"><input type="text" placeholder="Search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="delivery-search-input" /><button className="delivery-search-btn" type="button"><BsSearch className="delivery-search-icon" /></button></div></div>
-        <div className="delivery-table-section">
-          <table className="delivery-table">
-            <thead><tr><th>Order ID</th><th>Customer Name</th><th>Product List</th><th>Payment Status</th><th>Order Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              {loading && (<tr><td colSpan="6" style={{ padding: 20 }}>Loading...</td></tr>)}
-              {error && !loading && (<tr><td colSpan="6" style={{ padding: 20 }}>{error}</td></tr>)}
-              {!loading && !error && currentOrders.map((order) => (
-                <tr key={order.id}>
-                  <td className="order-id">{order.id}</td><td>{order.customerName}</td><td className="product-list">{order.productList}</td>
-                  <td>{order.paymentStatus === 'Unpaid' ? (<select value={order.paymentStatus} onChange={(e) => handlePaymentStatusChange(order.id, e.target.value)} className={`status-edit-select status-${order.paymentStatus.toLowerCase()}`}><option value="Unpaid">Unpaid (COD)</option><option value="Paid">Paid (COD)</option></select>) : (<span className={`status-badge ${getPaymentStatusClass(order.paymentStatus)}`}>{`${order.paymentStatus} (${order.paymentMethod})`}</span>)}</td>
-                  <td>{order.orderStatus !== 'Completed' ? (<select value={order.orderStatus} onChange={(e) => handleOrderStatusChange(order.id, e.target.value)} className={`status-edit-select status-${order.orderStatus.toLowerCase().replace(/\s+/g, '-')}`}><option value="Pending">Pending</option><option value="Processing">Processing</option><option value="Out for Delivery">Out for Delivery</option></select>) : (<span className={`status-badge ${getOrderStatusClass(order.orderStatus)}`}>{order.orderStatus}</span>)}</td>
-                  <td><div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}><button className="view-btn" onClick={() => handleViewOrder(order)} title="View Details"><i className="fas fa-eye"></i> <span>View</span></button>{order.orderStatus !== 'Completed' && (<button className="complete-delivery-btn" onClick={() => handleCompleteDelivery(order)} title="Complete Delivery" disabled={order.paymentStatus !== 'Paid'} style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><i className="fas fa-check-circle"></i> <span>Complete</span></button>)}</div></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="table-footer"><div className="showing-info">Showing {indexOfFirstOrder + 1} - {Math.min(indexOfLastOrder, filteredOrders.length)} of {filteredOrders.length} orders</div><div className="pagination"><button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="pagination-btn">Previous</button>{[...Array(totalPages)].map((_, index) => (<button key={index + 1} onClick={() => handlePageChange(index + 1)} className={`pagination-btn ${currentPage === index + 1 ? 'active' : ''}`}>{index + 1}</button>))}<button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="pagination-btn">Next</button></div></div>
-      </div>
-      <MessageBox isOpen={msgBox.isOpen} title={msgBox.title} message={msgBox.message} type={msgBox.type} onClose={closeMessage} />
-      {isViewModalOpen && selectedOrder && (
-        <div className="modal-overlay" onClick={() => setIsViewModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header"><h2>Order Details - {selectedOrder.id}</h2><button className="close-btn" onClick={() => setIsViewModalOpen(false)}><i className="fas fa-times"></i></button></div>
-            <div className="modal-body">
-              <div className="detail-row"><span className="detail-label">Customer Name:</span><span className="detail-value">{selectedOrder.customerName}</span></div><div className="detail-row"><span className="detail-label">Contact Number:</span><span className="detail-value">{selectedOrder.contact}</span></div><div className="detail-row"><span className="detail-label">Delivery Address:</span><span className="detail-value">{selectedOrder.address}</span></div><div className="detail-row"><span className="detail-label">Order Date:</span><span className="detail-value">{selectedOrder.orderDate}</span></div>
-              <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}><span className="detail-label" style={{ marginBottom: '8px' }}>Products:</span><div style={{ width: '100%', overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}><thead><tr style={{ background: '#f8f9fa' }}><th style={{ textAlign: 'left', padding: '8px 4px', borderBottom: '1px solid #ddd' }}>Product</th><th style={{ textAlign: 'left', padding: '8px 4px', borderBottom: '1px solid #ddd' }}>Serial Numbers</th><th style={{ textAlign: 'right', padding: '8px 4px', borderBottom: '1px solid #ddd' }}>Qty</th><th style={{ textAlign: 'right', padding: '8px 4px', borderBottom: '1px solid #ddd' }}>Price</th></tr></thead><tbody>{selectedOrder.items?.length > 0 ? (selectedOrder.items.map((item, index) => (<tr key={index} style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '8px 4px', textAlign: 'left' }}>{item.product_name || item.name}</td><td style={{ padding: '8px 4px', textAlign: 'left', wordBreak: 'break-word', maxWidth: '200px' }}>{(item.serial_numbers?.length > 0) ? item.serial_numbers.join(', ') : 'N/A'}</td><td style={{ padding: '8px 4px', textAlign: 'right' }}>{item.quantity}</td><td style={{ padding: '8px 4px', textAlign: 'right' }}>₱{(Number(item.price) * Number(item.quantity)).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>))) : (<tr><td colSpan="4" style={{ textAlign: 'center', padding: '10px' }}>No items found for this order.</td></tr>)}</tbody></table></div></div>
-              <div className="detail-row"><span className="detail-label">Payment Status:</span><span className={`status-badge ${getPaymentStatusClass(selectedOrder.paymentStatus)}`}>{selectedOrder.paymentStatus === 'Paid' ? `Paid (${selectedOrder.paymentMethod})` : `Unpaid (${selectedOrder.paymentMethod})`}</span></div><div className="detail-row"><span className="detail-label">Order Status:</span><span className={`status-badge ${getOrderStatusClass(selectedOrder.orderStatus)}`}>{selectedOrder.orderStatus}</span></div>
-              {selectedOrder.orderStatus === 'Completed' && selectedOrder.deliveryProof && (<div className="detail-row" style={{ marginTop: '20px', flexDirection: 'column', alignItems: 'flex-start' }}><span className="detail-label" style={{ marginBottom: '8px' }}>Proof of Delivery:</span><img src={`http://localhost:5000${selectedOrder.deliveryProof}`} alt="Delivery Proof" style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid #ddd' }} /></div>)}
+    <div className="min-vh-100 bg-light">
+      {/* NAVBAR */}
+      <CNavbar colorScheme="dark" className="bg-dark mb-4">
+        <CContainer fluid>
+          <CNavbarBrand href="#" className="d-flex align-items-center gap-2">
+            <img src={tcjLogo} alt="Logo" height="30" />
+            <span>Delivery Portal</span>
+          </CNavbarBrand>
+          <CNavbarNav className="ms-auto d-flex flex-row align-items-center gap-3">
+            <div className="d-flex align-items-center text-light gap-2">
+              {riderAvatar ? (
+                <CAvatar src={riderAvatar.startsWith('http') ? riderAvatar : `http://localhost:5000${riderAvatar}`} size="sm" />
+              ) : (
+                <CIcon icon={cilUser} />
+              )}
+              <span className="d-none d-md-inline">{riderName}</span>
             </div>
-            <div className="modal-footer"><button className="close-modal-btn" onClick={() => setIsViewModalOpen(false)}>Close</button></div>
-          </div>
-        </div>
-      )}
-      {isCompleteModalOpen && selectedOrder && (
-        <div className="modal-overlay" onClick={() => setIsCompleteModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header"><h2>Complete Delivery - {selectedOrder.id}</h2><button className="close-btn" onClick={() => setIsCompleteModalOpen(false)}><i className="fas fa-times"></i></button></div>
-            <form onSubmit={handleSubmitCompleteDelivery}>
-              <div className="modal-body">
-                <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}><span className="detail-label" style={{ marginBottom: '8px' }}>Upload Proof of Delivery *</span><p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>Please upload an image showing proof of delivery before completing.</p><input type="file" accept="image/*" onChange={handleProofFileChange} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', width: '100%' }} required />{deliveryProof && (<span style={{ marginTop: '8px', color: '#28a745', fontSize: '14px' }}>✓ {deliveryProof.name} selected</span>)}</div>
-              </div>
-              <div className="modal-footer"><button type="button" className="cancel-btn" onClick={() => setIsCompleteModalOpen(false)} style={{ padding: '10px 20px', borderRadius: '4px', border: '1px solid #ddd', backgroundColor: '#fff', cursor: 'pointer' }}>Back</button><button type="submit" className="confirm-btn" disabled={uploadingProof} style={{ padding: '10px 20px', borderRadius: '4px', border: 'none', backgroundColor: '#28a745', color: 'white', cursor: uploadingProof ? 'not-allowed' : 'pointer', opacity: uploadingProof ? 0.6 : 1 }}>{uploadingProof ? 'Completing...' : 'Complete Delivery'}</button></div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+            <div className="vr text-light opacity-50"></div>
+            <CButton color="link" className="text-light text-decoration-none p-0" onClick={handleLogout}>
+              <CIcon icon={cilAccountLogout} className="me-1" /> Logout
+            </CButton>
+          </CNavbarNav>
+        </CContainer>
+      </CNavbar>
 
-export default DeliveryPortal;
+      <CContainer>
+        {/* HEADER & SEARCH */}
+        <CCard className="mb-4">
+          <CCardHeader>
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div>
+                <h4 className="mb-0">My Delivery Orders</h4>
+                <small className="text-medium-emphasis">Manage assigned deliveries</small>
+              </div>
+              <div style={{ width: '300px', maxWidth: '100%' }}>
+                <CInputGroup>
+                  <CInputGroupText><CIcon icon={cilSearch} /></CInputGroupText>
+                  <CFormInput 
+                    placeholder="Search orders..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </CInputGroup>
+              </div>
+            </div>
+          </CCardHeader>
+
+          {/* TABLE */}
+          <CCardBody>
+            {loading ? <div className="text-center py-5"><CSpinner /></div> : 
+             error ? <div className="alert alert-danger">{error}</div> : (
+              <CTable hover responsive align="middle">
+                <CTableHead color="light">
+                  <CTableRow>
+                    <CTableHeaderCell>Order ID</CTableHeaderCell>
+                    <CTableHeaderCell>Customer</CTableHeaderCell>
+                    <CTableHeaderCell>Details</CTableHeaderCell>
+                    <CTableHeaderCell>Payment</CTableHeaderCell>
+                    <CTableHeaderCell>Status</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody>
+                  {currentOrders.map((order) => (
+                    <CTableRow key={order.id}>
+                      <CTableDataCell className="fw-bold">{order.id}</CTableDataCell>
+                      <CTableDataCell>{order.customerName}</CTableDataCell>
+                      <CTableDataCell>
+                         <div className="text-truncate" style={{maxWidth: '200px'}} title={order.productList}>
+                           {order.productList}
+                         </div>
+                      </CTableDataCell>
+                      <CTableDataCell>
+                        {order.paymentStatus === 'Unpaid' ? (
+                          <CFormSelect 
+                            size="sm" 
+                            value={order.paymentStatus} 
+                            onChange={(e) => handlePaymentStatusChange(order.id, e.target.value)}
+                            className={order.paymentStatus === 'Paid' ? 'text-success fw-bold' : 'text-warning fw-bold'}
+                          >
+                            <option value="Unpaid">Unpaid (COD)</option>
+                            <option value="Paid">Paid (COD)</option>
+                          </CFormSelect>
+                        ) : (
+                          <CBadge color="success">Paid ({order.paymentMethod})</CBadge>
+                        )}
+                      </CTableDataCell>
+                      <CTableDataCell>
+                         <CFormSelect 
+                            size="sm"
+                            value={order.orderStatus}
+                            onChange={(e) => handleOrderStatusChange(order.id, e.target.value)}
+                         >
+                            <option value="Pending">Pending</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Out for Delivery">Out for Delivery</option>
+                         </CFormSelect>
+                      </CTableDataCell>
+                      <CTableDataCell className="text-end">
+                         <CButton 
+                            size="sm" 
+                            color="info" 
+                            variant="ghost"
+                            className="me-1"
+                            onClick={() => { setSelectedOrder(order); setIsViewModalOpen(true); }}
+                         >
+                           <CIcon icon={cilDescription} />
+                         </CButton>
+                         <CButton 
+                            size="sm" 
+                            color="success" 
+                            className="text-white"
+                            disabled={order.paymentStatus !== 'Paid'}
+                            onClick={() => { setSelectedOrder(order); setDeliveryProof(null); setIsCompleteModalOpen(true); }}
+                         >
+                           <CIcon icon={cilCheckCircle} /> Complete
+                         </CButton>
+                      </CTableDataCell>
+                    </CTableRow>
+                  ))}
+                </CTableBody>
+              </CTable>
+            )}
+            
+            {/* PAGINATION */}
+            <div className="d-flex justify-content-between align-items-center mt-3">
+               <small className="text-muted">Showing {startIndex + 1}-{Math.min(startIndex + ordersPerPage, filteredOrders.length)} of {filteredOrders.length}</small>
+               <div>
+                  <CButton size="sm" variant="outline" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Prev</CButton>
+                  <span className="mx-2">{currentPage}</span>
+                  <CButton size="sm" variant="outline" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next</CButton>
+               </div>
+            </div>
+          </CCardBody>
+        </CCard>
+      </CContainer>
+
+      {/* VIEW MODAL */}
+      <CModal visible={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} size="lg">
+        <CModalHeader><CModalTitle>Order {selectedOrder?.id}</CModalTitle></CModalHeader>
+        <CModalBody>
+          <CRow className="mb-3">
+            <CCol md={6}>
+               <strong>Customer:</strong> {selectedOrder?.customerName}<br/>
+               <strong>Contact:</strong> {selectedOrder?.contact}<br/>
+               <strong>Address:</strong> {selectedOrder?.address}
+            </CCol>
+            <CCol md={6} className="text-md-end">
+               <strong>Date:</strong> {selectedOrder?.orderDate}<br/>
+               <strong>Status:</strong> {selectedOrder?.orderStatus}<br/>
+               <strong>Payment:</strong> {selectedOrder?.paymentStatus}
+            </CCol>
+          </CRow>
+          <CTable bordered small>
+            <CTableHead><CTableRow><CTableHeaderCell>Product</CTableHeaderCell><CTableHeaderCell>SN</CTableHeaderCell><CTableHeaderCell>Qty</CTableHeaderCell></CTableRow></CTableHead>
+            <CTableBody>
+               {selectedOrder?.items?.map((item, i) => (
+                  <CTableRow key={i}>
+                     <CTableDataCell>{item.product_name}</CTableDataCell>
+                     <CTableDataCell>{item.serial_numbers?.join(', ') || 'N/A'}</CTableDataCell>
+                     <CTableDataCell>{item.quantity}</CTableDataCell>
+                  </CTableRow>
+               ))}
+            </CTableBody>
+          </CTable>
+        </CModalBody>
+        <CModalFooter><CButton color="secondary" onClick={() => setIsViewModalOpen(false)}>Close</CButton></CModalFooter>
+      </CModal>
+
+      {/* COMPLETE MODAL */}
+      <CModal visible={isCompleteModalOpen} onClose={() => setIsCompleteModalOpen(false)}>
+        <CModalHeader><CModalTitle>Complete Delivery</CModalTitle></CModalHeader>
+        <CModalBody>
+           <p>Please upload proof of delivery (photo) to complete this order.</p>
+           <CFormLabel>Proof of Delivery</CFormLabel>
+           <CFormInput type="file" accept="image/*" onChange={(e) => setDeliveryProof(e.target.files[0])} />
+        </CModalBody>
+        <CModalFooter>
+           <CButton color="secondary" onClick={() => setIsCompleteModalOpen(false)}>Cancel</CButton>
+           <CButton color="success" className="text-white" onClick={handleCompleteDelivery} disabled={uploadingProof || !deliveryProof}>
+             {uploadingProof ? <CSpinner size="sm" /> : <><CIcon icon={cilCloudUpload} /> Upload & Complete</>}
+           </CButton>
+        </CModalFooter>
+      </CModal>
+
+      {/* MSG MODAL */}
+      <CModal visible={msgModal.visible} onClose={() => setMsgModal({...msgModal, visible: false})}>
+        <CModalHeader><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
+        <CModalBody>{msgModal.message}</CModalBody>
+        <CModalFooter><CButton color="secondary" onClick={() => setMsgModal({...msgModal, visible: false})}>Close</CButton></CModalFooter>
+      </CModal>
+    </div>
+  )
+}
+
+export default DeliveryPortal
