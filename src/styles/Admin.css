@@ -3,21 +3,21 @@
 /* =================================================================== */
 
 :root {
-  --color-primary: #2478bd; /* Brand Blue */
+  --color-primary: #2478bd; /* TJC Brand Blue */
   --color-primary-dark: #1a5a8e;
-  --color-secondary: #f1ce44; /* Brand Yellow */
+  --color-secondary: #f1ce44; /* TJC Brand Yellow */
   --color-secondary-dark: #e6c13d;
   
   --color-success: #28a745;
   --color-danger: #dc3545;
-  --color-warning: #fd7e14; /* Low Stock */
+  --color-warning: #fd7e14; /* Low Stock Orange */
   --color-info: #17a2b8;
   
   --color-text-dark: #2c3e50;
   --color-text-light: #666;
   --color-text-white: #ffffff;
   
-  --color-bg: #f8f9fa;
+  --color-bg: #f8f9fa; 
   --color-bg-white: #ffffff;
   --color-border: #e1e8ed;
   --color-border-light: #f2f2f2;
@@ -29,6 +29,10 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
+
+  /* Aggressively setting primary color to TJC Brand Blue */
+  --cui-primary-rgb: 36, 120, 189; 
+  /* Removed other overrides (info-rgb, etc.) to restore original hover/link colors */
 }
 
 * {
@@ -39,41 +43,42 @@
 /* =================================================================== */
 /* 1. LAYOUT & NAVBAR */
 /* =================================================================== */
-
+.admin-main {
+  padding: 20px; 
+  width: 100%;
+}
 .admin-layout {
   display: flex;
   min-height: 100vh;
   background-color: var(--color-bg);
 }
 
-.admin-main {
-  flex: 1;
-  padding: 90px 20px 20px; /* Top padding for fixed navbar */
-  min-height: 100vh;
-  background-color: var(--color-bg);
-  width: 100%;
-}
-
+/* --- UPDATED: src/styles/Admin.css --- */
 .admin-container {
   margin: 0 auto;
   width: 100%;
-  padding: 0 15px;
+  padding: 0 !important; 
+}
+.admin-container .row {
+  margin-right: 0 !important;
+  margin-left: 0 !important;
 }
 
-.admin-navbar {
-  background-color: var(--color-secondary);
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  height: 70px;
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
+.sidebar-profile-link:hover {
+  background-color: #f3f4f7 !important;
 }
-
+.sidebar-light .nav-link {
+  color: #636f83 !important;
+  font-weight: 500;
+}
+.sidebar-light .nav-link.active {
+  color: var(--color-primary) !important;
+  background-color: #eef2f7 !important;
+  border-left: 3px solid var(--color-primary);
+}
+.sidebar-light .nav-link.active .nav-icon {
+  color: var(--color-primary);
+}
 .navbar-container {
   width: 100%;
   max-width: 1400px;
@@ -87,6 +92,15 @@
   display: flex;
   align-items: center;
   margin-right: 30px;
+}
+
+.header {
+  border-bottom: 3px solid var(--color-primary) !important; /* Your Brand Blue */
+}
+
+.header-brand-accent {
+  color: var(--color-secondary); /* Your Brand Yellow for text accents */
+  font-weight: 800;
 }
 
 .navbar-logo {
@@ -233,19 +247,19 @@
 /* =================================================================== */
 
 .page-header {
-  margin-bottom: 30px;
   text-align: left;
+  padding-bottom: 20px;
 }
 
 .page-title {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 1.75rem; /* Down from 2rem */
+  font-weight: 600;  /* Down from 700 (Black) */
   color: var(--color-text-dark);
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0; /* Reduced margin */
 }
 
 .page-subtitle {
-  font-size: 1rem;
+  font-size: 0.95rem; 
   color: var(--color-text-light);
   margin: 0;
 }
@@ -916,4 +930,86 @@
 .btn-outline.btn-small:hover {
   background-color: #e3f2fd; /* Light blue hover */
   color: var(--color-primary-dark);
+}
+
+.hover-shadow:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+.transition-all {
+  transition: all 0.2s ease-in-out;
+}
+.bg-light-hover:hover {
+  background-color: #f8f9fa;
+}
+
+.hover-overlay:hover {
+  opacity: 0.8;
+  transform: translateX(2px); /* Subtle slide effect */
+  transition: all 0.2s ease-in-out;
+}
+
+/* Force the main app body to always be light gray (Standard SaaS background) */
+body, 
+#root,
+.wrapper {
+  background-color: #f3f4f7 !important;
+  color: #2c3e50 !important;
+}
+
+/* Ensure cards are always white */
+.card, .header, .footer {
+  background-color: #ffffff !important;
+  color: #2c3e50 !important;
+  border-color: #d8dbe0 !important;
+}
+
+/* Fix text colors that might try to be white in dark mode */
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+  color: #2c3e50 !important;
+}
+
+/* Ensure table text is dark */
+.table {
+  color: #2c3e50 !important;
+  --cui-table-color: #2c3e50 !important;
+  --cui-table-bg: #ffffff !important;
+}
+
+/* --- Add this to the bottom of src/styles/Admin.css --- */
+
+/* 1. UNIFY SIDEBAR & NAVBAR */
+.sidebar.bg-white {
+  box-shadow: 2px 0 10px rgba(0,0,0,0.03); /* Subtle shadow to separate from content */
+}
+
+/* 2. SIDEBAR LINKS (Light Mode) */
+.sidebar-light .nav-link {
+  color: #636f83 !important; /* Standard SaaS Gray */
+  font-weight: 500;
+}
+
+.sidebar-light .nav-link:hover {
+  color: var(--color-primary) !important;
+  background-color: #f3f4f7 !important; /* Light gray hover */
+}
+
+.sidebar-light .nav-link.active {
+  color: var(--color-primary) !important; /* Brand Blue Active */
+  background-color: #eef2f7 !important; /* Very light blue background */
+  border-right: 3px solid var(--color-primary); /* Active indicator */
+}
+
+/* 3. SIDEBAR ICONS */
+.sidebar-light .nav-icon {
+  color: #8a93a2; /* Muted icon color */
+}
+.sidebar-light .nav-link.active .nav-icon {
+  color: var(--color-primary); /* Blue icon when active */
+}
+
+/* 4. BRAND LOGO ALIGNMENT */
+.sidebar-brand-full {
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }

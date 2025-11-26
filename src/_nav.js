@@ -9,16 +9,21 @@ import {
   cilGraph,
   cilSettings,
   cilBasket,
+  // Removed cilUser import as it's no longer used here
 } from '@coreui/icons'
 import { CNavItem, CNavTitle } from '@coreui/react'
 
 const _nav = [
+  // --- REMOVED: My Profile link here ---
+  
+  // --- DASHBOARD (Primary Entry) ---
   {
     component: CNavItem,
     name: 'Dashboard',
     to: '/dashboard',
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
   },
+  // --- OPERATIONS ---
   {
     component: CNavTitle,
     name: 'Operations',
@@ -35,13 +40,14 @@ const _nav = [
     to: '/orders',
     icon: <CIcon icon={cilTruck} customClassName="nav-icon" />,
   },
+  // --- INVENTORY ---
   {
     component: CNavTitle,
     name: 'Inventory',
   },
   {
     component: CNavItem,
-    name: 'Inventory',
+    name: 'Stock View',
     to: '/inventory',
     icon: <CIcon icon={cilList} customClassName="nav-icon" />,
   },
@@ -57,6 +63,7 @@ const _nav = [
     to: '/suppliers',
     icon: <CIcon icon={cilPeople} customClassName="nav-icon" />,
   },
+  // --- ANALYSIS ---
   {
     component: CNavTitle,
     name: 'Analysis',
@@ -67,6 +74,7 @@ const _nav = [
     to: '/reports',
     icon: <CIcon icon={cilGraph} customClassName="nav-icon" />,
   },
+  // --- SYSTEM ---
   {
     component: CNavTitle,
     name: 'System',

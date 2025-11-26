@@ -20,6 +20,8 @@ const routes = [
   { path: '/orders', name: 'Orders', element: Orders },
   { path: '/reports', name: 'Reports', element: Reports },
   { path: '/settings', name: 'Settings', element: Settings },
+  // --- NEW: Profile route linking to the Settings Page ---
+  { path: '/profile', name: 'My Profile', element: Settings },
 ]
 
 export default routes
