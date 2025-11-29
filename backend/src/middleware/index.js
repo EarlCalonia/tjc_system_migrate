@@ -5,17 +5,24 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Helper to clean up URL string
+const envFrontendUrl = (process.env.FRONTEND_URL || '').trim().replace(/\/$/, '');
+
 // CORS configuration
 export const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: [
+    envFrontendUrl,           // From .env
+    'http://localhost:5173',  // Standard Vite
+    'http://127.0.0.1:5173',  // IP based Vite
+    'http://localhost:3000'   // Backup
+  ].filter(Boolean),
   credentials: true,
   optionsSuccessStatus: 200
 };
 
-// Rate limiting
 export const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000, 
+  max: 1000, 
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
@@ -24,18 +31,16 @@ export const limiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Security headers
 export const securityHeaders = helmet({
-  contentSecurityPolicy: false, // Disabled for development
-  crossOriginResourcePolicy: false,
+  contentSecurityPolicy: false,
+  // --- FIX: Allow images to be loaded cross-origin ---
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginOpenerPolicy: false,
   crossOriginEmbedderPolicy: false
 });
 
-// Error handling middleware
 export const errorHandler = (err, req, res, next) => {
   console.error(err.stack);
-
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
@@ -43,7 +48,6 @@ export const errorHandler = (err, req, res, next) => {
   });
 };
 
-// 404 handler
 export const notFound = (req, res) => {
   res.status(404).json({
     success: false,

@@ -1,161 +1,77 @@
-/* Reports Page Specific Styles */
-/* All layout, table, modal, and form styles are now in Admin.css */
+/* =================================================================== */
+/* REPORTS PAGE SPECIFIC STYLES */
+/* =================================================================== */
 
-/* Tab System */
-.reports-tabs {
-  display: flex;
-  gap: 0;
-  margin-bottom: 25px;
+/* --- TABLE CONTAINER --- */
+.report-table-container {
+  max-height: 65vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+/* --- STICKY HEADER --- */
+.report-table-container thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   background-color: var(--color-bg-white);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
+  color: var(--color-text-light);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 16px;
+  border-bottom: 2px solid var(--color-border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  white-space: nowrap;
 }
 
-.tab-btn {
-  flex: 1;
-  padding: 15px 20px;
-  border: none;
-  background-color: var(--color-bg);
-  color: #495057;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border-bottom: 3px solid transparent;
+/* --- ZEBRA STRIPING & HOVER --- */
+.table-striped tbody tr:nth-child(odd) {
+  background-color: white;
+}
+.table-striped tbody tr:nth-child(even) {
+  background-color: #f8f9fa;
 }
 
-.tab-btn:hover {
-  background-color: #e9ecef;
-  color: #212529;
+.table tbody tr:hover {
+  background-color: #f0f7ff !important; /* Highlight on hover */
+  transition: background-color 0.15s ease-in-out;
 }
 
-.tab-btn.active {
-  background-color: var(--color-primary);
-  color: var(--color-text-white);
-  border-bottom-color: var(--color-primary-dark);
-}
-
-/* Controls Section */
-.reports-controls-inner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.filters-row {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  align-items: flex-end;
-}
-
-.date-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.date-input-group label {
-  font-weight: 600;
+.table td {
+  vertical-align: middle;
+  padding: 12px 16px;
   color: var(--color-text-dark);
+  border-bottom: 1px solid var(--color-border-light);
   font-size: 0.9rem;
 }
 
-.export-buttons {
-  display: flex;
-  gap: 12px;
+/* --- FILTERS & LAYOUT --- */
+.bg-light {
+  background-color: #f8f9fa !important;
 }
 
-.export-icon {
-  font-size: 1rem;
+/* --- CUSTOM SCROLLBAR FOR WEBKIT --- */
+.report-table-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.report-table-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.report-table-container::-webkit-scrollbar-thumb {
+  background-color: #cbd5e0;
+  border-radius: 3px;
 }
 
-/* Table Cell Styles */
-.order-id-cell {
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.amount-cell {
-  font-weight: 600;
-  color: var(--color-success);
-}
-
-.product-name-cell {
-  font-weight: 500;
-  color: var(--color-text-dark);
-}
-
-.stock-cell {
-  font-weight: 600;
-  text-align: center;
-}
-
-/* Placeholder for loading stat cards */
-.stat-card-placeholder {
-  background: #f0f2f5;
-  border-radius: 8px;
-  height: 95px;
-  animation: pulse 1.5s infinite ease-in-out;
-}
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.6; }
-  100% { opacity: 1; }
-}
-
-
-/* Product Page Specific Styles */
-/* ... (rest of the file) ... */
-
-
-/* --- New Icon Styles for Report Stat Cards --- */
-
-/* Sales (Blue) */
-.stat-card.sales .stat-icon.sales {
-  background-color: #dbeafe; /* Light Blue */
-  color: var(--color-primary); /* #2478bd */
-}
-
-/* Avg. Sale Value (Teal) */
-.stat-card.avg-sale .stat-icon.avg-sale {
-  background-color: #cffafe; /* Light Teal */
-  color: var(--color-info); /* #17a2b8 */
-}
-
-/* Returns (Red) */
-.stat-card.returns .stat-icon.returns {
-  background-color: #fee2e2; /* Light Red */
-  color: var(--color-danger); /* #dc3545 */
-}
-
-/* --- Re-using existing styles from Admin.css --- */
-/* We just need to make sure the text color matches */
-
-.stat-card.revenue .stat-value {
-  color: var(--color-success);
-}
-.stat-card.inventory .stat-value {
-  color: #6f42c1;
-}
-.stat-card.low-stock .stat-value {
-  color: var(--color-warning);
-}
-.stat-card.out-of-stock .stat-value,
-.stat-card.returns .stat-value {
-  color: var(--color-danger);
-}
-.stat-card.sales .stat-value {
-  color: var(--color-primary);
-}
-.stat-card.avg-sale .stat-value {
-  color: var(--color-info);
-}
-
-/* Override for "Total Refunded" to be red like the user image */
-.stat-card.out-of-stock .stat-value.revenue {
-  color: var(--color-danger);
+/* --- RESPONSIVE --- */
+@media (max-width: 768px) {
+  .d-flex.gap-3 {
+    gap: 10px !important;
+  }
+  .report-table-container {
+    max-height: 50vh;
+  }
 }

@@ -1,32 +1,33 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { initializeDatabase, closeDatabase } from './config/database.js';
 import { corsOptions, limiter, securityHeaders, errorHandler, notFound } from './middleware/index.js';
 import { Product } from './models/Product.js';
-
-// Import routes
 import apiRoutes from './routes/index.js';
 
 dotenv.config();
 
+// --- FIX: Define __dirname for ES Modules ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// --------------------------------------------
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Initialize database
 let server;
 
-// Graceful shutdown
 const gracefulShutdown = async (signal) => {
   console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
-
   try {
     if (server) {
       server.close(() => {
         console.log('✅ HTTP server closed');
       });
     }
-
     await closeDatabase();
     console.log('✅ Graceful shutdown completed');
     process.exit(0);
@@ -36,21 +37,20 @@ const gracefulShutdown = async (signal) => {
   }
 };
 
-// Handle shutdown signals
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// Middleware
 app.use(securityHeaders);
 app.use(cors(corsOptions));
 app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static('src/uploads'));
+// --- FIX: Serve Uploads using Absolute Path ---
+// This ensures it works regardless of where you start the server from
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// ----------------------------------------------
 
-// Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -60,32 +60,22 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes
 app.use('/api', apiRoutes);
-
-// 404 handler for undefined routes
 app.use('*', notFound);
-
-// Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Start server
 const startServer = async () => {
   try {
-    // Initialize database
     await initializeDatabase();
+    // Optional: Seed data if needed
+    // await Product.seedSampleData();
 
-    // Seed sample data if database is empty
-    await Product.seedSampleData();
-
-    // Start HTTP server
     server = app.listen(PORT, () => {
       console.log(`
 🚀 TJ Sims Backend Server Started Successfully!
 📡 Server running on: http://localhost:${PORT}
+📂 Static Files: ${path.join(__dirname, 'uploads')}
 🌍 Environment: ${process.env.NODE_ENV || 'development'}
-📊 Database: Connected to ${process.env.DB_NAME || 'tjsims_db'}
-🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}
       `);
     });
 
@@ -95,19 +85,16 @@ const startServer = async () => {
   }
 };
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err, promise) => {
+process.on('unhandledRejection', (err) => {
   console.error('Unhandled Promise Rejection:', err.message);
   gracefulShutdown('UNHANDLED_REJECTION');
 });
 
-// Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err.message);
   gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
 
-// Start the server
 startServer();
 
 export default app;

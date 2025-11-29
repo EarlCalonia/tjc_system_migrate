@@ -73,6 +73,7 @@ const ReportsPage = () => {
 
   // --- HELPERS ---
   const showMessage = (title, message, color = 'info') => setMsgModal({ visible: true, title, message, color })
+  
   const formatLocalDate = (date) => {
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -80,12 +81,39 @@ const ReportsPage = () => {
     return `${year}-${month}-${day}`
   }
   
-  const getWeekRange = (dateStr) => { /* ...Keep original logic... */ 
-    let date; if (dateStr.includes('W')) { const [year, week] = dateStr.split('-W'); date = new Date(year, 0, 1 + (week - 1) * 7); const day = date.getDay(); const diff = day === 0 ? -6 : 1 - day; date.setDate(date.getDate() + diff); } else { date = new Date(dateStr); const day = date.getDay(); const diff = date.getDate() - day + (day === 0 ? -6 : 1); date.setDate(diff); } const monday = new Date(date); const sunday = new Date(date); sunday.setDate(monday.getDate() + 6); return { start: formatLocalDate(monday), end: formatLocalDate(sunday) }; 
+  const getWeekRange = (dateStr) => {
+    let date; 
+    if (dateStr.includes('W')) { 
+      const [year, week] = dateStr.split('-W'); 
+      date = new Date(year, 0, 1 + (week - 1) * 7); 
+      const day = date.getDay(); 
+      const diff = day === 0 ? -6 : 1 - day; 
+      date.setDate(date.getDate() + diff); 
+    } else { 
+      date = new Date(dateStr); 
+      const day = date.getDay(); 
+      const diff = date.getDate() - day + (day === 0 ? -6 : 1); 
+      date.setDate(diff); 
+    } 
+    const monday = new Date(date); 
+    const sunday = new Date(date); 
+    sunday.setDate(monday.getDate() + 6); 
+    return { start: formatLocalDate(monday), end: formatLocalDate(sunday) }; 
   }
   
-  const getMonthRange = (dateStr) => { /* ...Keep original logic... */ 
-    let year, month; if (dateStr.match(/^\d{4}-\d{2}$/)) { [year, month] = dateStr.split('-').map(Number); month = month - 1; } else { const date = new Date(dateStr); year = date.getFullYear(); month = date.getMonth(); } const firstDay = new Date(year, month, 1); const lastDay = new Date(year, month + 1, 0); return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }; 
+  const getMonthRange = (dateStr) => {
+    let year, month; 
+    if (dateStr.match(/^\d{4}-\d{2}$/)) { 
+      [year, month] = dateStr.split('-').map(Number); 
+      month = month - 1; 
+    } else { 
+      const date = new Date(dateStr); 
+      year = date.getFullYear(); 
+      month = date.getMonth(); 
+    } 
+    const firstDay = new Date(year, month, 1); 
+    const lastDay = new Date(year, month + 1, 0); 
+    return { start: formatLocalDate(firstDay), end: formatLocalDate(lastDay) }; 
   }
 
   const handleRangeLabelChange = (newLabel) => {
@@ -130,9 +158,6 @@ const ReportsPage = () => {
 
   useEffect(() => {
     setCurrentPage(1)
-    if (activeTab === 'sales') {
-        // Optional: Default to today if empty
-    }
   }, [activeTab])
 
   useEffect(() => {
@@ -176,8 +201,6 @@ const ReportsPage = () => {
   const handleExportPDF = async () => {
     if (!startDate || !endDate) return showMessage('Date Required', 'Select a date range first', 'warning')
     
-    // Logic mirrors original: fetch ALL data then print
-    // (Omitting full logic for brevity, ensure you import your generators)
     try {
         if (activeTab === 'sales') {
             const res = await reportsAPI.getSalesReport({ start_date: startDate, end_date: endDate, page: 1, limit: 999999 })
@@ -185,7 +208,6 @@ const ReportsPage = () => {
             const doc = await generateSalesReportPDF(res.sales, startDate, endDate, adminName, rangeLabel)
             doc.save('Sales_Report.pdf')
         }
-        // Repeat for inventory/returns...
         else if (activeTab === 'inventory') {
              const res = await reportsAPI.getInventoryReport({ ...{stock_status: stockStatus !== 'All Status' ? stockStatus : undefined}, page: 1, limit: 999999 })
              const doc = await generateInventoryReportPDF(res.inventory || [], startDate || new Date().toISOString(), endDate || new Date().toISOString(), adminName)
@@ -239,45 +261,45 @@ const ReportsPage = () => {
           {activeTab === 'sales' && (
             <>
               <CCol sm={6} lg={4}>
-                <CWidgetStatsF className="mb-3" color="primary" icon={<CIcon icon={cilMoney} height={24} />} title="Total Revenue" value={`₱${Number(summary.totalRevenue || 0).toLocaleString()}`} />
+                <CWidgetStatsF className="mb-3 shadow-sm" color="primary" icon={<CIcon icon={cilMoney} height={24} />} title="Total Revenue" value={`₱${Number(summary.totalRevenue || 0).toLocaleString()}`} />
               </CCol>
               <CCol sm={6} lg={4}>
-                <CWidgetStatsF className="mb-3" color="info" icon={<CIcon icon={cilChartLine} height={24} />} title="Total Sales" value={summary.totalSales || 0} />
+                <CWidgetStatsF className="mb-3 shadow-sm" color="info" icon={<CIcon icon={cilChartLine} height={24} />} title="Total Sales" value={summary.totalSales || 0} />
               </CCol>
               <CCol sm={6} lg={4}>
-                <CWidgetStatsF className="mb-3" color="success" icon={<CIcon icon={cilMoney} height={24} />} title="Avg. Sale" value={`₱${Number(summary.averageSale || 0).toLocaleString()}`} />
+                <CWidgetStatsF className="mb-3 shadow-sm" color="success" icon={<CIcon icon={cilMoney} height={24} />} title="Avg. Sale" value={`₱${Number(summary.averageSale || 0).toLocaleString()}`} />
               </CCol>
             </>
           )}
           {activeTab === 'inventory' && (
              <>
                <CCol sm={6} lg={3}>
-                 <CWidgetStatsF className="mb-3" color="primary" icon={<CIcon icon={cilInbox} height={24} />} title="Total Products" value={summary.totalProducts || 0} />
+                 <CWidgetStatsF className="mb-3 shadow-sm" color="primary" icon={<CIcon icon={cilInbox} height={24} />} title="Total Products" value={summary.totalProducts || 0} />
                </CCol>
                <CCol sm={6} lg={3}>
-                 <CWidgetStatsF className="mb-3" color="info" icon={<CIcon icon={cilMoney} height={24} />} title="Inventory Value" value={`₱${Number(summary.totalInventoryValue || 0).toLocaleString()}`} />
+                 <CWidgetStatsF className="mb-3 shadow-sm" color="info" icon={<CIcon icon={cilMoney} height={24} />} title="Inventory Value" value={`₱${Number(summary.totalInventoryValue || 0).toLocaleString()}`} />
                </CCol>
                <CCol sm={6} lg={3}>
-                 <CWidgetStatsF className="mb-3" color="danger" icon={<CIcon icon={cilXCircle} height={24} />} title="Out of Stock" value={summary.outOfStockProducts || 0} />
+                 <CWidgetStatsF className="mb-3 shadow-sm" color="danger" icon={<CIcon icon={cilXCircle} height={24} />} title="Out of Stock" value={summary.outOfStockProducts || 0} />
                </CCol>
                <CCol sm={6} lg={3}>
-                 <CWidgetStatsF className="mb-3" color="warning" icon={<CIcon icon={cilWarning} height={24} />} title="Low Stock" value={summary.lowStockProducts || 0} />
+                 <CWidgetStatsF className="mb-3 shadow-sm" color="warning" icon={<CIcon icon={cilWarning} height={24} />} title="Low Stock" value={summary.lowStockProducts || 0} />
                </CCol>
              </>
           )}
           {activeTab === 'returns' && (
              <>
                <CCol sm={6} lg={3}>
-                 <CWidgetStatsF className="mb-3" color="danger" icon={<CIcon icon={cilArrowThickFromTop} height={24} />} title="Total Returns" value={summary.totalReturns || 0} />
+                 <CWidgetStatsF className="mb-3 shadow-sm" color="danger" icon={<CIcon icon={cilArrowThickFromTop} height={24} />} title="Total Returns" value={summary.totalReturns || 0} />
                </CCol>
                <CCol sm={6} lg={3}>
-                 <CWidgetStatsF className="mb-3" color="warning" icon={<CIcon icon={cilMoney} height={24} />} title="Refunded" value={`₱${Number(summary.totalRefundAmount || 0).toLocaleString()}`} />
+                 <CWidgetStatsF className="mb-3 shadow-sm" color="warning" icon={<CIcon icon={cilMoney} height={24} />} title="Refunded" value={`₱${Number(summary.totalRefundAmount || 0).toLocaleString()}`} />
                </CCol>
                <CCol sm={6} lg={3}>
-                 <CWidgetStatsF className="mb-3" color="danger" icon={<CIcon icon={cilBan} height={24} />} title="Defective" value={summary.defectiveReturns || 0} />
+                 <CWidgetStatsF className="mb-3 shadow-sm" color="danger" icon={<CIcon icon={cilBan} height={24} />} title="Defective" value={summary.defectiveReturns || 0} />
                </CCol>
                <CCol sm={6} lg={3}>
-                 <CWidgetStatsF className="mb-3" color="success" icon={<CIcon icon={cilInbox} height={24} />} title="Restocked" value={summary.restockedReturns || 0} />
+                 <CWidgetStatsF className="mb-3 shadow-sm" color="success" icon={<CIcon icon={cilInbox} height={24} />} title="Restocked" value={summary.restockedReturns || 0} />
                </CCol>
              </>
           )}
@@ -285,25 +307,25 @@ const ReportsPage = () => {
       )}
 
       {/* FILTERS & TABLE */}
-      <CCard className="mb-4">
-        <CCardHeader>
+      <CCard className="mb-4 shadow-sm border-0">
+        <CCardHeader className="bg-white border-bottom p-3">
           <div className="d-flex justify-content-between align-items-end flex-wrap gap-2">
             <div className="d-flex flex-wrap gap-3 align-items-end">
               {activeTab === 'sales' && (
                 <>
-                  <div>
-                    <CFormLabel>Range</CFormLabel>
+                  <div style={{minWidth: '120px'}}>
+                    <CFormLabel className="small text-muted mb-1">Range</CFormLabel>
                     <CFormSelect value={rangeLabel} onChange={(e) => handleRangeLabelChange(e.target.value)} size="sm">
                       <option>Daily</option><option>Weekly</option><option>Monthly</option>
                     </CFormSelect>
                   </div>
-                  <div>
-                    <CFormLabel>From</CFormLabel>
+                  <div style={{minWidth: '150px'}}>
+                    <CFormLabel className="small text-muted mb-1">From</CFormLabel>
                     <CFormInput type={rangeLabel === 'Weekly' ? 'week' : rangeLabel === 'Monthly' ? 'month' : 'date'} value={startDate} onChange={(e) => handleDateChange(e.target.value, true)} size="sm" />
                   </div>
                   {rangeLabel === 'Daily' && (
-                    <div>
-                       <CFormLabel>To</CFormLabel>
+                    <div style={{minWidth: '150px'}}>
+                       <CFormLabel className="small text-muted mb-1">To</CFormLabel>
                        <CFormInput type="date" value={endDate} onChange={(e) => handleDateChange(e.target.value, false)} size="sm" />
                     </div>
                   )}
@@ -312,95 +334,103 @@ const ReportsPage = () => {
               {/* Inventory Filters */}
               {activeTab === 'inventory' && (
                 <>
-                  <div><CFormLabel>Brand</CFormLabel><CFormSelect value={brandFilter} onChange={e => setBrandFilter(e.target.value)} size="sm"><option>All Brand</option>{brands.map(b => <option key={b}>{b}</option>)}</CFormSelect></div>
-                  <div><CFormLabel>Category</CFormLabel><CFormSelect value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} size="sm"><option>All Categories</option>{categories.map(c => <option key={c}>{c}</option>)}</CFormSelect></div>
-                  <div><CFormLabel>Status</CFormLabel><CFormSelect value={stockStatus} onChange={e => setStockStatus(e.target.value)} size="sm"><option>All Status</option><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option></CFormSelect></div>
+                  <div style={{minWidth: '150px'}}><CFormLabel className="small text-muted mb-1">Brand</CFormLabel><CFormSelect value={brandFilter} onChange={e => setBrandFilter(e.target.value)} size="sm"><option>All Brand</option>{brands.map(b => <option key={b}>{b}</option>)}</CFormSelect></div>
+                  <div style={{minWidth: '150px'}}><CFormLabel className="small text-muted mb-1">Category</CFormLabel><CFormSelect value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} size="sm"><option>All Categories</option>{categories.map(c => <option key={c}>{c}</option>)}</CFormSelect></div>
+                  <div style={{minWidth: '150px'}}><CFormLabel className="small text-muted mb-1">Status</CFormLabel><CFormSelect value={stockStatus} onChange={e => setStockStatus(e.target.value)} size="sm"><option>All Status</option><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option></CFormSelect></div>
                 </>
               )}
               {/* Returns Filters */}
               {activeTab !== 'sales' && activeTab !== 'inventory' && (
                 <>
-                  <div><CFormLabel>From</CFormLabel><CFormInput type="date" value={startDate} onChange={e => setStartDate(e.target.value)} size="sm" /></div>
-                  <div><CFormLabel>To</CFormLabel><CFormInput type="date" value={endDate} onChange={e => setEndDate(e.target.value)} size="sm" /></div>
+                  <div style={{minWidth: '150px'}}><CFormLabel className="small text-muted mb-1">From</CFormLabel><CFormInput type="date" value={startDate} onChange={e => setStartDate(e.target.value)} size="sm" /></div>
+                  <div style={{minWidth: '150px'}}><CFormLabel className="small text-muted mb-1">To</CFormLabel><CFormInput type="date" value={endDate} onChange={e => setEndDate(e.target.value)} size="sm" /></div>
                 </>
               )}
             </div>
-            <CButton color="danger" variant="outline" onClick={handleExportPDF}>
+            <CButton color="danger" className="text-white" onClick={handleExportPDF}>
               <CIcon icon={cilCloudDownload} className="me-2" /> Export PDF
             </CButton>
           </div>
         </CCardHeader>
 
-        <CCardBody>
-          {loading ? <div className="text-center p-4">Loading data...</div> : 
-           getCurrentData().length === 0 ? <div className="text-center p-4 text-medium-emphasis">No records found.</div> :
-          (
-            <CTable hover responsive small bordered>
-              <CTableHead>
-                <CTableRow>
-                  {activeTab === 'sales' && <>
-                    <CTableHeaderCell>Order ID</CTableHeaderCell>
-                    <CTableHeaderCell>Customer</CTableHeaderCell>
-                    <CTableHeaderCell>Product</CTableHeaderCell>
-                    <CTableHeaderCell>Qty</CTableHeaderCell>
-                    <CTableHeaderCell>Price</CTableHeaderCell>
-                    <CTableHeaderCell>Total</CTableHeaderCell>
-                    <CTableHeaderCell>Date</CTableHeaderCell>
-                  </>}
-                  {activeTab === 'inventory' && <>
-                    <CTableHeaderCell>Product</CTableHeaderCell>
-                    <CTableHeaderCell>Category</CTableHeaderCell>
-                    <CTableHeaderCell>Brand</CTableHeaderCell>
-                    <CTableHeaderCell>Stock</CTableHeaderCell>
-                    <CTableHeaderCell>Status</CTableHeaderCell>
-                  </>}
-                  {activeTab === 'returns' && <>
-                    <CTableHeaderCell>Return ID</CTableHeaderCell>
-                    <CTableHeaderCell>Order</CTableHeaderCell>
-                    <CTableHeaderCell>Customer</CTableHeaderCell>
-                    <CTableHeaderCell>Date</CTableHeaderCell>
-                    <CTableHeaderCell>Reason</CTableHeaderCell>
-                    <CTableHeaderCell>Refund</CTableHeaderCell>
-                  </>}
-                </CTableRow>
-              </CTableHead>
-              <CTableBody>
-                {getCurrentData().map((row, idx) => (
-                  <CTableRow key={idx}>
+        <CCardBody className="p-0">
+          {/* --- WRAPPED TABLE FOR SCROLLING --- */}
+          <div className="report-table-container">
+            {loading ? <div className="text-center p-5 text-muted">Loading data...</div> : 
+             getCurrentData().length === 0 ? <div className="text-center p-5 text-muted">No records found.</div> :
+            (
+              <CTable hover responsive align="middle" className="mb-0">
+                <CTableHead>
+                  <CTableRow>
                     {activeTab === 'sales' && <>
-                      <CTableDataCell>{row.orderId}</CTableDataCell>
-                      <CTableDataCell>{row.customerName}</CTableDataCell>
-                      <CTableDataCell>{row.productName}</CTableDataCell>
-                      <CTableDataCell>{row.quantity}</CTableDataCell>
-                      <CTableDataCell>₱{Number(row.unitPrice).toLocaleString()}</CTableDataCell>
-                      <CTableDataCell>₱{Number(row.totalPrice).toLocaleString()}</CTableDataCell>
-                      <CTableDataCell>{new Date(row.orderDate).toLocaleDateString()}</CTableDataCell>
+                      <CTableHeaderCell className="ps-4">Order ID</CTableHeaderCell>
+                      <CTableHeaderCell>Customer</CTableHeaderCell>
+                      <CTableHeaderCell>Product</CTableHeaderCell>
+                      <CTableHeaderCell className="text-center">Qty</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end">Price</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end">Total</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end pe-4">Date</CTableHeaderCell>
                     </>}
                     {activeTab === 'inventory' && <>
-                      <CTableDataCell>{row.productName}</CTableDataCell>
-                      <CTableDataCell>{row.category}</CTableDataCell>
-                      <CTableDataCell>{row.brand}</CTableDataCell>
-                      <CTableDataCell>{row.currentStock}</CTableDataCell>
-                      <CTableDataCell><CBadge color={row.stockStatus === 'Out of Stock' ? 'danger' : row.stockStatus === 'Low Stock' ? 'warning' : 'success'}>{row.stockStatus}</CBadge></CTableDataCell>
+                      <CTableHeaderCell className="ps-4">Product</CTableHeaderCell>
+                      <CTableHeaderCell>Category</CTableHeaderCell>
+                      <CTableHeaderCell>Brand</CTableHeaderCell>
+                      <CTableHeaderCell className="text-center">Stock</CTableHeaderCell>
+                      <CTableHeaderCell className="text-center">Status</CTableHeaderCell>
                     </>}
                     {activeTab === 'returns' && <>
-                      <CTableDataCell>{row.return_id}</CTableDataCell>
-                      <CTableDataCell>{row.sale_number}</CTableDataCell>
-                      <CTableDataCell>{row.customer_name}</CTableDataCell>
-                      <CTableDataCell>{new Date(row.return_date).toLocaleDateString()}</CTableDataCell>
-                      <CTableDataCell>{row.return_reason}</CTableDataCell>
-                      <CTableDataCell>₱{Number(row.refund_amount).toLocaleString()}</CTableDataCell>
+                      <CTableHeaderCell className="ps-4">Return ID</CTableHeaderCell>
+                      <CTableHeaderCell>Order</CTableHeaderCell>
+                      <CTableHeaderCell>Customer</CTableHeaderCell>
+                      <CTableHeaderCell>Date</CTableHeaderCell>
+                      <CTableHeaderCell>Reason</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end pe-4">Refund</CTableHeaderCell>
                     </>}
                   </CTableRow>
-                ))}
-              </CTableBody>
-            </CTable>
-          )}
+                </CTableHead>
+                <CTableBody>
+                  {getCurrentData().map((row, idx) => (
+                    <CTableRow key={idx}>
+                      {activeTab === 'sales' && <>
+                        <CTableDataCell className="ps-4 fw-bold text-primary">{row.orderId}</CTableDataCell>
+                        <CTableDataCell>{row.customerName}</CTableDataCell>
+                        <CTableDataCell>{row.productName}</CTableDataCell>
+                        <CTableDataCell className="text-center">{row.quantity}</CTableDataCell>
+                        <CTableDataCell className="text-end">₱{Number(row.unitPrice).toLocaleString()}</CTableDataCell>
+                        <CTableDataCell className="text-end fw-bold text-success">₱{Number(row.totalPrice).toLocaleString()}</CTableDataCell>
+                        <CTableDataCell className="text-end pe-4">{new Date(row.orderDate).toLocaleDateString()}</CTableDataCell>
+                      </>}
+                      {activeTab === 'inventory' && <>
+                        <CTableDataCell className="ps-4 fw-semibold">{row.productName}</CTableDataCell>
+                        <CTableDataCell>{row.category}</CTableDataCell>
+                        <CTableDataCell>{row.brand}</CTableDataCell>
+                        <CTableDataCell className="text-center fw-bold">{row.currentStock}</CTableDataCell>
+                        <CTableDataCell className="text-center">
+                           {/* Use standard badge classes or match coreui colors */}
+                           <CBadge color={row.stockStatus === 'Out of Stock' ? 'danger' : row.stockStatus === 'Low Stock' ? 'warning' : 'success'}>
+                             {row.stockStatus}
+                           </CBadge>
+                        </CTableDataCell>
+                      </>}
+                      {activeTab === 'returns' && <>
+                        <CTableDataCell className="ps-4 text-danger fw-bold">{row.return_id}</CTableDataCell>
+                        <CTableDataCell>{row.sale_number}</CTableDataCell>
+                        <CTableDataCell>{row.customer_name}</CTableDataCell>
+                        <CTableDataCell>{new Date(row.return_date).toLocaleDateString()}</CTableDataCell>
+                        <CTableDataCell>{row.return_reason}</CTableDataCell>
+                        <CTableDataCell className="text-end pe-4 fw-bold">₱{Number(row.refund_amount).toLocaleString()}</CTableDataCell>
+                      </>}
+                    </CTableRow>
+                  ))}
+                </CTableBody>
+              </CTable>
+            )}
+          </div>
           
-          {/* PAGINATION (Simplified) */}
-          <div className="d-flex justify-content-between mt-3">
+          {/* PAGINATION */}
+          <div className="p-3 border-top d-flex justify-content-between align-items-center bg-light">
              <CButton disabled={currentPage===1} onClick={() => setCurrentPage(p => p-1)} size="sm" variant="outline">Prev</CButton>
-             <span>Page {currentPage}</span>
+             <span className="small text-muted">Page {currentPage} of {pagination.total_pages || 1}</span>
              <CButton disabled={currentPage >= (pagination.total_pages || 1)} onClick={() => setCurrentPage(p => p+1)} size="sm" variant="outline">Next</CButton>
           </div>
         </CCardBody>

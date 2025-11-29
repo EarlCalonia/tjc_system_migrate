@@ -1,9 +1,27 @@
-@use "@coreui/coreui/scss/coreui" as * with ( 
+// src/scss/style.scss
+
+// 1. Import CoreUI and Override Variables in the configuration block
+@use "@coreui/coreui/scss/coreui" as * with (
   $enable-deprecation-messages: false,
+  
+  // TJC Brand Colors
+  $primary: #2478bd,
+  $secondary: #f1ce44,
+  $success: #28a745,
+  $info: #17a2b8,
+  $warning: #fd7e14,
+  $danger: #dc3545
 );
+
+// 2. Import Plugins (Once only)
 @use "@coreui/chartjs/scss/coreui-chartjs";
 @use "vendors/simplebar";
 
+// 3. Custom Utilities for Accessibility (WCAG 2.1)
+.text-brand-blue { color: #1a5a8e !important; } /* Darker blue for text readability */
+.bg-brand-yellow { background-color: #f1ce44 !important; color: #2c3e50 !important; } /* Yellow bg with dark text */
+
+// 4. Global Layout Styles
 body {
   background-color: var(--cui-tertiary-bg);
 }
@@ -17,7 +35,7 @@ body {
 
 .header > .container-fluid,
 .sidebar-header {
-  min-height: calc(4rem + 1px); // stylelint-disable-line function-disallowed-list
+  min-height: calc(4rem + 1px);
 }
 
 .sidebar-brand-full {
@@ -33,7 +51,7 @@ body {
   .nav-link {
     display: flex;
     align-items: center;
-    min-height: calc(4rem + 1px); // stylelint-disable-line function-disallowed-list
+    min-height: calc(4rem + 1px);
   }
 }
 
@@ -53,7 +71,7 @@ body {
 }
 
 .footer {
-  min-height: calc(3rem + 1px); // stylelint-disable-line function-disallowed-list
+  min-height: calc(3rem + 1px);
 }
 
 @include color-mode(dark) {

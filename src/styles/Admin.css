@@ -3,18 +3,18 @@
 /* =================================================================== */
 
 :root {
-  --color-primary: #2478bd; /* TJC Brand Blue */
-  --color-primary-dark: #1a5a8e;
-  --color-secondary: #f1ce44; /* TJC Brand Yellow */
-  --color-secondary-dark: #e6c13d;
+--color-primary: #2478bd;       /* UI Elements (Buttons/Bars) */
+  --color-primary-dark: #1a5a8e;  /* Text & Links (Higher Contrast) */
+  --color-secondary: #f1ce44;     /* UI Elements Backgrounds */
+  --color-secondary-dark: #e6c13d; /* Hover states */
   
   --color-success: #28a745;
   --color-danger: #dc3545;
   --color-warning: #fd7e14; /* Low Stock Orange */
   --color-info: #17a2b8;
   
-  --color-text-dark: #2c3e50;
-  --color-text-light: #666;
+--color-text-dark: #212529;     /* Darker for better reading */
+  --color-text-light: #6c757d;    /* Muted text */
   --color-text-white: #ffffff;
   
   --color-bg: #f8f9fa; 
@@ -599,7 +599,7 @@
 }
 
 .table {
-  width: 100%;
+  width: 100% !important;
   border-collapse: collapse;
   font-size: 0.85rem;
 }
@@ -795,44 +795,50 @@
 /* =================================================================== */
 
 .status-badge {
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
+  padding: 4px 12px;
+  border-radius: 50rem; /* Pill shape is more modern */
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.03em;
+  display: inline-block;
 }
 
 .status-badge.active,
 .status-badge.in-stock,
 .status-badge.completed,
 .status-badge.paid {
-  background-color: #e8f5e8;
-  color: #2e7d32;
+  background-color: #d1e7dd; /* Light Green */
+  color: #0f5132;            /* Dark Green Text (WCAG AAA) */
+  border: 1px solid #badbcc;
 }
 
 .status-badge.inactive,
 .status-badge.out-of-stock,
 .status-badge.cancelled,
 .status-badge.returned {
-  background-color: #ffebee;
-  color: #c62828;
+  background-color: #f8d7da; /* Light Red */
+  color: #842029;            /* Dark Red Text (WCAG AAA) */
+  border: 1px solid #f5c2c7;
 }
 
 .status-badge.low-stock,
 .status-badge.pending,
 .status-badge.processing,
 .status-badge.partially-returned {
-  background-color: #fff8e1;
-  color: #e65100;
+  background-color: #fff3cd; /* Light Yellow */
+  color: #664d03;            /* Dark Brown Text (WCAG AAA) */
+  border: 1px solid #ffecb5;
 }
 
 .category-badge {
-  background-color: #e3f2fd;
-  color: #1976d2;
-  padding: 4px 8px;
-  border-radius: 12px;
+  background-color: #cff4fc;
+  color: #055160;            /* Dark Blue Text */
+  padding: 4px 12px;
+  border-radius: 50rem;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
+  border: 1px solid #b6effb;
 }
 
 .price-cell {
@@ -1012,4 +1018,32 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
 .sidebar-brand-full {
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+/* =================================================================== */
+/* LAYOUT OVERRIDES */
+/* =================================================================== */
+
+/* Increase container width on large screens to show more data */
+@media (min-width: 1400px) {
+  .container, 
+  .container-lg, 
+  .container-md, 
+  .container-sm, 
+  .container-xl, 
+  .container-xxl {
+    max-width: 1600px !important; /* Force 1600px instead of default 1320px */
+  }
+}
+
+/* Optional: For truly massive screens (4K), you might want even more */
+@media (min-width: 1900px) {
+  .container, 
+  .container-lg, 
+  .container-md, 
+  .container-sm, 
+  .container-xl, 
+  .container-xxl {
+    max-width: 1800px !important;
+  }
 }
