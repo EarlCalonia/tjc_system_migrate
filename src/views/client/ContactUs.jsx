@@ -1,7 +1,13 @@
 import React from 'react';
 import Navbar from '../../components/client/Navbar';
 import Footer from '../../components/client/Footer';
-// [FIX] Updated to use your new custom background image
+import CIcon from '@coreui/icons-react';
+import { 
+  cilLocationPin, 
+  cilPhone, 
+  cilEnvelopeClosed, 
+  cilClock 
+} from '@coreui/icons';
 import bg from '../../assets/image-background.png'; 
 import '../../styles/ContactUs.css';
 
@@ -35,7 +41,10 @@ const ContactUs = () => {
             <h3>Contact Info</h3>
             
             <div className="info-item">
-              <div className="icon-box"><i className="fas fa-map-marker-alt"></i></div>
+              <div className="icon-box">
+                {/* [FIX] Replaced FontAwesome with CoreUI Location Icon */}
+                <CIcon icon={cilLocationPin} height={20} />
+              </div>
               <div className="info-text">
                 <h4>Visit Our Store</h4>
                 <p>Gen Hizon Ext, Santa Lucia</p>
@@ -44,7 +53,10 @@ const ContactUs = () => {
             </div>
             
             <div className="info-item">
-              <div className="icon-box"><i className="fas fa-phone-alt"></i></div>
+              <div className="icon-box">
+                {/* [FIX] Replaced FontAwesome with CoreUI Phone Icon */}
+                <CIcon icon={cilPhone} height={20} />
+              </div>
               <div className="info-text">
                 <h4>Call Us</h4>
                 <p>0912 345 6789</p>
@@ -53,7 +65,10 @@ const ContactUs = () => {
             </div>
 
             <div className="info-item">
-              <div className="icon-box"><i className="fas fa-envelope"></i></div>
+              <div className="icon-box">
+                {/* [FIX] Replaced FontAwesome with CoreUI Envelope Icon */}
+                <CIcon icon={cilEnvelopeClosed} height={20} />
+              </div>
               <div className="info-text">
                 <h4>Email Us</h4>
                 <p>tjcautosupply@gmail.com</p>
@@ -62,7 +77,10 @@ const ContactUs = () => {
             </div>
 
              <div className="info-item">
-              <div className="icon-box"><i className="fas fa-clock"></i></div>
+              <div className="icon-box">
+                {/* [FIX] Replaced FontAwesome with CoreUI Clock Icon */}
+                <CIcon icon={cilClock} height={20} />
+              </div>
               <div className="info-text">
                 <h4>Business Hours</h4>
                 <p>Mon - Sat: 8:00 AM - 5:00 PM</p>

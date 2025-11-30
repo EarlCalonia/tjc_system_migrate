@@ -1,23 +1,26 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-// Adjusted paths with ../../ to step out of "views/pages/"
-import '../../styles/App.css';
-import LogoSection from '../../components/LogoSection';
+import { CContainer, CRow, CCol } from '@coreui/react';
 import RecoveryForm from '../../components/RecoveryForm';
+import loginBg from '../../assets/images/login-bg.png';
+// We reuse Login.css because it contains all the "Auth" styles (inputs, buttons, backgrounds)
+import '../../styles/Login.css'; 
 
-const RecoveryPage = () => (
-  <div className="app-bg">
-    <div className="container-fluid h-100">
-      <div className="row h-100 align-items-center justify-content-center">
-        <div className="col-lg-6 col-md-5 d-flex justify-content-center align-items-center logo-col">
-          <LogoSection />
-        </div>
-        <div className="col-lg-4 col-md-6 col-sm-10 d-flex justify-content-center align-items-center">
-          <RecoveryForm />
-        </div>
-      </div>
+const RecoveryPage = () => {
+  return (
+    <div 
+      className="login-wrapper"
+      style={{ backgroundImage: `linear-gradient(rgba(23, 51, 78, 0.85), rgba(23, 51, 78, 0.9)), url(${loginBg})` }}
+    >
+      <CContainer>
+        <CRow className="justify-content-center">
+          <CCol md={6} lg={5}>
+            {/* The form component now handles its own Card structure */}
+            <RecoveryForm />
+          </CCol>
+        </CRow>
+      </CContainer>
     </div>
-  </div>
-);
+  );
+};
 
 export default RecoveryPage;

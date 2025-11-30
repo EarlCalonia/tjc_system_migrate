@@ -1,0 +1,147 @@
+/* src/styles/Login.css */
+
+/* Background with Navy Overlay */
+.login-wrapper {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Card Styling */
+.login-card-group {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Typography */
+.login-title {
+  font-family: 'Oswald', sans-serif;
+  color: #17334e; 
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+/* --- [NEW] INDUSTRIAL SQUARE BOX DESIGN --- */
+
+/* 1. The Group Container */
+.custom-input-group {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #ffffff;
+  overflow: hidden; /* Ensures the square box gets rounded corners on the left */
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: stretch; /* Ensures both box and input are same height */
+}
+
+/* Focus State: The whole group border lights up */
+.custom-input-group:focus-within {
+  border-color: #17334e;
+  box-shadow: 0 0 0 3px rgba(23, 51, 78, 0.15);
+}
+
+/* 2. The Icon "Square Box" */
+.login-input-icon {
+  width: 50px;                     /* Fixed Width */
+  min-width: 50px;                 /* Prevent shrinking */
+  background-color: #17334e !important; /* Brand Navy Background */
+  border: none !important;
+  color: #ffffff;                  /* Default White Icon */
+  display: flex;
+  align-items: center;
+  justify-content: center;         /* Perfectly Centered */
+  transition: all 0.3s ease;
+  padding: 0 !important;           /* Remove default padding */
+}
+
+/* Interaction: Icon turns Yellow when user clicks input */
+.custom-input-group:focus-within .login-input-icon {
+  color: #f1ce44;                  /* Brand Yellow */
+  background-color: #102a43 !important; /* Slightly darker Navy for depth */
+}
+
+/* 3. The Input Field */
+.login-input {
+  background-color: transparent !important;
+  border: none !important;
+  height: 50px;
+  color: #17334e;
+  font-weight: 600;
+  font-size: 1rem;
+  padding-left: 15px; /* Spacing from the square box */
+  box-shadow: none !important;
+}
+
+.login-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+/* --- BUTTONS --- */
+.login-btn {
+  background-color: #17334e !important;
+  color: #ffffff !important;
+  border: none !important;
+  height: 50px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  font-family: 'Oswald', sans-serif;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.login-btn:hover {
+  background-color: #f1ce44 !important;
+  color: #17334e !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(23, 51, 78, 0.2);
+}
+
+.login-btn:disabled {
+  background-color: #6c757d !important;
+  color: #eee !important;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --- BRAND CARD --- */
+.brand-card {
+  width: 44%;
+  background-color: #f1ce44 !important;
+  color: #17334e !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.brand-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle, transparent 20%, #17334e 20%, #17334e 21%, transparent 21%, transparent);
+  background-size: 10px 10px;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+.brand-title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.brand-divider {
+  opacity: 1;
+  width: 50%;
+  margin: 25px auto;
+  border-top: 3px solid #17334e;
+}
