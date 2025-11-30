@@ -1,23 +1,41 @@
-/* =================================================================== */
-/* TJC GLOBAL APP STYLES */
-/* =================================================================== */
+/* src/styles/App.css */
 
-/* NOTE: Legacy login styles have been removed. 
-   The App now relies on CoreUI/Bootstrap utility classes 
-   (e.g., bg-light, shadow-lg, d-flex) defined in components.
-*/
+/* 1. Import Fonts: Oswald (Headings) & Inter (Body) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Oswald:wght@500;700&display=swap');
 
-/* Global cursor utility */
-.cursor-pointer {
-  cursor: pointer;
+:root {
+  /* --- CORPORATE INDUSTRIAL PALETTE --- */
+  --brand-navy: #17334e;        /* Primary Structure */
+  --brand-yellow: #f1ce44;      /* Identity & Highlights */
+  --brand-blue: #2478bd;        /* Interaction */
+  
+  /* --- WCAG COMPLIANT TEXT COLORS --- */
+  --text-main: #2c3e50;         /* Dark Blue-Grey for Body Text */
+  --text-light: #6c757d;        /* Muted Grey */
+  --text-on-navy: #ffffff;      /* White text on Navy */
+  --text-on-yellow: #17334e;    /* Navy text on Yellow */
+
+  /* --- TYPOGRAPHY VARIABLES --- */
+  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-header: 'Oswald', sans-serif; 
+
+  /* --- UTILITIES --- */
+  --bg-light: #f8f9fa;
+  --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Ensure the root container always fills the screen */
-.app-container {
-  min-height: 100vh;
+/* Global Typography Settings */
+body {
+  font-family: var(--font-main);
+  color: var(--text-main);
+  background-color: var(--bg-light);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Optional: Smooth scrolling for the whole app */
-html {
-  scroll-behavior: smooth;
+/* Apply Industrial Font to All Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-header);
+  letter-spacing: 0.5px;
+  text-transform: uppercase; /* Adds to the "Garage/Pro" feel */
+  color: var(--brand-navy);
 }

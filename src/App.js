@@ -10,7 +10,10 @@ import './styles/ProductPage.css'
 import './styles/ReportsPage.css'
 import './styles/SettingsPage.css'
 import './styles/DeliveryPortal.css'
-import './styles/LandingPage.css'
+
+// [FIX] REMOVED THIS LINE TO PREVENT NAVBAR CONFLICTS
+// import './styles/LandingPage.css' 
+
 import './styles/Products.css'
 import './styles/OrdersPage.css'
 import './styles/App.css' // Login/Recovery styles
@@ -30,7 +33,7 @@ const Recovery = React.lazy(() => import('./views/pages/RecoveryPage'))
 const DeliveryPortal = React.lazy(() => import('./views/admin/DeliveryPortal'))
 
 // --- CLIENT PAGES (Public Website) ---
-const LandingPage = React.lazy(() => import('./views/client/LandingPage'))
+// LandingPage is no longer needed as Products is now the Home
 const Products = React.lazy(() => import('./views/client/Products'))
 const ProductDetails = React.lazy(() => import('./views/client/ProductDetails'))
 const OrderStatus = React.lazy(() => import('./views/client/OrderStatus'))
@@ -49,15 +52,13 @@ const App = () => {
           <Route exact path="/admin/delivery" element={<DeliveryPortal />} />
 
           {/* --- CLIENT ROUTES (Public) --- */}
-          <Route exact path="/home" element={<LandingPage />} />
+          {/* [FIX] Root "/" now loads the Products Showroom directly */}
+          <Route exact path="/" element={<Products />} />
           <Route exact path="/products" element={<Products />} />
           <Route exact path="/products/:name" element={<ProductDetails />} />
           <Route exact path="/order-status" element={<OrderStatus />} />
           <Route exact path="/contact-us" element={<ContactUs />} />
           
-          {/* Redirect root to public products page */}
-          <Route exact path="/" element={<Navigate to="/products" replace />} />
-
           {/* --- ADMIN DASHBOARD (Catch-all) --- */}
           <Route path="*" element={<DefaultLayout />} />
           

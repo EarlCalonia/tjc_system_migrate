@@ -1,0 +1,45 @@
+/* src/styles/Footer.css */
+
+.landing-footer {
+  background-color: #17334e; /* Deep Brand Navy */
+  color: #ffffff;
+  margin-top: auto;
+  border-top: 5px solid #f1ce44; /* Brand Yellow Border */
+}
+
+.footer-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 4rem 2rem;
+}
+
+.footer-section h4 {
+  /* [FIX] Explicitly set to Brand Yellow so it pops */
+  color: #f1ce44 !important; 
+  margin-bottom: 1.2rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.footer-section p {
+  /* [FIX] Explicitly set to White/Off-White for maximum readability */
+  color: #ecf0f1 !important; 
+  margin-bottom: 0.8rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  opacity: 1; /* Remove transparency to make it brighter */
+}
+
+.footer-bottom {
+  background-color: #0f2336; /* Slightly darker shade for copyright bar */
+  text-align: center;
+  padding: 1.5rem;
+  font-size: 0.85rem;
+  color: #bdc3c7; /* Light grey for less important text */
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}

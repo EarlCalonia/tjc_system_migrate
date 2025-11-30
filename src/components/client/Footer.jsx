@@ -1,4 +1,5 @@
 import React from 'react';
+import '../../styles/Footer.css'; // <--- THIS WAS MISSING.
 
 const Footer = () => {
   return (
@@ -6,8 +7,8 @@ const Footer = () => {
       <div className="footer-content">
         <div className="footer-section">
           <h4>Store Location</h4>
-          <p>General Hizon Avenue,</p>
-          <p>Santa Lucia, City of San Fernando, Pampanga</p>
+          <p>Gen Hizon Ext, Santa Lucia</p>
+          <p>City of San Fernando, Pampanga</p>
         </div>
         
         <div className="footer-section">
@@ -18,12 +19,12 @@ const Footer = () => {
         
         <div className="footer-section">
           <h4>Business Hours</h4>
-          <p>Monday - Saturday: 8:00 AM - 6:00 PM</p>
+          <p>Monday - Saturday: 8:00 AM - 5:00 PM</p>
           <p>Sunday: Closed</p>
         </div>
       </div>
       <div className="footer-bottom">
-        <p>©2025 TJC Auto Supply. All rights reserved.</p>
+        <p>© 2025 TJC Auto Supply. All rights reserved.</p>
       </div>
     </footer>
   );

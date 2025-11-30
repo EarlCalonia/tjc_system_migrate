@@ -1,0 +1,98 @@
+/* src/styles/Navbar.css */
+
+.landing-nav {
+  background-color: var(--brand-yellow, #f1ce44);
+  padding: 0.8rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+}
+
+.nav-left .logo {
+  height: 45px;
+  width: auto;
+  display: block;
+  transition: transform 0.2s ease;
+  filter: drop-shadow(0 2px 4px rgba(23, 51, 78, 0.15));
+}
+
+.nav-left .logo:hover {
+  transform: scale(1.05);
+}
+
+.nav-right {
+  display: flex;
+  gap: 8px; /* Tighter gap works better for pill buttons */
+  align-items: center;
+}
+
+/* --- NEW PILL BUTTON STYLE --- */
+.nav-link {
+  color: var(--brand-navy, #17334e);
+  text-decoration: none;
+  
+  /* Typography: Oswald for Industrial Look */
+  font-family: var(--font-header, 'Oswald', sans-serif);
+  font-weight: 500; 
+  font-size: 1rem; 
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  
+  /* Pill Shape Dimensions */
+  padding: 10px 24px;
+  border-radius: 50px;
+  
+  /* Smooth Transition */
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent; /* Prevents layout shift on hover */
+}
+
+/* Hover State (Inactive) */
+.nav-link:hover {
+  background-color: rgba(23, 51, 78, 0.1); /* Subtle dark tint */
+  color: var(--brand-navy, #17334e);
+  transform: translateY(-1px);
+}
+
+/* Active State (Solid Navy Pill) */
+.nav-link.active {
+  background-color: var(--brand-navy, #17334e);
+  color: #ffffff !important; /* Force White Text */
+  box-shadow: 0 4px 12px rgba(23, 51, 78, 0.25); /* Nice shadow lift */
+  transform: translateY(-1px);
+}
+
+/* Disable the old underline if it exists */
+.nav-link.active::after {
+  display: none;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .landing-nav {
+    padding: 0.8rem 1rem;
+  }
+
+  .nav-right {
+    gap: 5px;
+  }
+
+  .nav-link {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    border-radius: 8px; /* Softer corners for mobile lists */
+  }
+  
+  .nav-left .logo {
+    height: 35px;
+  }
+}
