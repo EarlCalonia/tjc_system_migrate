@@ -8,9 +8,8 @@
 /* Main Layout */
 .sales-content {
   display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 24px;
-  margin-bottom: 20px;
+  grid-template-columns: 1fr 380px; /* Right panel fixed width */
+  gap: 20px;
   align-items: start;
 }
 
@@ -23,23 +22,24 @@
   border: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
+  height: calc(100vh - 120px); /* Fill remaining space */
 }
 
 .products-header {
-  padding: 16px 20px;
+  padding: 12px 16px;
   background-color: #ffffff;
   border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 /* --- TABLE STYLES --- */
 .products-table-container {
-  max-height: 75vh;
+  flex-grow: 1;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
 }
 
 .products-table { width: 100%; border-collapse: separate; border-spacing: 0; }
@@ -56,36 +56,34 @@
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: 14px 16px;
+  padding: 12px 16px;
   border: none;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
 }
 
 /* Zebra Striping */
 .products-table tbody tr:nth-of-type(even),
 .products-table tbody tr:nth-of-type(even) > td {
-  background-color: #f1f5f9 !important; 
+  background-color: #f8fafc !important; 
 }
 
 /* Hover State */
 .products-table tbody tr:hover,
 .products-table tbody tr:hover > td {
-  background-color: rgba(36, 120, 189, 0.15) !important;
+  background-color: rgba(36, 120, 189, 0.1) !important;
   color: var(--brand-navy) !important;
-  transition: background-color 0.2s ease;
 }
 
 .products-table td {
   vertical-align: middle;
-  padding: 12px 16px;
+  padding: 10px 16px;
   font-size: 0.9rem;
   border-bottom: 1px solid #e9ecef;
 }
 
 /* --- PRODUCT IMAGE CELL --- */
-.product-combo-cell { display: flex; align-items: center; gap: 12px; }
+.product-combo-cell { display: flex; align-items: center; gap: 10px; }
 .product-thumbnail-wrapper {
-  width: 48px; height: 48px; flex-shrink: 0; border-radius: 6px; border: 1px solid #dee2e6; overflow: hidden; background-color: #ffffff; display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; flex-shrink: 0; border-radius: 4px; border: 1px solid #dee2e6; overflow: hidden; background-color: #ffffff; display: flex; align-items: center; justify-content: center;
 }
 .product-thumbnail { width: 100%; height: 100%; object-fit: cover; }
 .product-thumbnail-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa; }
@@ -94,16 +92,16 @@
 
 /* --- QUANTITY CONTROLS --- */
 .quantity-controls { 
-  display: flex; align-items: center; gap: 4px; justify-content: center; background-color: #f8f9fa; padding: 4px; border-radius: 6px; width: fit-content; margin: 0 auto; border: 1px solid #dee2e6;
+  display: flex; align-items: center; gap: 4px; justify-content: center; background-color: #f8f9fa; padding: 2px; border-radius: 4px; width: fit-content; margin: 0 auto; border: 1px solid #dee2e6;
 }
 .quantity-btn {
-  width: 28px; height: 28px; border: none; background: #ffffff; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-dark); box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.2s;
+  width: 24px; height: 24px; border: none; background: #ffffff; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-dark); box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 .quantity-btn:hover:not(:disabled) { background-color: var(--brand-blue); color: white; }
-.quantity-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.quantity-input { width: 36px; text-align: center; font-weight: 700; border: none; background: transparent; height: 28px; font-size: 0.9rem; color: var(--brand-navy); }
+.quantity-btn:disabled { opacity: 0.5; }
+.quantity-input { width: 30px; text-align: center; font-weight: 700; border: none; background: transparent; height: 24px; font-size: 0.85rem; color: var(--brand-navy); }
 
-/* --- RIGHT PANEL (CART) --- */
+/* --- RIGHT PANEL (FIXED POS LAYOUT) --- */
 .right-panel {
   background: #ffffff;
   border-radius: 8px;
@@ -114,69 +112,98 @@
   top: 20px;
   border: 1px solid var(--color-border);
   overflow: hidden;
-  max-height: calc(100vh - 40px);
+  height: calc(100vh - 120px); /* Fixed height based on viewport */
 }
 
-/* White Header for High Contrast */
+/* Header */
 .sale-header {
-  padding: 20px;
+  padding: 16px 20px;
   background-color: #ffffff;
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 .sale-header h2 { 
   margin: 0; font-size: 1.1rem; font-weight: 700; font-family: 'Oswald', sans-serif; letter-spacing: 1px; color: var(--brand-navy);
 }
 
+/* Scrollable Cart Items (Expands to fill space) */
 .sale-items { 
-  overflow-y: auto; padding: 0; flex-grow: 1; background-color: #fff; min-height: 150px;
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 0;
+  background-color: #fff;
+  min-height: 100px;
 }
 
-.empty-sale { padding: 60px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+.empty-sale { padding: 40px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
 
-/* Cart Item */
 .sale-item {
-  display: flex; align-items: flex-start; padding: 16px 20px; border-bottom: 1px solid #f0f2f5; gap: 12px;
+  display: flex; align-items: flex-start; padding: 12px 16px; border-bottom: 1px solid #f0f2f5; gap: 8px;
 }
-.sale-item:hover { background-color: #fafafa; }
 .sale-item-info { flex: 1; }
 .sale-item-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.sale-item-price { font-weight: 700; color: var(--brand-blue); font-size: 1rem; }
-.remove-btn { background: transparent; border: none; color: #dc3545; cursor: pointer; padding: 4px; opacity: 0.6; transition: opacity 0.2s; }
-.remove-btn:hover { opacity: 1; }
+.sale-item-price { font-weight: 700; color: var(--brand-blue); font-size: 0.95rem; }
+.remove-btn { background: transparent; border: none; color: #dc3545; cursor: pointer; padding: 2px; }
 
-/* [NEW] High Visibility Total Banner */
+/* --- PINNED BOTTOM SECTION --- */
+/* This section stays anchored at the bottom inside the flex column */
+.pos-bottom-anchor {
+  flex-shrink: 0; /* Prevents shrinking */
+  background-color: #fff;
+  z-index: 20;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+}
+
+/* Total Banner */
 .sale-total-banner {
-  background-color: var(--brand-yellow); /* Yellow BG */
-  color: var(--brand-navy); /* Navy Text */
-  padding: 20px;
+  background-color: var(--brand-yellow);
+  color: var(--brand-navy);
+  padding: 12px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid rgba(0,0,0,0.1);
-  border-bottom: 1px solid rgba(0,0,0,0.1);
 }
-.sale-total-banner span { font-weight: 700; font-size: 0.9rem; letter-spacing: 0.5px; }
-.display-total { font-family: 'Oswald', sans-serif; font-size: 1.8rem; font-weight: 700; }
+.sale-total-banner span { font-weight: 700; font-size: 0.9rem; }
+.display-total { font-family: 'Oswald', sans-serif; font-size: 1.6rem; font-weight: 700; }
 
-/* Clean Section Styling */
+/* Sections */
 .pos-section {
-  padding: 20px;
+  padding: 12px 20px;
   background-color: #ffffff;
   border-bottom: 1px solid #f0f2f5;
 }
 .section-title {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--brand-navy);
-  letter-spacing: 0.5px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
 }
 
-/* Responsive */
+/* --- RESPONSIVE / ZOOM OVERRIDES --- */
+
+/* If viewport is short (zoomed in or small laptop), disable fixed height to allow scrolling */
+@media (max-height: 700px) {
+  .products-section {
+    height: 500px; /* Fallback static height */
+  }
+  .right-panel {
+    height: auto; /* Allow expanding */
+    position: relative; /* Remove sticky */
+    max-height: none;
+  }
+  .pos-bottom-anchor {
+    position: static;
+    box-shadow: none;
+    border-top: 2px solid var(--brand-yellow);
+  }
+}
+
+/* Mobile Stack */
 @media (max-width: 992px) {
   .sales-content { grid-template-columns: 1fr; }
-  .right-panel { position: static; max-height: none; margin-top: 20px; }
+  .products-section { height: 500px; }
+  .right-panel { height: auto; position: static; }
 }

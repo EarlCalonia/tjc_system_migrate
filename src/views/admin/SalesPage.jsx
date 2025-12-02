@@ -14,7 +14,8 @@ import {
   CInputGroup,
   CInputGroupText,
   CBadge,
-  CSpinner
+  CSpinner,
+  CTooltip
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { 
@@ -23,13 +24,14 @@ import {
   cilMagnifyingGlass, 
   cilPlus, 
   cilMinus,
-  cilList,
   cilImage,
   cilCreditCard,
   cilUser,
   cilDescription,
   cilCheckCircle,
-  cilTruck
+  cilTruck,
+  cilBarcode,
+  cilLockLocked
 } from '@coreui/icons'
 import { salesAPI, inventoryAPI, settingsAPI, customersAPI } from '../../utils/api'
 import { serialNumberAPI } from '../../utils/serialNumberApi'
@@ -43,12 +45,14 @@ const SalesPage = () => {
   const [saleItems, setSaleItems] = useState([])
   const [customerType, setCustomerType] = useState('new')
 
+  // Customer Details
   const [lastName, setLastName] = useState('')
   const [firstName, setFirstName] = useState('')
   const [contactNumber, setContactNumber] = useState('')
-  const [address, setAddress] = useState('') // Full Street Address
-  const [region, setRegion] = useState('Manila') // Region/City Dropdown
-  
+  const [address, setAddress] = useState('')
+  const [region, setRegion] = useState('Manila')
+  const [searchClientQuery, setSearchClientQuery] = useState('')
+
   const [paymentOption, setPaymentOption] = useState('Cash')
   const [shippingOption, setShippingOption] = useState('In-Store Pickup')
   const [tenderedAmount, setTenderedAmount] = useState('')
@@ -68,7 +72,12 @@ const SalesPage = () => {
   const [msgModal, setMsgModal] = useState({ visible: false, title: '', message: '', color: 'info', onConfirm: null })
 
   // --- HELPERS ---
-  const getSaleTotal = () => saleItems.reduce((total, item) => total + item.price * item.quantity, 0)
+  const getSaleTotal = () => saleItems.reduce((total, item) => {
+    // Handle case where quantity might be empty string during typing
+    const qty = typeof item.quantity === 'number' ? item.quantity : 0
+    return total + item.price * qty
+  }, 0)
+
   const isCompanyDeliveryAvailable = useMemo(() => getSaleTotal() >= 5000, [saleItems])
 
   const saleTotal = getSaleTotal()
@@ -107,7 +116,6 @@ const SalesPage = () => {
   }, [paymentOption])
 
   useEffect(() => {
-    // Auto-reset shipping if criteria not met
     if (!isCompanyDeliveryAvailable && shippingOption === 'Company Delivery') {
       setShippingOption('In-Store Pickup')
     }
@@ -147,35 +155,92 @@ const SalesPage = () => {
   const showMessage = (title, message, color = 'info', onConfirm = null) => setMsgModal({ visible: true, title, message, color, onConfirm })
   const closeMsgModal = () => setMsgModal({ ...msgModal, visible: false })
 
+  const handleExistingClientSelect = (e) => {
+    const val = e.target.value
+    setSearchClientQuery(val)
+    const client = backendCustomers.find(c => c.customer_name === val || c.name === val)
+    if (client) {
+      const name = client.customer_name || client.name || ''
+      const parts = name.trim().split(' ')
+      const fName = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0]
+      const lName = parts.length > 1 ? parts[parts.length - 1] : ''
+      setFirstName(client.first_name || fName)
+      setLastName(client.last_name || lName)
+      setContactNumber(client.contact_number || client.contact || '')
+      setAddress(client.address || '')
+      setRegion(client.region || 'Manila')
+    }
+  }
+
+  // Left Panel Quantity Handler
   const handleQuantityChange = (productId, change) => {
     const currentQty = quantities[productId] || 1
     const product = products.find(p => p.product_id === productId)
     if (!product) return
-
     let newQty = currentQty + change
     if (newQty < 1) newQty = 1
     if (newQty > product.stock) newQty = product.stock
-
-    if (product.requires_serial) {
-      const currentSerials = selectedSerials[productId] || []
-      if (currentSerials.length > newQty) {
-        setSelectedSerials({ ...selectedSerials, [productId]: currentSerials.slice(0, newQty) })
-      }
-    }
     setQuantities(prev => ({ ...prev, [productId]: newQty }))
   }
 
-  const handleOpenSerialModal = async (product) => {
-    setSelectedProductForSerial(product)
-    setSerialModalVisible(true)
-    try {
-      const res = await serialNumberAPI.getAvailableSerials(product.product_id)
-      if (res.success) {
-        const inCartItem = saleItems.find(i => i.product_id === product.product_id)
-        const usedSerials = inCartItem ? (inCartItem.serialNumbers || []) : []
-        setAvailableSerials((res.data || []).filter(s => !usedSerials.includes(s.serial_number)))
-      }
-    } catch (e) { setAvailableSerials([]) }
+  // Right Panel (Cart) Quantity Handler - Supports Typing
+  const handleCartQuantityChange = (productId, newQtyStr) => {
+    const cartItem = saleItems.find(i => i.product_id === productId)
+    const productData = products.find(p => p.product_id === productId)
+    if (!cartItem || !productData) return
+    if (productData.requires_serial) return
+
+    // 1. Handle Empty Input (User deleting everything)
+    if (newQtyStr === '') {
+      const oldQty = typeof cartItem.quantity === 'number' ? cartItem.quantity : 0
+      // Restore stock immediately so logic stays consistent
+      setProducts(prev => prev.map(p => p.product_id === productId ? { ...p, stock: p.stock + oldQty } : p))
+      setSaleItems(prev => prev.map(item => item.product_id === productId ? { ...item, quantity: '' } : item))
+      return
+    }
+
+    // 2. Handle Numeric Input
+    let newQty = parseInt(newQtyStr, 10)
+    if (isNaN(newQty)) return 
+
+    const oldQty = typeof cartItem.quantity === 'number' ? cartItem.quantity : 0
+    const diff = newQty - oldQty
+
+    // Check if enough stock for the INCREASE
+    if (diff > 0 && productData.stock < diff) {
+       showMessage('Stock Error', `Only ${productData.stock} more units available.`, 'warning')
+       return
+    }
+
+    setSaleItems(prev => prev.map(item => item.product_id === productId ? { ...item, quantity: newQty } : item))
+    setProducts(prev => prev.map(p => p.product_id === productId ? { ...p, stock: p.stock - diff } : p))
+  }
+
+  // Handle Input Blur (Reset to 1 if left empty)
+  const handleBlurCartQuantity = (productId) => {
+    const item = saleItems.find(i => i.product_id === productId)
+    if (item && (item.quantity === '' || item.quantity === 0)) {
+       handleCartQuantityChange(productId, 1)
+    }
+  }
+
+  // --- SMART ADD LOGIC ---
+  const handleAddProductClick = async (product) => {
+    if (product.requires_serial) {
+      setSelectedProductForSerial(product)
+      setSelectedSerials(prev => ({ ...prev, [product.product_id]: [] }))
+      setSerialModalVisible(true)
+      try {
+        const res = await serialNumberAPI.getAvailableSerials(product.product_id)
+        if (res.success) {
+          const inCartItem = saleItems.find(i => i.product_id === product.product_id)
+          const usedSerials = inCartItem ? (inCartItem.serialNumbers || []) : []
+          setAvailableSerials((res.data || []).filter(s => !usedSerials.includes(s.serial_number)))
+        }
+      } catch (e) { setAvailableSerials([]) }
+    } else {
+      addToSale(product)
+    }
   }
 
   const handleSerialSelection = (sn) => {
@@ -190,9 +255,9 @@ const SalesPage = () => {
     }
   }
 
-  const addToSale = (product) => {
+  const addToSale = (product, specificSerials = null) => {
     const qty = quantities[product.product_id] || 1
-    const serials = selectedSerials[product.product_id] || []
+    const serials = specificSerials || []
 
     if (product.requires_serial && serials.length !== qty) return showMessage('Missing Info', `Please select ${qty} serials`, 'warning')
     if (product.stock < qty) return showMessage('Stock Error', 'Insufficient stock.', 'danger')
@@ -207,7 +272,8 @@ const SalesPage = () => {
           price: Number(product.price), 
           quantity: qty, 
           serialNumbers: serials,
-          image: product.image
+          image: product.image, 
+          requires_serial: product.requires_serial 
         }
 
     const updatedItems = existingItem 
@@ -217,27 +283,27 @@ const SalesPage = () => {
     setSaleItems(updatedItems)
     setProducts(products.map(p => p.product_id === product.product_id ? { ...p, stock: p.stock - qty } : p))
     setQuantities(prev => ({ ...prev, [product.product_id]: 1 }))
-    setSelectedSerials(prev => ({ ...prev, [product.product_id]: [] }))
+    setSerialModalVisible(false)
   }
 
   const removeFromSale = (productId) => {
     const item = saleItems.find(i => i.product_id === productId)
     if (!item) return
+    // Ensure we convert quantity to a Number (treat '' as 0 for refunding stock)
+    const qtyToRestore = Number(item.quantity) || 0
     setSaleItems(saleItems.filter(i => i.product_id !== productId))
-    setProducts(products.map(p => p.product_id === productId ? { ...p, stock: p.stock + item.quantity } : p))
+    setProducts(products.map(p => p.product_id === productId ? { ...p, stock: p.stock + qtyToRestore } : p))
   }
 
   const confirmSale = async () => {
     if (!isPaymentValid) return
-    if (customerType === 'new' && (!firstName || !lastName)) return showMessage('Customer Error', 'Please enter customer name.', 'warning')
+    if (!firstName) return showMessage('Customer Error', 'Please enter customer name.', 'warning')
     if (shippingOption === 'Company Delivery' && !address) return showMessage('Address Error', 'Delivery requires a full address.', 'warning')
     
     setSubmitting(true)
     try {
-      const fullName = `${firstName} ${middleName} ${lastName}`.trim()
-      // Combine Address + Region
-      const fullAddress = customerType === 'new' ? `${address}, ${region}` : 'Registered Address'
-
+      const fullName = `${firstName} ${lastName}`.trim()
+      const fullAddress = `${address}, ${region}`
       const saleData = {
         customer_name: fullName,
         payment: paymentOption,
@@ -246,9 +312,8 @@ const SalesPage = () => {
         items: saleItems,
         tendered: paymentOption === 'Cash' ? tenderedAmount : null,
         reference: paymentOption === 'GCash' ? gcashRef : null,
-        address: fullAddress // Sending the full address
+        address: fullAddress
       }
-
       const result = await salesAPI.createSale(saleData)
       if (result.success) showMessage('Success', 'Transaction completed successfully!', 'success', () => window.location.reload())
       else throw new Error(result.message)
@@ -258,24 +323,24 @@ const SalesPage = () => {
 
   return (
     <CContainer fluid>
-      <div className="d-flex justify-content-between align-items-end mb-4">
+      <div className="d-flex justify-content-between align-items-end mb-3">
         <div>
-          <h2 className="mb-1 fw-bold text-brand-navy" style={{fontFamily: 'Oswald, sans-serif'}}>SALES TERMINAL</h2>
-          <div className="text-medium-emphasis small">Point of Sale System</div>
+          <h2 className="mb-0 fw-bold text-brand-navy" style={{fontFamily: 'Oswald, sans-serif'}}>SALES TERMINAL</h2>
+          <div className="text-medium-emphasis small">Point of Sale</div>
         </div>
-        <CButton color="primary" className="text-white fw-bold" size="sm" onClick={() => window.location.reload()}>
-          <CIcon icon={cilCart} className="me-2" /> Reset Terminal
+        <CButton color="secondary" variant="ghost" size="sm" onClick={() => window.location.reload()}>
+          <CIcon icon={cilCart} className="me-2" /> Reset
         </CButton>
       </div>
 
       <div className="sales-content">
-        {/* --- LEFT COLUMN: ITEM LOOKUP --- */}
+        {/* --- LEFT COLUMN: ITEM CATALOG --- */}
         <div className="products-section">
           <div className="products-header">
-            <h2 className="fs-5 mb-0 text-uppercase fw-bold text-brand-navy">Item Lookup</h2>
+            <h2 className="fs-6 mb-0 text-uppercase fw-bold text-brand-navy">Item Lookup</h2>
             <CInputGroup size="sm" style={{ maxWidth: '280px' }}>
               <CInputGroupText className="bg-light border-end-0"><CIcon icon={cilMagnifyingGlass}/></CInputGroupText>
-              <CFormInput className="border-start-0 ps-0" placeholder="Scan or Search Item..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} aria-label="Search Products" autoFocus/>
+              <CFormInput className="border-start-0 ps-0" placeholder="Scan / Search Item..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} autoFocus/>
             </CInputGroup>
           </div>
           
@@ -283,24 +348,21 @@ const SalesPage = () => {
             <table className="products-table">
               <thead>
                 <tr>
-                  <th scope="col" style={{width: '40%'}}>Description</th>
-                  <th scope="col" style={{width: '15%'}}>Unit Price</th>
+                  <th scope="col" style={{width: '45%'}}>Description</th>
+                  <th scope="col" style={{width: '20%'}}>Price</th>
                   <th scope="col" className="text-center" style={{width: '10%'}}>Stock</th>
-                  <th scope="col" className="text-center" style={{width: '20%'}}>Quantity</th>
-                  <th scope="col" className="text-center" style={{width: '5%'}}>SN</th>
-                  <th scope="col" className="text-end" style={{width: '10%'}}>Action</th>
+                  <th scope="col" className="text-center" style={{width: '25%'}}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="6" className="text-center py-5"><CSpinner color="primary" variant="grow"/><div className="text-muted mt-2">Loading items...</div></td></tr>
+                  <tr><td colSpan="4" className="text-center py-5"><CSpinner color="primary" variant="grow"/><div className="text-muted mt-2">Loading inventory...</div></td></tr>
                 ) : filteredProducts.length === 0 ? (
-                  <tr><td colSpan="6" className="text-center py-5 text-muted">No items found</td></tr>
+                  <tr><td colSpan="4" className="text-center py-5 text-muted">No items match your search.</td></tr>
                 ) : (
                   filteredProducts.map((product) => {
                     const pid = product.product_id
                     const qty = quantities[pid] || 1
-                    const serials = selectedSerials[pid] || []
                     const isStocked = product.stock > 0
                     const imgUrl = getProductImageUrl(product.image)
                     
@@ -309,35 +371,42 @@ const SalesPage = () => {
                         <td>
                           <div className="product-combo-cell">
                             <div className="product-thumbnail-wrapper">
-                              {imgUrl ? <img src={imgUrl} alt={product.name} className="product-thumbnail" onError={(e)=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}} /> : null}
+                              {imgUrl ? <img src={imgUrl} alt="" className="product-thumbnail" onError={(e)=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}} /> : null}
                               <div className="product-thumbnail-placeholder" style={{display: imgUrl ? 'none' : 'flex'}}><CIcon icon={cilImage} className="text-secondary"/></div>
                             </div>
                             <div className="product-text-info">
                               <span className="product-name-text">{product.name}</span>
                               <small className="text-muted">{product.brand}</small>
+                              {product.requires_serial && (
+                                <CBadge color="info" shape="rounded-pill" className="mt-1" style={{width: 'fit-content', fontSize: '0.65rem'}}>
+                                  <CIcon icon={cilBarcode} size="sm" className="me-1"/> Serialized
+                                </CBadge>
+                              )}
                             </div>
                           </div>
                         </td>
-                        <td className="fw-bold text-brand-navy">₱{Number(product.price).toLocaleString()}</td>
-                        <td className="text-center">
-                           {isStocked ? <CBadge color="success" shape="rounded-pill">{product.stock}</CBadge> : <CBadge color="danger" shape="rounded-pill">0</CBadge>}
+                        <td className="fw-bold text-brand-navy align-middle">₱{Number(product.price).toLocaleString()}</td>
+                        <td className="text-center align-middle">
+                           {isStocked ? <span className="badge bg-light text-dark border">{product.stock}</span> : <span className="badge bg-danger text-white">0</span>}
                         </td>
-                        <td>
-                          <div className="quantity-controls">
-                            <button className="quantity-btn" disabled={!isStocked} onClick={() => handleQuantityChange(pid, -1)}><CIcon icon={cilMinus} size="sm"/></button>
-                            <input className="quantity-input" type="text" readOnly value={qty} aria-label="Qty"/>
-                            <button className="quantity-btn" disabled={!isStocked} onClick={() => handleQuantityChange(pid, 1)}><CIcon icon={cilPlus} size="sm"/></button>
+                        <td className="align-middle">
+                          <div className="d-flex align-items-center justify-content-end gap-2">
+                            <div className="quantity-controls">
+                              <button className="quantity-btn" disabled={!isStocked} onClick={() => handleQuantityChange(pid, -1)}>-</button>
+                              <input className="quantity-input" readOnly value={qty} aria-label={`Quantity for ${product.name}`}/>
+                              <button className="quantity-btn" disabled={!isStocked} onClick={() => handleQuantityChange(pid, 1)}>+</button>
+                            </div>
+                            <CButton 
+                                color="primary" 
+                                size="sm" 
+                                className="text-white btn-add-cart" 
+                                disabled={!isStocked} 
+                                onClick={() => handleAddProductClick(product)}
+                                aria-label={`Add ${product.name} to order`}
+                            >
+                              <CIcon icon={cilPlus} />
+                            </CButton>
                           </div>
-                        </td>
-                        <td className="text-center">
-                          {product.requires_serial ? (
-                             <div onClick={() => isStocked && handleOpenSerialModal(product)} className={`cursor-pointer badge ${serials.length === qty ? 'bg-info text-white' : 'bg-warning text-dark'}`} style={{cursor:'pointer'}}>
-                               {serials.length}/{qty}
-                             </div>
-                          ) : <span className="text-muted">-</span>}
-                        </td>
-                        <td className="text-end">
-                          <CButton color="primary" size="sm" className="text-white fw-bold" disabled={!isStocked} onClick={() => addToSale(product)}><CIcon icon={cilPlus} size="sm"/></CButton>
                         </td>
                       </tr>
                     )
@@ -351,143 +420,187 @@ const SalesPage = () => {
         {/* --- RIGHT COLUMN: TRANSACTION PANEL --- */}
         <div className="right-panel">
           <div className="sale-header">
-             <h2 className="text-uppercase mb-0 d-flex align-items-center text-brand-navy">
-               <CIcon icon={cilDescription} className="me-2"/> Summary
+             <h2 className="text-uppercase mb-0 d-flex align-items-center text-brand-navy fs-6">
+               <CIcon icon={cilCart} className="me-2 text-primary"/> Current Order
              </h2>
+             <span className="badge bg-info text-white">{saleItems.length} Items</span>
           </div>
+          
           <div className="sale-items">
             {saleItems.length === 0 ? (
               <div className="empty-sale">
-                <div className="p-4 rounded-circle bg-light mb-3"><CIcon icon={cilCart} size="3xl" className="text-secondary"/></div>
-                <span className="text-muted fw-semibold">Cart is Empty</span>
-                <small className="text-muted">Scan or select items to begin</small>
+                <div className="p-3 rounded-circle bg-light mb-3"><CIcon icon={cilCart} size="xxl" className="text-secondary opacity-25"/></div>
+                <span className="text-muted fw-semibold small">Cart is Empty</span>
               </div>
             ) : (
-              saleItems.map((item) => (
+              saleItems.map((item) => {
+                const imgUrl = getProductImageUrl(item.image);
+                const isSerialItem = item.requires_serial;
+
+                return (
                 <div className="sale-item" key={item.product_id}>
+                  {/* Cart Item Image */}
+                  <div className="cart-item-image-wrapper">
+                    {imgUrl ? <img src={imgUrl} alt="" className="cart-item-image" onError={(e)=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}} /> : null}
+                    <div className="cart-item-image-placeholder" style={{display: imgUrl ? 'none' : 'flex'}}><CIcon icon={cilImage} className="text-secondary" size="sm"/></div>
+                  </div>
+
+                  {/* Cart Item Info & Quantity */}
                   <div className="sale-item-info">
-                    <div className="fw-bold text-dark">{item.name}</div>
-                    <div className="small text-muted d-flex justify-content-between mt-1">
-                       <span>{item.quantity} x ₱{item.price.toLocaleString()}</span>
+                    <div className="fw-bold text-dark text-truncate" style={{fontSize: '0.95rem'}}>{item.name}</div>
+                    <div className="d-flex align-items-center justify-content-between mt-1">
+                       
+                       {/* Quantity Controls */}
+                       {isSerialItem ? (
+                          <CTooltip content="Quantity cannot be adjusted in cart for serial items. Remove and re-scan.">
+                            <div className="cart-qty-controls disabled op-50">
+                              <button className="cart-qty-btn" disabled><CIcon icon={cilMinus} size="sm"/></button>
+                              <div className="cart-qty-input-wrapper">
+                                <CIcon icon={cilLockLocked} size="sm" className="text-muted me-1" style={{width: '10px'}}/>
+                                <input className="cart-qty-input" readOnly value={item.quantity} disabled/>
+                              </div>
+                              <button className="cart-qty-btn" disabled><CIcon icon={cilPlus} size="sm"/></button>
+                            </div>
+                          </CTooltip>
+                       ) : (
+                         <div className="cart-qty-controls">
+                           <button className="cart-qty-btn" onClick={() => handleCartQuantityChange(item.product_id, (Number(item.quantity) || 0) - 1)}><CIcon icon={cilMinus} size="sm"/></button>
+                           <input 
+                              className="cart-qty-input" 
+                              type="number"
+                              min="1"
+                              value={item.quantity} 
+                              onChange={(e) => handleCartQuantityChange(item.product_id, e.target.value)}
+                              onBlur={() => handleBlurCartQuantity(item.product_id)}
+                           />
+                           <button className="cart-qty-btn" onClick={() => handleCartQuantityChange(item.product_id, (Number(item.quantity) || 0) + 1)}><CIcon icon={cilPlus} size="sm"/></button>
+                         </div>
+                       )}
+                       
+                       <span className="small text-muted fw-semibold">₱{item.price.toLocaleString()}</span>
                     </div>
                   </div>
                   <div className="sale-item-actions">
-                    <span className="sale-item-price">₱{(item.price * item.quantity).toLocaleString()}</span>
-                    <button className="remove-btn" onClick={() => removeFromSale(item.product_id)}><CIcon icon={cilTrash} size="sm"/></button>
+                    <span className="sale-item-price">₱{(item.price * (Number(item.quantity) || 0)).toLocaleString()}</span>
+                    <button className="remove-btn" onClick={() => removeFromSale(item.product_id)} aria-label="Remove item"><CIcon icon={cilTrash} size="sm"/></button>
                   </div>
                 </div>
-              ))
+              )})
             )}
           </div>
           
-          <div className="sale-total-banner">
-             <span className="text-uppercase fw-bold">Total Due</span>
-             <strong className="display-total">₱{saleTotal.toLocaleString()}</strong>
-          </div>
-
-          {/* --- CLIENT DETAILS --- */}
-          <div className="pos-section">
-            <div className="section-title"><CIcon icon={cilUser} className="me-2 text-brand-navy"/> Client Details</div>
-            <div className="mb-2">
-               <CFormCheck inline type="radio" name="ctype" label="New Client" checked={customerType === 'new'} onChange={() => setCustomerType('new')} />
-               <CFormCheck inline type="radio" name="ctype" label="Existing Client" checked={customerType === 'existing'} onChange={() => setCustomerType('existing')} />
+          {/* POS BOTTOM ANCHOR */}
+          <div className="pos-bottom-anchor">
+            <div className="sale-total-banner">
+               <div className="d-flex flex-column">
+                 <span className="text-uppercase fw-bold small text-muted">Total Amount</span>
+                 <strong className="display-total text-brand-navy">₱{saleTotal.toLocaleString()}</strong>
+               </div>
+               <div className="text-end">
+                 {shippingOption === 'Company Delivery' && (
+                   <span className="badge bg-warning text-dark"><CIcon icon={cilTruck} className="me-1"/> Delivery</span>
+                 )}
+               </div>
             </div>
-            {customerType === 'new' ? (
-              <div className="d-grid gap-2">
-                <div className="d-flex gap-2">
-                   <CFormInput size="sm" placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} />
-                   <CFormInput size="sm" placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} />
-                </div>
-                <CFormInput size="sm" placeholder="Contact Number" value={contactNumber} onChange={e => setContactNumber(e.target.value)} />
-                
-                {/* [FIX] Address Text Field */}
-                <CFormInput size="sm" placeholder="Street Address / Landmark" value={address} onChange={e => setAddress(e.target.value)} />
-                
-                {/* [FIX] Region Dropdown */}
-                <CFormSelect size="sm" value={region} onChange={e => setRegion(e.target.value)} aria-label="Region">
-                  <option value="Manila">Manila</option><option value="Pampanga">Pampanga</option><option value="Bulacan">Bulacan</option><option value="Cavite">Cavite</option>
-                </CFormSelect>
+
+            {/* Client Details (Horizontal) */}
+            <div className="pos-section border-bottom-0 pb-0">
+              <div className="section-title"><CIcon icon={cilUser} className="me-2 text-brand-navy"/> Client Details</div>
+              <div className="mb-2">
+                 <CFormCheck inline type="radio" name="ctype" label="New" checked={customerType === 'new'} onChange={() => { setCustomerType('new'); setSearchClientQuery(''); }} />
+                 <CFormCheck inline type="radio" name="ctype" label="Existing" checked={customerType === 'existing'} onChange={() => setCustomerType('existing')} />
               </div>
-            ) : (
-              <CFormSelect size="sm">
-                <option>Select Registered Client...</option>
-                {backendCustomers.map((c, i) => <option key={i} value={c.id}>{c.customer_name}</option>)}
-              </CFormSelect>
-            )}
-          </div>
-
-          {/* --- PAYMENT & SHIPPING --- */}
-          <div className="pos-section flex-grow-1">
-            <div className="section-title"><CIcon icon={cilCreditCard} className="me-2 text-brand-navy"/> Payment & Delivery</div>
-            
-            {/* [FIX] Delivery Method Selector */}
-            <div className="mb-2">
-               <CFormLabel className="small text-muted mb-1">Delivery Method</CFormLabel>
-               <CFormSelect size="sm" value={shippingOption} onChange={(e) => setShippingOption(e.target.value)}>
-                 <option value="In-Store Pickup">In-Store Pickup</option>
-                 <option value="Company Delivery" disabled={!isCompanyDeliveryAvailable}>
-                    Company Delivery {isCompanyDeliveryAvailable ? '(Free)' : '(Min ₱5k Order)'}
-                 </option>
-               </CFormSelect>
-            </div>
-
-            <div className="mb-2">
-              <CFormLabel className="small text-muted mb-1">Payment Method</CFormLabel>
-              <CFormSelect size="sm" value={paymentOption} onChange={(e) => setPaymentOption(e.target.value)}>
-                <option value="Cash">Cash</option>
-                <option value="GCash">GCash</option>
-                <option value="Cash on Delivery" disabled={shippingOption !== 'Company Delivery'}>COD (Delivery Only)</option>
-              </CFormSelect>
-            </div>
-            
-            {paymentOption === 'Cash' && (
-              <>
-                <CInputGroup className="mb-2">
-                  <CInputGroupText>₱</CInputGroupText>
+              
+              {customerType === 'existing' && (
+                <div className="mb-2">
                   <CFormInput 
-                    type="number" 
-                    placeholder="Amount Tendered" 
-                    value={tenderedAmount} 
-                    onChange={e => setTenderedAmount(e.target.value)} 
-                    className={tenderedAmount && Number(tenderedAmount) < saleTotal ? 'is-invalid' : ''}
+                    list="clientOptions" 
+                    size="sm" 
+                    placeholder="Search Client Name..." 
+                    value={searchClientQuery} 
+                    onChange={handleExistingClientSelect}
+                    className="border-primary"
                   />
-                </CInputGroup>
-                {changeDue > 0 && (
-                  <div className="d-flex justify-content-between align-items-center bg-light p-2 rounded border">
-                    <span className="small fw-bold text-muted">CHANGE:</span>
-                    <span className="fw-bold text-success fs-5">₱{changeDue.toLocaleString()}</span>
-                  </div>
-                )}
-              </>
-            )}
+                  <datalist id="clientOptions">
+                    {backendCustomers.map((c, i) => <option key={i} value={c.customer_name} />)}
+                  </datalist>
+                </div>
+              )}
 
-            {paymentOption === 'GCash' && <CFormInput className="mb-2" placeholder="GCash Reference No." value={gcashRef} onChange={e => setGcashRef(e.target.value)} />}
-            
-            <CButton 
-              className="w-100 mt-3 text-white fw-bold py-2" 
-              color={isPaymentValid ? "success" : "secondary"} 
-              size="lg" 
-              onClick={confirmSale} 
-              disabled={submitting || !isPaymentValid}
-            >
-               {submitting ? <><CSpinner size="sm" className="me-2"/> Processing...</> : 
-                 !isPaymentValid ? 'ENTER PAYMENT' : 'COMPLETE ORDER'}
-            </CButton>
+              <div className="row g-2 mb-2">
+                 <div className="col-6"><CFormInput size="sm" placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} disabled={customerType === 'existing'} /></div>
+                 <div className="col-6"><CFormInput size="sm" placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} disabled={customerType === 'existing'} /></div>
+              </div>
+              <div className="row g-2 mb-2">
+                 <div className="col-6"><CFormInput size="sm" placeholder="Contact No." value={contactNumber} onChange={e => setContactNumber(e.target.value)} /></div>
+                 <div className="col-6">
+                    <CFormSelect size="sm" value={region} onChange={e => setRegion(e.target.value)}>
+                      <option value="Manila">Manila</option><option value="Pampanga">Pampanga</option><option value="Bulacan">Bulacan</option><option value="Cavite">Cavite</option>
+                    </CFormSelect>
+                 </div>
+              </div>
+              <div className="mb-2">
+                 <CFormInput size="sm" placeholder="Street Address" value={address} onChange={e => setAddress(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Payment & Delivery */}
+            <div className="pos-section pt-2">
+              <div className="row g-2 mb-2">
+                 <div className="col-6">
+                   <CFormSelect size="sm" value={shippingOption} onChange={(e) => setShippingOption(e.target.value)}>
+                     <option value="In-Store Pickup">Pickup</option>
+                     <option value="Company Delivery" disabled={!isCompanyDeliveryAvailable}>Delivery {isCompanyDeliveryAvailable ? '(Free)' : '(Min 5k)'}</option>
+                   </CFormSelect>
+                 </div>
+                 <div className="col-6">
+                   <CFormSelect size="sm" value={paymentOption} onChange={(e) => setPaymentOption(e.target.value)}>
+                    <option value="Cash">Cash</option>
+                    <option value="GCash">GCash</option>
+                    <option value="Cash on Delivery" disabled={shippingOption !== 'Company Delivery'}>COD</option>
+                  </CFormSelect>
+                 </div>
+              </div>
+              
+              {paymentOption === 'Cash' && (
+                <div className="mb-2">
+                  <CInputGroup size="sm">
+                    <CInputGroupText>₱</CInputGroupText>
+                    <CFormInput 
+                      type="number" 
+                      placeholder="Amount Tendered" 
+                      value={tenderedAmount} 
+                      onChange={e => setTenderedAmount(e.target.value)} 
+                      className={tenderedAmount && Number(tenderedAmount) < saleTotal ? 'is-invalid' : ''}
+                    />
+                  </CInputGroup>
+                  {changeDue > 0 && <div className="text-end text-success fw-bold small mt-1">Change: ₱{changeDue.toLocaleString()}</div>}
+                </div>
+              )}
+
+              {paymentOption === 'GCash' && <CFormInput size="sm" className="mb-2" placeholder="GCash Reference No." value={gcashRef} onChange={e => setGcashRef(e.target.value)} />}
+              
+              <CButton 
+                className="w-100 text-white fw-bold" 
+                color={isPaymentValid ? "success" : "secondary"} 
+                onClick={confirmSale} 
+                disabled={submitting || !isPaymentValid}
+              >
+                 {submitting ? <><CSpinner size="sm" className="me-2"/> Processing...</> : 
+                   !isPaymentValid ? 'ENTER PAYMENT' : 'COMPLETE ORDER'}
+              </CButton>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Modals */}
-      <CModal visible={msgModal.visible} onClose={closeMsgModal} alignment="center">
-        <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
-        <CModalBody className="p-4 fs-5">{msgModal.message}</CModalBody>
-        <CModalFooter><CButton color="secondary" onClick={closeMsgModal}>Close</CButton>{msgModal.onConfirm && <CButton color={msgModal.color} className="text-white" onClick={msgModal.onConfirm}>Confirm</CButton>}</CModalFooter>
-      </CModal>
-
+      {/* Serial Modal */}
       <CModal visible={serialModalVisible} onClose={() => setSerialModalVisible(false)} alignment="center">
-        <CModalHeader><CModalTitle>Select Serial Numbers</CModalTitle></CModalHeader>
+        <CModalHeader><CModalTitle>Scan Serial Numbers</CModalTitle></CModalHeader>
         <CModalBody>
-          <p className="text-muted">Required: <strong>{quantities[selectedProductForSerial?.product_id]}</strong></p>
+          <div className="alert alert-info py-2 small">
+             Please scan or select <strong>{quantities[selectedProductForSerial?.product_id]}</strong> serial numbers for <strong>{selectedProductForSerial?.name}</strong>.
+          </div>
           <div className="list-group" style={{maxHeight: '300px', overflowY: 'auto'}}>
             {availableSerials.map((sn) => (
                <button key={sn.serial_number} className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${selectedSerials[selectedProductForSerial?.product_id]?.includes(sn.serial_number) ? 'active bg-primary border-primary' : ''}`} onClick={() => handleSerialSelection(sn.serial_number)}>
@@ -497,7 +610,23 @@ const SalesPage = () => {
             ))}
           </div>
         </CModalBody>
-        <CModalFooter><CButton color="primary" onClick={() => setSerialModalVisible(false)}>Done Selecting</CButton></CModalFooter>
+        <CModalFooter>
+            <CButton color="secondary" onClick={() => setSerialModalVisible(false)}>Cancel</CButton>
+            <CButton 
+                color="primary" 
+                disabled={selectedSerials[selectedProductForSerial?.product_id]?.length !== quantities[selectedProductForSerial?.product_id]}
+                onClick={() => addToSale(selectedProductForSerial, selectedSerials[selectedProductForSerial?.product_id])}
+            >
+                Confirm & Add
+            </CButton>
+        </CModalFooter>
+      </CModal>
+
+      {/* Msg Modal */}
+      <CModal visible={msgModal.visible} onClose={closeMsgModal} alignment="center">
+        <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
+        <CModalBody className="p-4 fs-5">{msgModal.message}</CModalBody>
+        <CModalFooter><CButton color="secondary" onClick={closeMsgModal}>Close</CButton>{msgModal.onConfirm && <CButton color={msgModal.color} className="text-white" onClick={msgModal.onConfirm}>Confirm</CButton>}</CModalFooter>
       </CModal>
     </CContainer>
   )

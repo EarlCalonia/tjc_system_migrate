@@ -30,7 +30,8 @@ import {
   cilImage, 
   cilCloudUpload,
   cilChevronLeft,
-  cilChevronRight
+  cilChevronRight,
+  cilBarcode
 } from '@coreui/icons'
 import { productAPI } from '../../utils/api'
 import { serialNumberAPI } from '../../utils/serialNumberApi'
@@ -238,11 +239,11 @@ const ProductPage = () => {
       {/* MAIN TABLE */}
       <CCard className="mb-4 border-0 shadow-sm">
         <CCardBody className="p-0">
-          <div className="table-responsive product-table-container">
-            <table className="table product-table table-hover align-middle mb-0">
+          
+          <div className="product-table-container">
+            <table className="product-table table-hover w-100">
               <thead>
                 <tr>
-                  {/* WCAG: scope="col" for table headers */}
                   <th scope="col" className="ps-4" style={{width: '35%'}}>Product Name</th>
                   <th scope="col">Category</th>
                   <th scope="col">Brand</th>
@@ -268,33 +269,39 @@ const ProductPage = () => {
                       <tr key={p.product_id}>
                         <td className="ps-4">
                           <div className="d-flex align-items-center gap-3">
-                            <div className="product-thumbnail-container">
-                              {imgUrl ? (
-                                <img src={imgUrl} alt={p.name} onError={(e) => {e.target.style.display='none'; e.target.nextSibling.style.display='flex'}} />
-                              ) : null}
-                              <div className="placeholder-icon" style={{display: imgUrl ? 'none' : 'flex'}}>
-                                <CIcon icon={cilImage} className="text-secondary opacity-50"/>
-                              </div>
+                            {/* Thumbnail Logic */}
+                            {imgUrl ? (
+                              <img src={imgUrl} alt={p.name} className="table-thumbnail" onError={(e) => {e.target.style.display='none'; e.target.nextSibling.style.display='flex'}} />
+                            ) : null}
+                            
+                            <div className="placeholder-thumbnail" style={{display: imgUrl ? 'none' : 'flex'}}>
+                              <CIcon icon={cilImage} className="text-secondary opacity-50"/>
                             </div>
+                            
                             <div>
                               <div className="fw-bold text-dark">{p.name}</div>
                               <small className="text-muted">ID: {p.product_id}</small>
+                              {p.requires_serial && (
+                                <CBadge color="info" shape="rounded-pill" className="ms-2" style={{fontSize: '0.65rem'}}>
+                                  <CIcon icon={cilBarcode} size="sm" className="me-1"/> SN
+                                </CBadge>
+                              )}
                             </div>
                           </div>
                         </td>
                         <td><span className="badge bg-light text-dark border fw-normal">{p.category}</span></td>
                         <td>{p.brand}</td>
-                        <td className="fw-semibold text-brand-blue">₱{p.price?.toLocaleString()}</td>
+                        <td className="fw-bold text-primary">₱{p.price?.toLocaleString()}</td>
                         <td className="text-center">
-                          <CBadge color={p.status === 'Active' ? 'success' : 'secondary'} shape="rounded-pill">
+                          <span className={`status-badge ${p.status === 'Active' ? 'active' : 'inactive'}`}>
                             {p.status}
-                          </CBadge>
+                          </span>
                         </td>
                         <td className="text-end pe-4">
-                          <CButton size="sm" color="info" variant="ghost" onClick={() => handleEditProduct(p)} aria-label="Edit Product">
+                          <CButton size="sm" color="info" variant="ghost" onClick={() => handleEditProduct(p)} aria-label="Edit">
                             <CIcon icon={cilPencil} />
                           </CButton>
-                          <CButton size="sm" color="danger" variant="ghost" onClick={() => showMessage('Delete', 'Delete functionality placeholder', 'warning')} aria-label="Delete Product">
+                          <CButton size="sm" color="danger" variant="ghost" onClick={() => showMessage('Delete', 'Delete functionality placeholder', 'warning')} aria-label="Delete">
                             <CIcon icon={cilTrash} />
                           </CButton>
                         </td>
@@ -337,7 +344,7 @@ const ProductPage = () => {
         </CCardBody>
       </CCard>
 
-      {/* MODALS section remains the same... (Code shortened for brevity, keep your modal logic from previous file) */}
+      {/* MODALS */}
       <CModal visible={isModalOpen} onClose={() => setIsModalOpen(false)} size="lg" alignment="center">
         <CModalHeader><CModalTitle className="fw-bold">{isAddMode ? 'Add New Product' : 'Edit Product Details'}</CModalTitle></CModalHeader>
         <CModalBody>

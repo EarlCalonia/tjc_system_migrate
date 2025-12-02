@@ -1,79 +1,46 @@
-/* Settings Page Specific Styles */
-/* All layout, card, table, modal, and form styles are now in Admin.css */
+/* =================================================================== */
+/* SETTINGS PAGE STYLES */
+/* =================================================================== */
 
-.settings-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  align-items: start;
+/* --- TABS STYLING --- */
+.settings-tabs {
+  border-bottom: 1px solid var(--color-border);
 }
 
-@media (max-width: 992px) {
-  .settings-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.card .card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-/* Badges */
-.badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: 12px;
+.settings-tabs .nav-link {
+  color: var(--color-text-light);
   font-weight: 600;
-}
-.role-admin { background: #fee2e2; color: #b91c1c; }
-.role-driver { background: #dbeafe; color: #1d4ed8; }
-.role-staff { background: #dcfce7; color: #166534; }
-.status-active { background: #dcfce7; color: #166534; }
-.status-inactive { background: #fee2e2; color: #b91c1c; }
-
-/* Switch rows */
-.switch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--color-border-light);
-}
-.switch-row:last-child {
-  border-bottom: none;
-}
-.switch-row label {
-  color: var(--color-text-dark);
-  font-size: 14px;
-}
-
-/* Password inputs */
-.password-input {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.password-input input {
-  /* Inherits from .form-input */
-  flex: 1;
-  padding-right: 40px;
-}
-.password-input button {
-  position: absolute;
-  right: 1px;
-  top: 1px;
-  bottom: 1px;
-  height: 38px;
-  width: 38px;
+  padding: 12px 24px;
   border: none;
   background: transparent;
-  color: var(--color-text-light);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  transition: all 0.2s ease-in-out;
+  border-bottom: 3px solid transparent;
+  border-radius: 0; /* Square tabs sit better on lines */
+}
+
+.settings-tabs .nav-link:hover {
+  color: var(--brand-navy);
+  background-color: #f8f9fa;
+}
+
+.settings-tabs .nav-link.active {
+  color: var(--brand-blue);
+  background-color: transparent;
+  border-bottom: 3px solid var(--brand-blue);
+}
+
+/* --- CARD HEADER TWEAKS --- */
+.card-header h5 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+/* --- RESPONSIVE TWEAKS --- */
+@media (max-width: 768px) {
+  .settings-tabs .nav-link {
+    padding: 10px 15px;
+    font-size: 0.9rem;
+  }
 }

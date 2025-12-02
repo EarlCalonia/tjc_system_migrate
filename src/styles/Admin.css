@@ -346,3 +346,104 @@ a { text-decoration: none; }
 .status-badge.cancelled, .status-badge.out-of-stock {
   background-color: #fee2e2; color: #991b1b;
 }
+
+/* =================================================================== */
+/* ADMIN FOOTER STYLES */
+/* =================================================================== */
+
+.admin-footer {
+  background-color: #ffffff !important;
+  border: none !important; /* Reset default border */
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.03);
+  position: relative;
+  margin-top: auto; /* Pushes footer to bottom if content is short */
+  font-family: 'Inter', sans-serif;
+}
+
+/* The "Industrial" Accent Line on top */
+.admin-footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  /* Brand Gradient: Navy -> Blue -> Yellow */
+  background: linear-gradient(90deg, var(--brand-navy) 0%, var(--brand-blue) 60%, var(--brand-yellow) 100%);
+  z-index: 1;
+}
+
+.admin-footer a {
+  transition: color 0.2s;
+}
+
+.admin-footer a:hover span {
+  color: var(--brand-blue) !important;
+  text-decoration: underline;
+}
+
+/* =================================================================== */
+/* ADMIN HEADER STYLES (Command Center) */
+/* =================================================================== */
+
+/* The Admin Header Container */
+.app-header-brand {
+  background-color: #ffffff !important;
+  height: 70px; /* Fixed, authoritative height */
+  box-shadow: 0 4px 20px rgba(23, 51, 78, 0.08); /* Subtle Navy shadow */
+  z-index: 1020;
+  display: flex;
+  align-items: center;
+  
+  /* Top Accent Line (Brand Yellow) */
+  border-top: 4px solid var(--brand-yellow) !important;
+}
+
+/* Toggler Button (Hamburger) */
+.header-toggler-brand {
+  color: var(--brand-navy) !important;
+  transition: transform 0.2s;
+}
+.header-toggler-brand:hover {
+  transform: scale(1.1);
+  color: var(--brand-blue) !important;
+}
+.header-toggler-brand:focus {
+  box-shadow: none !important;
+}
+
+/* Context Text (Welcome & Date) */
+.header-context {
+  line-height: 1.2;
+}
+
+.welcome-text {
+  font-family: 'Oswald', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--brand-navy);
+  font-size: 1rem;
+  display: block;
+}
+
+.date-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  color: #6c757d; /* Muted text */
+  font-weight: 500;
+}
+
+/* Text Colors */
+.text-brand-blue { color: var(--brand-blue) !important; }
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .app-header-brand {
+    height: 60px;
+  }
+  /* Hide context on mobile to save space */
+  .header-context {
+    display: none !important; 
+  }
+}

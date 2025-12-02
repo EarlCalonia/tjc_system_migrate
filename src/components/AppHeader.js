@@ -4,75 +4,59 @@ import {
   CContainer,
   CHeader,
   CHeaderBrand,
-  CHeaderDivider,
   CHeaderNav,
   CHeaderToggler,
-  CNavItem,
-  CNavLink,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilMenu, cilBell, cilEnvelopeOpen, cilList } from '@coreui/icons'
+import { cilMenu } from '@coreui/icons'
 
-import { AppBreadcrumb } from './index'
 import { AppHeaderDropdown } from './header/index'
 import { logo } from 'src/assets/brand/logo'
+// DO NOT IMPORT Navbar.css HERE
 
 const AppHeader = () => {
   const dispatch = useDispatch()
   const sidebarShow = useSelector((state) => state.sidebarShow)
+  
+  // User Info
+  const username = localStorage.getItem('username') || 'Administrator'
+  const today = new Date().toLocaleDateString('en-US', { 
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+  })
 
   return (
-    // [FIX] Added 'app-header-brand' class for custom styling overlap prevention
-    // [FIX] Kept position="sticky" but we will enhance it in CSS
-    <CHeader position="sticky" className="mb-4 p-0 app-header-brand">
+    <CHeader position="sticky" className="mb-4 p-0 app-header-brand border-0">
       <CContainer fluid>
-        {/* Mobile Menu Toggler */}
-        <CHeaderToggler
-          className="ps-1"
-          onClick={() => dispatch({ type: 'set', sidebarShow: !sidebarShow })}
-        >
-          <CIcon icon={cilMenu} size="lg" className="text-brand-navy" />
-        </CHeaderToggler>
         
-        {/* Mobile Brand Logo */}
-        <CHeaderBrand className="mx-auto d-md-none" to="/">
-          <CIcon icon={logo} height={48} alt="Logo" />
-        </CHeaderBrand>
+        {/* LEFT: Toggler & Brand */}
+        <div className="d-flex align-items-center">
+          <CHeaderToggler
+            className="ps-1 border-0 header-toggler-brand"
+            onClick={() => dispatch({ type: 'set', sidebarShow: !sidebarShow })}
+          >
+            <CIcon icon={cilMenu} size="lg" />
+          </CHeaderToggler>
+          
+          <CHeaderBrand className="mx-auto d-md-none" to="/">
+            <CIcon icon={logo} height={48} alt="Logo" />
+          </CHeaderBrand>
+        </div>
 
-        {/* Desktop Header Navigation */}
-        <CHeaderNav className="d-none d-md-flex me-auto">
-           {/* Future Global Search or Quick Links */}
-        </CHeaderNav>
+        {/* CENTER: Welcome Context */}
+        <div className="d-none d-md-flex flex-column ms-3 header-context">
+           <span className="welcome-text">
+             Welcome back, <span className="text-brand-blue">{username}</span>
+           </span>
+           <span className="date-text">
+             {today}
+           </span>
+        </div>
 
-        {/* Right Side Icons */}
-        <CHeaderNav className="header-actions">
-          <CNavItem>
-            <CNavLink href="#">
-              <CIcon icon={cilBell} size="lg" />
-            </CNavLink>
-          </CNavItem>
-          <CNavItem>
-            <CNavLink href="#">
-              <CIcon icon={cilList} size="lg" />
-            </CNavLink>
-          </CNavItem>
-          <CNavItem>
-            <CNavLink href="#">
-              <CIcon icon={cilEnvelopeOpen} size="lg" />
-            </CNavLink>
-          </CNavItem>
-        </CHeaderNav>
-        
-        {/* User Profile Dropdown */}
-        <CHeaderNav className="ms-3">
+        {/* RIGHT: User Profile */}
+        <CHeaderNav className="ms-auto">
           <AppHeaderDropdown />
         </CHeaderNav>
-      </CContainer>
-      
-      {/* Breadcrumbs Divider */}
-      <CHeaderDivider />
-      <CContainer fluid className="pb-2">
-        <AppBreadcrumb />
+
       </CContainer>
     </CHeader>
   )

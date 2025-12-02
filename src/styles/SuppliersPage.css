@@ -1,0 +1,61 @@
+/* =================================================================== */
+/* SETTINGS PAGE STYLES (WCAG & Branding Compliant) */
+/* =================================================================== */
+
+/* --- TABS NAVIGATION --- */
+.settings-tabs {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-tabs .nav-link {
+  color: var(--color-text-light); /* Muted text for inactive */
+  font-weight: 600;
+  padding: 12px 24px;
+  border: none;
+  background: transparent;
+  transition: all 0.2s ease-in-out;
+  border-bottom: 3px solid transparent;
+  border-radius: 0; 
+  font-family: 'Inter', sans-serif;
+}
+
+.settings-tabs .nav-link:hover {
+  color: var(--brand-navy);
+  background-color: #f8f9fa;
+}
+
+.settings-tabs .nav-link.active {
+  color: var(--brand-blue);
+  background-color: transparent;
+  border-bottom: 3px solid var(--brand-blue);
+}
+
+/* --- FOCUS VISIBILITY (WCAG Requirement) --- */
+.settings-tabs .nav-link:focus-visible,
+.form-control:focus, 
+.form-select:focus,
+.btn-check:focus + .btn, 
+.btn:focus {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 2px;
+  box-shadow: none; /* Remove default shadow to keep focus clear */
+}
+
+/* --- SWITCH TOGGLES --- */
+.form-check-input:checked {
+  background-color: var(--brand-success, #28a745);
+  border-color: var(--brand-success, #28a745);
+}
+
+/* --- STATUS BADGES (Specific to User Table) --- */
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.status-badge.active { background-color: #d1fae5; color: #065f46; }
+.status-badge.inactive { background-color: #fee2e2; color: #991b1b; }
