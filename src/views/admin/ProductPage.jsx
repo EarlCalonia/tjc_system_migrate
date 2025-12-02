@@ -1,40 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  CContainer,
-  CRow,
-  CCol,
-  CCard,
-  CCardBody,
-  CButton,
-  CFormInput,
-  CFormSelect,
-  CFormLabel,
-  CFormTextarea,
-  CFormSwitch,
-  CModal,
-  CModalHeader,
-  CModalTitle,
-  CModalBody,
-  CModalFooter,
-  CInputGroup,
-  CInputGroupText,
-  CBadge,
-  CSpinner
+  CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormInput, CFormSelect,
+  CFormLabel, CFormTextarea, CFormSwitch, CModal, CModalHeader, CModalTitle,
+  CModalBody, CModalFooter, CBadge, CSpinner
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { 
-  cilMagnifyingGlass, 
-  cilPlus, 
-  cilPencil, 
-  cilTrash, 
-  cilImage, 
-  cilCloudUpload,
-  cilChevronLeft,
-  cilChevronRight,
-  cilBarcode
+  cilMagnifyingGlass, cilPlus, cilPencil, cilTrash, cilImage, 
+  cilCloudUpload, cilChevronLeft, cilChevronRight, cilBarcode
 } from '@coreui/icons'
 import { productAPI } from '../../utils/api'
 import { serialNumberAPI } from '../../utils/serialNumberApi'
+
+// [FIX] Import Global Brand Styles
+import '../../styles/App.css'
 import '../../styles/ProductPage.css' 
 
 const ASSET_URL = 'http://localhost:5000'
@@ -197,12 +176,13 @@ const ProductPage = () => {
     <CContainer fluid>
       <div className="mb-4 d-flex justify-content-between align-items-end">
         <div>
-          <h2 className="fw-bold text-brand-navy" style={{fontFamily: 'Oswald, sans-serif'}}>PRODUCT CATALOG</h2>
+          <h2 className="fw-bold text-brand-navy mb-0" style={{fontFamily: 'Oswald, sans-serif'}}>PRODUCT CATALOG</h2>
           <div className="text-medium-emphasis">Manage system products and pricing</div>
         </div>
-        <CButton color="primary" className="text-white fw-bold d-flex align-items-center" onClick={handleAddProduct}>
+        {/* [FIX] Branded Primary Button */}
+        <button className="btn-brand btn-brand-primary" onClick={handleAddProduct}>
           <CIcon icon={cilPlus} className="me-2" /> Add Product
-        </CButton>
+        </button>
       </div>
 
       {/* FILTERS */}
@@ -210,27 +190,36 @@ const ProductPage = () => {
         <CCardBody className="bg-light rounded p-3">
           <CRow className="g-3">
             <CCol md={3}>
-              <CInputGroup>
-                <CInputGroupText className="bg-white border-end-0"><CIcon icon={cilMagnifyingGlass} /></CInputGroupText>
-                <CFormInput className="border-start-0" placeholder="Search products..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} aria-label="Search" />
-              </CInputGroup>
+              {/* [FIX] Branded Search Bar */}
+              <div className="brand-search-wrapper w-100">
+                <span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass} /></span>
+                <input 
+                  type="text" 
+                  className="brand-search-input" 
+                  placeholder="Search products..." 
+                  value={searchQuery} 
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
             </CCol>
+            
+            {/* [FIX] Branded Dropdowns - Using Native <select> for perfect height match */}
             <CCol md={3}>
-              <CFormSelect value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} aria-label="Filter Category">
+              <select className="brand-select w-100" value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
                 <option>All Categories</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </CFormSelect>
+              </select>
             </CCol>
             <CCol md={3}>
-              <CFormSelect value={selectedBrand} onChange={e => setSelectedBrand(e.target.value)} aria-label="Filter Brand">
+              <select className="brand-select w-100" value={selectedBrand} onChange={e => setSelectedBrand(e.target.value)}>
                 <option>All Brand</option>
                 {brands.map(b => <option key={b} value={b}>{b}</option>)}
-              </CFormSelect>
+              </select>
             </CCol>
             <CCol md={3}>
-              <CFormSelect value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} aria-label="Filter Status">
+              <select className="brand-select w-100" value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
                 <option>All Status</option><option>Active</option><option>Inactive</option>
-              </CFormSelect>
+              </select>
             </CCol>
           </CRow>
         </CCardBody>
@@ -298,12 +287,15 @@ const ProductPage = () => {
                           </span>
                         </td>
                         <td className="text-end pe-4">
-                          <CButton size="sm" color="info" variant="ghost" onClick={() => handleEditProduct(p)} aria-label="Edit">
-                            <CIcon icon={cilPencil} />
-                          </CButton>
-                          <CButton size="sm" color="danger" variant="ghost" onClick={() => showMessage('Delete', 'Delete functionality placeholder', 'warning')} aria-label="Delete">
-                            <CIcon icon={cilTrash} />
-                          </CButton>
+                          <div className="d-flex justify-content-end gap-2">
+                            {/* [FIX] Small Branded Buttons inside Table */}
+                            <button className="btn-brand btn-brand-outline btn-brand-sm" onClick={() => handleEditProduct(p)} title="Edit">
+                              <CIcon icon={cilPencil} />
+                            </button>
+                            <button className="btn-brand btn-brand-danger btn-brand-sm" onClick={() => showMessage('Delete', 'Delete functionality placeholder', 'warning')} title="Delete">
+                              <CIcon icon={cilTrash} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -319,32 +311,28 @@ const ProductPage = () => {
               Showing {products.length} of {totalItems} items
             </span>
             <div className="d-flex gap-2 align-items-center">
-              <CButton 
-                size="sm" 
-                color="white"
-                className="border"
+              <button 
+                className="btn-brand btn-brand-outline btn-brand-sm"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               >
                 <CIcon icon={cilChevronLeft} /> Prev
-              </CButton>
+              </button>
               <span className="small fw-bold px-2">{currentPage} / {totalPages || 1}</span>
-              <CButton 
-                size="sm" 
-                color="white"
-                className="border"
+              <button 
+                className="btn-brand btn-brand-outline btn-brand-sm"
                 disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage(p => p + 1)}
               >
                 Next <CIcon icon={cilChevronRight} />
-              </CButton>
+              </button>
             </div>
           </div>
 
         </CCardBody>
       </CCard>
 
-      {/* MODALS */}
+      {/* MODALS (Retain CoreUI styles for Form Controls inside modal for now, or update if desired) */}
       <CModal visible={isModalOpen} onClose={() => setIsModalOpen(false)} size="lg" alignment="center">
         <CModalHeader><CModalTitle className="fw-bold">{isAddMode ? 'Add New Product' : 'Edit Product Details'}</CModalTitle></CModalHeader>
         <CModalBody>
@@ -373,8 +361,10 @@ const ProductPage = () => {
           </CRow>
         </CModalBody>
         <CModalFooter>
-          <CButton color="secondary" onClick={() => setIsModalOpen(false)}>Cancel</CButton>
-          <CButton color="primary" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? <CSpinner size="sm" /> : 'Save Product'}</CButton>
+          <button className="btn-brand btn-brand-outline" onClick={() => setIsModalOpen(false)}>Cancel</button>
+          <button className="btn-brand btn-brand-primary" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? <CSpinner size="sm" /> : 'Save Product'}
+          </button>
         </CModalFooter>
       </CModal>
 

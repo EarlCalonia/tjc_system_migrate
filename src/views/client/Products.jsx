@@ -100,6 +100,7 @@ const Products = () => {
 
     const handleGetDirections = () => {
       const address = "Gen Hizon Ext, Santa Lucia, City of San Fernando, Pampanga";
+      // Fixed URL string interpolation
       window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank');
     };
 
@@ -197,7 +198,6 @@ const Products = () => {
         style={{ backgroundImage: `url(${bg})` }}
       >
         <div className="hero-content">
-          {/* --- UPDATED TEXT --- */}
           <h1>Premium Quality Repairs on a Budget.</h1>
           <p>Your trusted shop for Original Japan & Korean Surplus Parts.</p>
           

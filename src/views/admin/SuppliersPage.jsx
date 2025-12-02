@@ -1,41 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  CContainer,
-  CRow,
-  CCol,
-  CCard,
-  CCardBody,
-  CButton,
-  CFormInput,
-  CModal,
-  CModalHeader,
-  CModalTitle,
-  CModalBody,
-  CModalFooter,
-  CInputGroup,
-  CInputGroupText,
-  CSpinner,
-  CFormLabel,
-  CTooltip
+  CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormInput, CModal,
+  CModalHeader, CModalTitle, CModalBody, CModalFooter, CSpinner, CFormLabel, CTooltip
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { 
-  cilMagnifyingGlass, 
-  cilUserPlus, 
-  cilPencil, 
-  cilTrash, 
-  cilTruck,
-  cilPhone,
-  cilEnvelopeClosed,
-  cilLocationPin,
-  cilReload,
-  cilAddressBook,
-  cilCheckCircle,
-  cilWarning
+  cilMagnifyingGlass, cilUserPlus, cilPencil, cilTrash, cilTruck, cilPhone,
+  cilEnvelopeClosed, cilLocationPin, cilReload, cilAddressBook, cilCheckCircle, cilWarning
 } from '@coreui/icons'
 import { suppliersAPI } from '../../utils/api'
-import '../../styles/Admin.css'           // Global Layout & Table Styles
-import '../../styles/SuppliersPage.css'   // New Micro-interactions (Icon hover, spacing)
+
+// [FIX] Import Global Brand Styles
+import '../../styles/Admin.css'
+import '../../styles/App.css' 
+import '../../styles/SuppliersPage.css'
 
 const SuppliersPage = () => {
   // --- STATE ---
@@ -48,12 +26,7 @@ const SuppliersPage = () => {
   const [modalVisible, setModalVisible] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [selectedSupplier, setSelectedSupplier] = useState({
-    id: null,
-    name: '',
-    contact_person: '',
-    email: '',
-    contact_number: '',
-    address: ''
+    id: null, name: '', contact_person: '', email: '', contact_number: '', address: ''
   })
   
   const [msgModal, setMsgModal] = useState({ visible: false, title: '', message: '', color: 'info', onConfirm: null })
@@ -174,28 +147,41 @@ const SuppliersPage = () => {
           <h2 className="fw-bold text-brand-navy mb-0" style={{fontFamily: 'Oswald, sans-serif'}}>SUPPLIER NETWORK</h2>
           <div className="text-muted small">Manage vendors and supply chain partners</div>
         </div>
-        <CButton color="primary" className="text-white fw-bold d-flex align-items-center px-4" onClick={handleAdd}>
+        {/* [FIX] Branded Primary Button */}
+        <button className="btn-brand btn-brand-primary" onClick={handleAdd}>
           <CIcon icon={cilUserPlus} className="me-2" /> Add Supplier
-        </CButton>
+        </button>
       </div>
 
       {/* TOOLBAR */}
       <CCard className="border-0 shadow-sm mb-4">
         <CCardBody className="bg-light rounded p-3">
           <div className="d-flex gap-2 align-items-center">
-             <CInputGroup style={{maxWidth: '350px'}}>
-                <CInputGroupText className="bg-white border-end-0 text-muted"><CIcon icon={cilMagnifyingGlass}/></CInputGroupText>
-                <CFormInput 
-                  className="border-start-0" 
+             {/* [FIX] Branded Search Bar */}
+             <div className="brand-search-wrapper" style={{maxWidth: '350px'}}>
+                <span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass}/></span>
+                <input 
+                  type="text" 
+                  className="brand-search-input" 
                   placeholder="Search suppliers..." 
                   value={searchQuery} 
                   onChange={e => setSearchQuery(e.target.value)} 
                 />
-             </CInputGroup>
+             </div>
+
              <div className="vr mx-2"></div>
-             <CButton color="light" className="border" onClick={fetchSuppliers} disabled={loading}>
+             
+             {/* [FIX] Branded Outline Button (Icon Only variant logic) */}
+             <button 
+                className="btn-brand btn-brand-outline" 
+                onClick={fetchSuppliers} 
+                disabled={loading}
+                style={{width: '45px', padding: 0}} // Square button for icon
+                title="Reload"
+             >
                <CIcon icon={cilReload} spin={loading || undefined} />
-             </CButton>
+             </button>
+
              <span className="ms-auto text-muted small fw-bold">
                 {filteredSuppliers.length} Partners Active
              </span>
@@ -232,18 +218,12 @@ const SuppliersPage = () => {
                           <div className="fw-bold text-brand-navy">{supplier.supplier_name}</div>
                           <small className="text-muted" style={{fontSize: '0.75rem'}}>ID: {supplier.id || supplier.supplier_id}</small>
                        </td>
-                       
-                       {/* Uses 'icon-circle' from SuppliersPage.css */}
                        <td>
                          <div className="d-flex align-items-center">
-                           <div className="icon-circle me-3">
-                             <CIcon icon={cilAddressBook} size="sm"/>
-                           </div>
+                           <div className="icon-circle me-3"><CIcon icon={cilAddressBook} size="sm"/></div>
                            <span className="fw-semibold text-dark">{supplier.contact_person || 'N/A'}</span>
                          </div>
                        </td>
-
-                       {/* Uses 'contact-info-row' from SuppliersPage.css */}
                        <td>
                          <div className="d-flex flex-column">
                            <div className="contact-info-row">
@@ -256,22 +236,21 @@ const SuppliersPage = () => {
                            </div>
                          </div>
                        </td>
-
                        <td>
                          <div className="d-flex align-items-start contact-info-row">
                            <CIcon icon={cilLocationPin} className="me-2 mt-1 text-danger"/>
                            <span className="text-truncate" style={{maxWidth: '200px'}} title={supplier.address}>{supplier.address || 'No Address'}</span>
                          </div>
                        </td>
-
                        <td className="text-end pe-4">
                           <div className="action-btn-group">
-                            <CTooltip content="Edit Details">
-                              <CButton size="sm" color="info" variant="ghost" onClick={() => handleEdit(supplier)}><CIcon icon={cilPencil}/></CButton>
-                            </CTooltip>
-                            <CTooltip content="Remove Supplier">
-                              <CButton size="sm" color="danger" variant="ghost" onClick={() => handleDelete(supplier.id || supplier.supplier_id)}><CIcon icon={cilTrash}/></CButton>
-                            </CTooltip>
+                            {/* [FIX] Branded Small Buttons */}
+                            <button className="btn-brand btn-brand-outline btn-brand-sm" onClick={() => handleEdit(supplier)} title="Edit">
+                              <CIcon icon={cilPencil}/>
+                            </button>
+                            <button className="btn-brand btn-brand-danger btn-brand-sm" onClick={() => handleDelete(supplier.id || supplier.supplier_id)} title="Delete">
+                              <CIcon icon={cilTrash}/>
+                            </button>
                           </div>
                        </td>
                      </tr>
@@ -283,53 +262,31 @@ const SuppliersPage = () => {
         </CCardBody>
       </CCard>
 
-      {/* EDIT/ADD MODAL */}
+      {/* MODAL (Using Branded buttons in footer) */}
       <CModal visible={modalVisible} onClose={() => setModalVisible(false)} alignment="center" backdrop="static">
         <CModalHeader><CModalTitle className="fw-bold">{isEditMode ? 'Update Supplier' : 'Onboard New Supplier'}</CModalTitle></CModalHeader>
         <CModalBody>
-           <div className="mb-3">
-              <CFormLabel className="small text-muted fw-bold text-uppercase">Company Name <span className="text-danger">*</span></CFormLabel>
-              <CFormInput value={selectedSupplier.name} onChange={e => setSelectedSupplier({...selectedSupplier, name: e.target.value})} placeholder="e.g., Acme Logistics Inc." />
-           </div>
+           <div className="mb-3"><CFormLabel>Company Name <span className="text-danger">*</span></CFormLabel><CFormInput value={selectedSupplier.name} onChange={e => setSelectedSupplier({...selectedSupplier, name: e.target.value})} /></div>
            <CRow className="mb-3">
-              <CCol md={6}>
-                 <CFormLabel className="small text-muted fw-bold text-uppercase">Contact Person</CFormLabel>
-                 <CFormInput value={selectedSupplier.contact_person} onChange={e => setSelectedSupplier({...selectedSupplier, contact_person: e.target.value})} placeholder="e.g., John Doe" />
-              </CCol>
-              <CCol md={6}>
-                 <CFormLabel className="small text-muted fw-bold text-uppercase">Phone Number</CFormLabel>
-                 <CFormInput value={selectedSupplier.contact_number} onChange={e => setSelectedSupplier({...selectedSupplier, contact_number: e.target.value})} placeholder="0912 345 6789" />
-              </CCol>
+              <CCol md={6}><CFormLabel>Contact Person</CFormLabel><CFormInput value={selectedSupplier.contact_person} onChange={e => setSelectedSupplier({...selectedSupplier, contact_person: e.target.value})} /></CCol>
+              <CCol md={6}><CFormLabel>Phone Number</CFormLabel><CFormInput value={selectedSupplier.contact_number} onChange={e => setSelectedSupplier({...selectedSupplier, contact_number: e.target.value})} /></CCol>
            </CRow>
-           <div className="mb-3">
-              <CFormLabel className="small text-muted fw-bold text-uppercase">Email Address</CFormLabel>
-              <CFormInput type="email" value={selectedSupplier.email} onChange={e => setSelectedSupplier({...selectedSupplier, email: e.target.value})} placeholder="contact@supplier.com" />
-           </div>
-           <div className="mb-3">
-              <CFormLabel className="small text-muted fw-bold text-uppercase">Office Address</CFormLabel>
-              <CFormInput value={selectedSupplier.address} onChange={e => setSelectedSupplier({...selectedSupplier, address: e.target.value})} placeholder="Full business address" />
-           </div>
+           <div className="mb-3"><CFormLabel>Email Address</CFormLabel><CFormInput type="email" value={selectedSupplier.email} onChange={e => setSelectedSupplier({...selectedSupplier, email: e.target.value})} /></div>
+           <div className="mb-3"><CFormLabel>Office Address</CFormLabel><CFormInput value={selectedSupplier.address} onChange={e => setSelectedSupplier({...selectedSupplier, address: e.target.value})} /></div>
         </CModalBody>
         <CModalFooter className="bg-light border-top-0">
-          <CButton color="secondary" variant="ghost" onClick={() => setModalVisible(false)}>Cancel</CButton>
-          <CButton color="primary" onClick={handleSubmit} disabled={submitting}>
+          <button className="btn-brand btn-brand-outline" onClick={() => setModalVisible(false)}>Cancel</button>
+          <button className="btn-brand btn-brand-primary" onClick={handleSubmit} disabled={submitting}>
             {submitting ? <CSpinner size="sm" component="span" aria-hidden="true"/> : (isEditMode ? 'Save Changes' : 'Create Supplier')}
-          </CButton>
+          </button>
         </CModalFooter>
       </CModal>
 
-      {/* MESSAGE MODAL */}
+      {/* Message Modal */}
       <CModal visible={msgModal.visible} onClose={closeMsgModal} alignment="center">
         <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
-        <CModalBody className="p-4 text-center">
-           {msgModal.color === 'warning' && <CIcon icon={cilWarning} size="4xl" className="text-warning mb-3"/>}
-           {msgModal.color === 'success' && <CIcon icon={cilCheckCircle} size="4xl" className="text-success mb-3"/>}
-           <div className="fs-5">{msgModal.message}</div>
-        </CModalBody>
-        <CModalFooter className="justify-content-center">
-          <CButton color="secondary" onClick={closeMsgModal}>Close</CButton>
-          {msgModal.onConfirm && <CButton color={msgModal.color} className="text-white" onClick={msgModal.onConfirm}>Confirm</CButton>}
-        </CModalFooter>
+        <CModalBody className="p-4 text-center"><div className="fs-5">{msgModal.message}</div></CModalBody>
+        <CModalFooter className="justify-content-center"><CButton color="secondary" onClick={closeMsgModal}>Close</CButton>{msgModal.onConfirm && <CButton color={msgModal.color} className="text-white" onClick={msgModal.onConfirm}>Confirm</CButton>}</CModalFooter>
       </CModal>
     </CContainer>
   )

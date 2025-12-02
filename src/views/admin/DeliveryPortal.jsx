@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CContainer,
-  CRow,
-  CCol,
   CCard,
   CCardBody,
   CCardHeader,
@@ -23,19 +21,17 @@ import {
   CModalBody,
   CModalFooter,
   CBadge,
-  CInputGroup,
-  CInputGroupText,
   CNavbar,
   CNavbarBrand,
   CNavbarNav,
-  CNavItem,
   CAvatar,
   CSpinner,
+  CRow,
+  CCol
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
   cilSearch,
-  cilTruck,
   cilUser,
   cilAccountLogout,
   cilCheckCircle,
@@ -46,6 +42,9 @@ import tcjLogo from '../../assets/tcj_logo.png'
 import { salesAPI } from '../../utils/api'
 import { serialNumberAPI } from '../../utils/serialNumberApi'
 
+// [FIX] Global Styles
+import '../../styles/App.css'
+
 const DeliveryPortal = () => {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
@@ -54,11 +53,9 @@ const DeliveryPortal = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  // Rider Info
   const riderName = localStorage.getItem('username') || localStorage.getItem('userEmail') || 'Rider'
   const riderAvatar = localStorage.getItem('avatar')
 
-  // Modals & Selection
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false)
@@ -132,7 +129,7 @@ const DeliveryPortal = () => {
   }
 
   const handleLogout = () => {
-    localStorage.clear() // Or remove specific keys
+    localStorage.clear()
     navigate('/admin/login')
   }
 
@@ -181,7 +178,6 @@ const DeliveryPortal = () => {
     }
   }
 
-  // Filtering & Pagination
   const filteredOrders = useMemo(() => {
     const s = searchTerm.toLowerCase()
     return orders.filter(
@@ -196,7 +192,6 @@ const DeliveryPortal = () => {
   const startIndex = (currentPage - 1) * ordersPerPage
   const currentOrders = filteredOrders.slice(startIndex, startIndex + ordersPerPage)
 
-  // --- RENDER ---
   return (
     <div className="min-vh-100 bg-light">
       {/* NAVBAR */}
@@ -232,15 +227,17 @@ const DeliveryPortal = () => {
                 <h4 className="mb-0">My Delivery Orders</h4>
                 <small className="text-medium-emphasis">Manage assigned deliveries</small>
               </div>
-              <div style={{ width: '300px', maxWidth: '100%' }}>
-                <CInputGroup>
-                  <CInputGroupText><CIcon icon={cilSearch} /></CInputGroupText>
-                  <CFormInput 
+              
+              {/* [FIX] Branded Search Bar */}
+              <div className="brand-search-wrapper" style={{ width: '300px', maxWidth: '100%' }}>
+                  <span className="brand-search-icon"><CIcon icon={cilSearch}/></span>
+                  <input 
+                    type="text" 
+                    className="brand-search-input" 
                     placeholder="Search orders..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
                   />
-                </CInputGroup>
               </div>
             </div>
           </CCardHeader>
@@ -297,6 +294,7 @@ const DeliveryPortal = () => {
                          </CFormSelect>
                       </CTableDataCell>
                       <CTableDataCell className="text-end">
+                         {/* [FIX] Standardized Action Buttons */}
                          <CButton 
                             size="sm" 
                             color="info" 
@@ -377,6 +375,7 @@ const DeliveryPortal = () => {
         </CModalBody>
         <CModalFooter>
            <CButton color="secondary" onClick={() => setIsCompleteModalOpen(false)}>Cancel</CButton>
+           {/* [FIX] Success Button */}
            <CButton color="success" className="text-white" onClick={handleCompleteDelivery} disabled={uploadingProof || !deliveryProof}>
              {uploadingProof ? <CSpinner size="sm" /> : <><CIcon icon={cilCloudUpload} /> Upload & Complete</>}
            </CButton>

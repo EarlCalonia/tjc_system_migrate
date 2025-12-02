@@ -6,12 +6,6 @@ import {
   CCard,
   CCardBody,
   CCardHeader,
-  CTable,
-  CTableHead,
-  CTableRow,
-  CTableHeaderCell,
-  CTableBody,
-  CTableDataCell,
   CButton,
   CForm,
   CFormInput,
@@ -28,27 +22,17 @@ import {
   CNavItem,
   CNavLink,
   CSpinner,
-  CInputGroup,
-  CInputGroupText,
   CTooltip
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { 
-  cilPlus, 
-  cilPencil, 
-  cilUser, 
-  cilLockLocked, 
-  cilSettings, 
-  cilBuilding,
-  cilSave,
-  cilCreditCard,
-  cilSearch,
-  cilPeople,
-  cilMoney,
-  cilWarning
+  cilPlus, cilPencil, cilLockLocked, cilSettings, cilBuilding,
+  cilSave, cilCreditCard, cilSearch, cilPeople, cilMoney, cilWarning
 } from '@coreui/icons'
 import { settingsAPI, usersAPI, authAPI } from '../../utils/api'
-// Use global styles
+
+// [FIX] Import Global Brand Styles
+import '../../styles/App.css'
 import '../../styles/Admin.css'
 import '../../styles/SettingsPage.css'
 
@@ -83,14 +67,14 @@ const SettingsPage = () => {
   const [formPassword, setFormPassword] = useState('')
   const [formRole, setFormRole] = useState('staff')
   const [formStatus, setFormStatus] = useState('Active')
-  const [formAvatar, setFormAvatar] = useState(null) // New Avatar State
+  const [formAvatar, setFormAvatar] = useState(null)
   
   // Password Reset
   const [pwd, setPwd] = useState({ current: '', next: '', confirm: '' })
   const [savingPwd, setSavingPwd] = useState(false)
   
   const isAdmin = useMemo(() => localStorage.getItem('userRole') === 'admin', [])
-  const currentUserId = localStorage.getItem('userId') // Get logged in ID
+  const currentUserId = localStorage.getItem('userId')
 
   const [msgModal, setMsgModal] = useState({ visible: false, title: '', message: '', color: 'info' })
 
@@ -165,7 +149,6 @@ const SettingsPage = () => {
     if (!formUsername || !formFirstName || !formLastName) return showMessage('Validation', 'Please fill in required fields', 'warning')
     setSavingUser(true)
     try {
-        // Use FormData to handle file upload if avatar is present
         const formData = new FormData()
         formData.append('username', formUsername)
         formData.append('first_name', formFirstName)
@@ -179,15 +162,10 @@ const SettingsPage = () => {
         let response;
         if (editUser) {
              response = await usersAPI.update(editUser.id, formData)
-             
-             // --- FIX: Update LocalStorage if editing CURRENT user ---
-             // We compare IDs loosely (string vs number safe)
              if (String(editUser.id) === String(currentUserId)) {
                  const updatedUser = response.data
                  if (updatedUser.avatar) localStorage.setItem('userAvatar', updatedUser.avatar)
-                 if (updatedUser.first_name) localStorage.setItem('username', updatedUser.first_name) // Or whatever display name you use
-                 
-                 // Dispatch event so Navbar updates immediately
+                 if (updatedUser.first_name) localStorage.setItem('username', updatedUser.first_name)
                  window.dispatchEvent(new Event('userUpdated'))
              }
         }
@@ -208,7 +186,7 @@ const SettingsPage = () => {
     
     setSavingPwd(true)
     try {
-      await authAPI.changePassword(userId, pwd.current, pwd.next)
+      await authAPI.changePassword(currentUserId, pwd.current, pwd.next)
       showMessage('Success', 'Your password has been updated. Please re-login.', 'success')
       setPwd({ current: '', next: '', confirm: '' })
     } catch (e) { showMessage('Error', e.message || 'Failed to update password.', 'danger') }
@@ -233,7 +211,6 @@ const SettingsPage = () => {
         <div className="text-muted small">Manage global store settings, user access, and security.</div>
       </div>
 
-      {/* ACCESSIBLE TABS */}
       <CNav variant="tabs" className="settings-tabs mb-4" role="tablist">
         <CNavItem role="presentation">
           <CNavLink 
@@ -241,8 +218,6 @@ const SettingsPage = () => {
             onClick={() => setActiveTab('general')}
             component="button"
             role="tab"
-            aria-selected={activeTab === 'general'}
-            tabIndex={activeTab === 'general' ? 0 : -1}
           >
             <CIcon icon={cilBuilding} className="me-2"/>General & Preferences
           </CNavLink>
@@ -254,7 +229,6 @@ const SettingsPage = () => {
                 onClick={() => setActiveTab('users')}
                 component="button"
                 role="tab"
-                aria-selected={activeTab === 'users'}
             >
               <CIcon icon={cilPeople} className="me-2"/>User Management
             </CNavLink>
@@ -266,7 +240,6 @@ const SettingsPage = () => {
             onClick={() => setActiveTab('security')}
             component="button"
             role="tab"
-            aria-selected={activeTab === 'security'}
           >
             <CIcon icon={cilLockLocked} className="me-2"/>Security
           </CNavLink>
@@ -285,19 +258,19 @@ const SettingsPage = () => {
                 <CForm className="row g-3">
                   <CCol md={12}>
                     <CFormLabel htmlFor="storeName" className="fw-bold text-muted small">Store Name</CFormLabel>
-                    <CFormInput id="storeName" value={storeName} onChange={e => setStoreName(e.target.value)} placeholder="e.g., Tech Junction Inc." />
+                    <CFormInput id="storeName" value={storeName} onChange={e => setStoreName(e.target.value)} />
                   </CCol>
                   <CCol md={12}>
                     <CFormLabel htmlFor="bizAddress" className="fw-bold text-muted small">Business Address</CFormLabel>
-                    <CFormInput id="bizAddress" value={bizAddress} onChange={e => setBizAddress(e.target.value)} placeholder="Full Street Address" />
+                    <CFormInput id="bizAddress" value={bizAddress} onChange={e => setBizAddress(e.target.value)} />
                   </CCol>
                   <CCol md={6}>
                     <CFormLabel htmlFor="bizContact" className="fw-bold text-muted small">Contact Number</CFormLabel>
-                    <CFormInput id="bizContact" value={bizContact} onChange={e => setBizContact(e.target.value)} placeholder="Phone / Mobile" />
+                    <CFormInput id="bizContact" value={bizContact} onChange={e => setBizContact(e.target.value)} />
                   </CCol>
                   <CCol md={6}>
                     <CFormLabel htmlFor="bizEmail" className="fw-bold text-muted small">Email Address</CFormLabel>
-                    <CFormInput id="bizEmail" value={bizEmail} onChange={e => setBizEmail(e.target.value)} placeholder="support@example.com" />
+                    <CFormInput id="bizEmail" value={bizEmail} onChange={e => setBizEmail(e.target.value)} />
                   </CCol>
                 </CForm>
               </CCardBody>
@@ -310,24 +283,25 @@ const SettingsPage = () => {
                    <h5 className="mb-0 fw-bold text-brand-navy">Payment Gateways</h5>
                 </CCardHeader>
                 <CCardBody className="p-4">
-                   <p className="text-muted small mb-3">Toggle the payment options available at the Point of Sale.</p>
+                   <p className="text-muted small mb-3">Toggle available payment options.</p>
                    <div className="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
                       <div className="d-flex align-items-center"><CIcon icon={cilMoney} className="me-2 text-success"/> Cash Payment</div>
-                      <CFormSwitch id="switchCash" checked={cashEnabled} onChange={e => setCashEnabled(e.target.checked)} label="On/Off"/>
+                      <CFormSwitch id="switchCash" checked={cashEnabled} onChange={e => setCashEnabled(e.target.checked)}/>
                    </div>
                    <div className="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
                       <div className="d-flex align-items-center"><CIcon icon={cilCreditCard} className="me-2 text-primary"/> GCash / E-Wallet</div>
-                      <CFormSwitch id="switchGcash" checked={gcashEnabled} onChange={e => setGcashEnabled(e.target.checked)} label="On/Off"/>
+                      <CFormSwitch id="switchGcash" checked={gcashEnabled} onChange={e => setGcashEnabled(e.target.checked)}/>
                    </div>
                    <div className="d-flex justify-content-between align-items-center">
                       <div className="d-flex align-items-center"><CIcon icon={cilSettings} className="me-2 text-warning"/> Cash on Delivery</div>
-                      <CFormSwitch id="switchCod" checked={codEnabled} onChange={e => setCodEnabled(e.target.checked)} label="On/Off"/>
+                      <CFormSwitch id="switchCod" checked={codEnabled} onChange={e => setCodEnabled(e.target.checked)}/>
                    </div>
                 </CCardBody>
              </CCard>
              
              <div className="d-grid">
-                <CButton color="primary" size="lg" onClick={saveGeneralSettings} disabled={savingBiz}>
+                {/* [FIX] Success Color for "Save" (Positive Action) */}
+                <CButton color="success" className="text-white" size="lg" onClick={saveGeneralSettings} disabled={savingBiz}>
                   {savingBiz ? <CSpinner size="sm" variant="grow"/> : <><CIcon icon={cilSave} className="me-2"/> Save All Settings</>}
                 </CButton>
              </div>
@@ -339,12 +313,19 @@ const SettingsPage = () => {
       {activeTab === 'users' && isAdmin && (
         <CCard className="shadow-sm border-0">
            <CCardHeader className="bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
-              <div className="d-flex gap-2 align-items-center w-50">
-                 <CInputGroup size="sm">
-                    <CInputGroupText className="bg-light border-end-0"><CIcon icon={cilSearch}/></CInputGroupText>
-                    <CFormInput className="border-start-0" placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} aria-label="Search Users" />
-                 </CInputGroup>
+              {/* [FIX] Branded Search */}
+              <div className="brand-search-wrapper" style={{maxWidth: '300px'}}>
+                  <span className="brand-search-icon"><CIcon icon={cilSearch}/></span>
+                  <input 
+                    type="text" 
+                    className="brand-search-input" 
+                    placeholder="Search users..." 
+                    value={userSearch} 
+                    onChange={e => setUserSearch(e.target.value)} 
+                  />
               </div>
+              
+              {/* [FIX] Primary Action */}
               <CButton color="primary" className="text-white fw-bold" onClick={openAddUser}>
                   <CIcon icon={cilPlus} className="me-2"/> Add New User
               </CButton>
@@ -383,8 +364,8 @@ const SettingsPage = () => {
                              </td>
                              <td className="text-end pe-4">
                                 <CTooltip content="Edit User">
-                                  <CButton size="sm" color="light" onClick={() => openEditUser(u)} aria-label={`Edit ${u.username}`}>
-                                     <CIcon icon={cilPencil} className="text-info"/>
+                                  <CButton size="sm" color="info" variant="ghost" onClick={() => openEditUser(u)}>
+                                     <CIcon icon={cilPencil}/>
                                   </CButton>
                                 </CTooltip>
                              </td>
@@ -422,7 +403,8 @@ const SettingsPage = () => {
                           {pwd.next !== pwd.confirm && pwd.confirm.length > 0 && <div className="text-danger small mt-1">Passwords do not match</div>}
                        </div>
                        <div className="d-grid">
-                          <CButton color="danger" onClick={savePassword} disabled={savingPwd}>
+                          {/* [FIX] Danger Color for Security Action */}
+                          <CButton color="danger" className="text-white" onClick={savePassword} disabled={savingPwd}>
                              {savingPwd ? <CSpinner size="sm" variant="grow"/> : 'Update Password'}
                           </CButton>
                        </div>
@@ -438,7 +420,6 @@ const SettingsPage = () => {
         <CModalHeader><CModalTitle>{editUser ? 'Edit User Account' : 'Create New User'}</CModalTitle></CModalHeader>
         <CModalBody>
            <CRow className="g-3">
-             {/* Added Avatar Upload Input */}
              <CCol md={12} className="text-center mb-3">
                <div className="p-3 border rounded bg-light d-inline-block">
                  <label className="form-label fw-bold small text-muted">Profile Picture</label>
@@ -488,13 +469,10 @@ const SettingsPage = () => {
           <CButton color="primary" onClick={handleUserSubmit} disabled={savingUser}>{savingUser ? <CSpinner size="sm"/> : 'Save User'}</CButton>
         </CModalFooter>
       </CModal>
-
-      {/* MSG MODAL */}
+      
       <CModal visible={msgModal.visible} onClose={() => setMsgModal({...msgModal, visible: false})} alignment="center">
         <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
         <CModalBody className="p-4 text-center">
-             {msgModal.color === 'success' && <CIcon icon={cilPeople} size="4xl" className="text-success mb-3"/>}
-             {msgModal.color === 'danger' && <CIcon icon={cilWarning} size="4xl" className="text-danger mb-3"/>}
              <div className="fs-5">{msgModal.message}</div>
         </CModalBody>
         <CModalFooter className="justify-content-center">

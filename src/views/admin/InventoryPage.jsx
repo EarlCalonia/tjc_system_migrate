@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react'
 import {
-  CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormInput, CFormSelect, CFormLabel,
-  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter, CInputGroup, CInputGroupText, CWidgetStatsF, CSpinner
+  CContainer, CRow, CCol, CCard, CCardBody, CFormInput, CFormSelect, CFormLabel,
+  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter, CWidgetStatsF, CSpinner
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
   cilMagnifyingGlass, cilPencil, cilInbox, cilCheckCircle, cilWarning, cilXCircle, cilList, cilPlus, cilImage
 } from '@coreui/icons'
 import { inventoryAPI, serialNumberAPI, suppliersAPI } from '../../utils/api'
-// Removed InventoryPage.css import as we now use Global Admin styles
+
+// [FIX] Import Global Brand Styles
+import '../../styles/Admin.css'
+import '../../styles/App.css' 
 
 const ASSET_URL = 'http://localhost:5000'
 
@@ -114,21 +117,50 @@ const InventoryPage = () => {
         <CCardBody className="p-0">
           <div className="p-4 bg-white border-bottom d-flex flex-wrap gap-3 align-items-center justify-content-between">
              <div className="d-flex gap-2 flex-grow-1 flex-wrap" style={{maxWidth: '800px'}}>
-                <CInputGroup style={{maxWidth: '350px'}}>
-                  <CInputGroupText className="bg-light border-end-0"><CIcon icon={cilMagnifyingGlass} /></CInputGroupText>
-                  <CFormInput className="border-start-0 ps-0" placeholder="Search products..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                </CInputGroup>
-                <CFormSelect style={{maxWidth: '200px'}} value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-                  <option value="All">All Categories</option>{[...new Set(products.map(p => p.category))].map(c => <option key={c} value={c}>{c}</option>)}
-                </CFormSelect>
-                <CFormSelect style={{maxWidth: '200px'}} value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
-                  <option value="All">All Status</option><option value="In Stock">In Stock</option><option value="Low on Stock">Low Stock</option><option value="Out of Stock">Out of Stock</option>
-                </CFormSelect>
+                
+                {/* [FIX] Branded Search */}
+                <div className="brand-search-wrapper" style={{maxWidth: '350px'}}>
+                  <span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass} /></span>
+                  <input 
+                    type="text" 
+                    className="brand-search-input" 
+                    placeholder="Search products..." 
+                    value={searchQuery} 
+                    onChange={(e) => setSearchQuery(e.target.value)} 
+                  />
+                </div>
+
+                {/* [FIX] Branded Dropdowns */}
+                <select 
+                  className="brand-select" 
+                  style={{maxWidth: '200px'}} 
+                  value={selectedCategory} 
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                >
+                  <option value="All">All Categories</option>
+                  {[...new Set(products.map(p => p.category))].map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+
+                <select 
+                  className="brand-select" 
+                  style={{maxWidth: '200px'}} 
+                  value={selectedStatus} 
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                >
+                  <option value="All">All Status</option>
+                  <option value="In Stock">In Stock</option>
+                  <option value="Low on Stock">Low Stock</option>
+                  <option value="Out of Stock">Out of Stock</option>
+                </select>
              </div>
-             <CButton color="success" className="text-white fw-bold d-flex align-items-center px-4 py-2 shadow-sm"><CIcon icon={cilPlus} className="me-2"/> Bulk Stock In</CButton>
+             
+             {/* [FIX] Branded Button */}
+             <button className="btn-brand btn-brand-accent">
+                <CIcon icon={cilPlus} className="me-2"/> Bulk Stock In
+             </button>
           </div>
 
-          {/* [FIX] Using Global Admin Table Classes */}
+          {/* TABLE */}
           <div className="admin-table-container">
             <table className="admin-table">
               <thead>
@@ -152,7 +184,6 @@ const InventoryPage = () => {
                       <tr key={p.product_id}>
                         <td>
                           <div className="d-flex align-items-center gap-3">
-                            {/* [FIX] Standardized Thumbnail */}
                             <div className="position-relative">
                                {imgUrl ? <img src={imgUrl} alt={p.name} className="table-thumbnail" /> : <div className="table-thumbnail d-flex align-items-center justify-content-center"><CIcon icon={cilImage} className="text-secondary"/></div>}
                             </div>
@@ -170,10 +201,21 @@ const InventoryPage = () => {
                            {p.stock === 0 ? <span className="status-badge cancelled">Out of Stock</span> : p.stock <= p.reorderPoint ? <span className="status-badge pending">Low Stock</span> : <span className="status-badge active">In Stock</span>}
                         </td>
                         <td className="text-end pe-4">
-                           <div className="d-flex justify-content-end">
-                              <CButton color="success" variant="ghost" title="Add Stock" onClick={() => { setStockInModal({open:true, product:p}); setStockInForm({...stockInForm, quantity: 1}); }}><CIcon icon={cilPlus}/></CButton>
-                              {p.requires_serial && <CButton color="secondary" variant="ghost" title="Serials" onClick={() => handleViewSerials(p)}><CIcon icon={cilList}/></CButton>}
-                              <CButton color="info" variant="ghost" title="Edit" onClick={() => { setSelectedProduct(p); setIsModalOpen(true); }}><CIcon icon={cilPencil}/></CButton>
+                           <div className="d-flex justify-content-end gap-2">
+                              {/* [FIX] Small Branded Buttons */}
+                              <button className="btn-brand btn-brand-primary btn-brand-sm" title="Add Stock" onClick={() => { setStockInModal({open:true, product:p}); setStockInForm({...stockInForm, quantity: 1}); }}>
+                                <CIcon icon={cilPlus}/>
+                              </button>
+                              
+                              {p.requires_serial && (
+                                <button className="btn-brand btn-brand-outline btn-brand-sm" title="Serials" onClick={() => handleViewSerials(p)}>
+                                  <CIcon icon={cilList}/>
+                                </button>
+                              )}
+                              
+                              <button className="btn-brand btn-brand-outline btn-brand-sm" title="Edit" onClick={() => { setSelectedProduct(p); setIsModalOpen(true); }}>
+                                <CIcon icon={cilPencil}/>
+                              </button>
                            </div>
                         </td>
                       </tr>
@@ -186,14 +228,8 @@ const InventoryPage = () => {
         </CCardBody>
       </CCard>
 
-      {/* Modals omitted for brevity, same as before just ensure imports are there */}
-      <CModal visible={msgModal.visible} onClose={() => setMsgModal({...msgModal, visible: false})}>
-        <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
-        <CModalBody>{msgModal.message}</CModalBody>
-        <CModalFooter><CButton color="secondary" onClick={() => setMsgModal({...msgModal, visible: false})}>Close</CButton></CModalFooter>
-      </CModal>
-      {/* Add Stock Modal & View Serials Modal logic remains the same */}
-      <CModal visible={stockInModal.open} onClose={() => setStockInModal({...stockInModal, open: false})}>
+      {/* Add Stock Modal */}
+      <CModal visible={stockInModal.open} onClose={() => setStockInModal({...stockInModal, open: false})} alignment="center">
          <CModalHeader><CModalTitle>Stock In</CModalTitle></CModalHeader>
          <CModalBody>
             <CFormLabel>Supplier</CFormLabel>
@@ -201,7 +237,19 @@ const InventoryPage = () => {
             <CFormLabel>Quantity</CFormLabel>
             <CFormInput type="number" value={stockInForm.quantity} onChange={(e)=>setStockInForm({...stockInForm, quantity:e.target.value})}/>
          </CModalBody>
-         <CModalFooter><CButton color="primary" onClick={handleSingleStockInSubmit}>Confirm</CButton></CModalFooter>
+         <CModalFooter>
+           <button className="btn-brand btn-brand-outline" onClick={() => setStockInModal({...stockInModal, open: false})}>Cancel</button>
+           <button className="btn-brand btn-brand-primary" onClick={handleSingleStockInSubmit}>Confirm</button>
+         </CModalFooter>
+      </CModal>
+
+      {/* Message Modal */}
+      <CModal visible={msgModal.visible} onClose={() => setMsgModal({...msgModal, visible: false})}>
+        <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
+        <CModalBody>{msgModal.message}</CModalBody>
+        <CModalFooter>
+          <button className="btn-brand btn-brand-outline" onClick={() => setMsgModal({...msgModal, visible: false})}>Close</button>
+        </CModalFooter>
       </CModal>
     </CContainer>
   )

@@ -11,17 +11,17 @@ export class ReportsController {
     return utcDate.toISOString().replace('Z', '+08:00');
   }
 
-  // REVISED: Get sales report data paginated by ITEMS, filtering ONLY Completed & Partially Returned
+  // REVISED: Get sales report data paginated by ITEMS
   static async getSalesReport(req, res) {
     try {
       const { page = 1, limit = 10, start_date, end_date } = req.query;
       const offset = (page - 1) * limit;
       const pool = getPool();
 
-      // 1. Base conditions: Strictly 'Completed' or 'Partially Returned'
-      // Removed 's.status IS NULL' to ensure strict filtering
+      // [FIX] Broadened logic: Show ALL sales except Cancelled/Returned
+      // This ensures 'Pending' or 'Processing' sales still appear in reports as revenue
       const baseWhere = `
-        WHERE s.status IN ('Completed', 'Partially Returned')
+        WHERE s.status NOT IN ('Cancelled', 'Returned')
         AND (s.payment_status != 'Refunded' OR s.payment_status IS NULL)
         AND (si.quantity - COALESCE(si.returned_quantity, 0)) > 0
       `;
@@ -29,12 +29,14 @@ export class ReportsController {
       let dateFilter = '';
       let params = [];
 
+      // [FIX] Adjusted date filter to use Philippine Time (UTC+8) logic
+      // using DATE_ADD(date, INTERVAL 8 HOUR) handles the timezone shift for daily filtering
       if (start_date) {
-        dateFilter += ' AND DATE(s.created_at) >= ?';
+        dateFilter += ' AND DATE(DATE_ADD(s.created_at, INTERVAL 8 HOUR)) >= ?';
         params.push(start_date);
       }
       if (end_date) {
-        dateFilter += ' AND DATE(s.created_at) <= ?';
+        dateFilter += ' AND DATE(DATE_ADD(s.created_at, INTERVAL 8 HOUR)) <= ?';
         params.push(end_date);
       }
 
@@ -134,7 +136,6 @@ export class ReportsController {
     }
   }
 
-  // ... (Keep other methods: getInventoryReport, getReturnsReport, getFilterOptions unchanged)
   // Get inventory report data with pagination
   static async getInventoryReport(req, res) {
     try {

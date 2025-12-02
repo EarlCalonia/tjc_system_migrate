@@ -56,7 +56,10 @@
 .showroom-hero::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(23, 51, 78, 0.90); /* Brand Navy @ 90% Opacity */
   z-index: 1;
 }

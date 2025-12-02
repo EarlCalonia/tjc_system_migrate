@@ -5,7 +5,6 @@ import {
   CFormInput,
   CFormSelect,
   CFormCheck,
-  CFormLabel,
   CModal,
   CModalHeader,
   CModalTitle,
@@ -25,9 +24,7 @@ import {
   cilPlus, 
   cilMinus,
   cilImage,
-  cilCreditCard,
   cilUser,
-  cilDescription,
   cilCheckCircle,
   cilTruck,
   cilBarcode,
@@ -35,6 +32,9 @@ import {
 } from '@coreui/icons'
 import { salesAPI, inventoryAPI, settingsAPI, customersAPI } from '../../utils/api'
 import { serialNumberAPI } from '../../utils/serialNumberApi'
+
+// Import Global Styles
+import '../../styles/App.css'
 import '../../styles/SalesPage.css' 
 
 const ASSET_URL = 'http://localhost:5000'
@@ -73,7 +73,6 @@ const SalesPage = () => {
 
   // --- HELPERS ---
   const getSaleTotal = () => saleItems.reduce((total, item) => {
-    // Handle case where quantity might be empty string during typing
     const qty = typeof item.quantity === 'number' ? item.quantity : 0
     return total + item.price * qty
   }, 0)
@@ -172,7 +171,6 @@ const SalesPage = () => {
     }
   }
 
-  // Left Panel Quantity Handler
   const handleQuantityChange = (productId, change) => {
     const currentQty = quantities[productId] || 1
     const product = products.find(p => p.product_id === productId)
@@ -183,30 +181,25 @@ const SalesPage = () => {
     setQuantities(prev => ({ ...prev, [productId]: newQty }))
   }
 
-  // Right Panel (Cart) Quantity Handler - Supports Typing
   const handleCartQuantityChange = (productId, newQtyStr) => {
     const cartItem = saleItems.find(i => i.product_id === productId)
     const productData = products.find(p => p.product_id === productId)
     if (!cartItem || !productData) return
     if (productData.requires_serial) return
 
-    // 1. Handle Empty Input (User deleting everything)
     if (newQtyStr === '') {
       const oldQty = typeof cartItem.quantity === 'number' ? cartItem.quantity : 0
-      // Restore stock immediately so logic stays consistent
       setProducts(prev => prev.map(p => p.product_id === productId ? { ...p, stock: p.stock + oldQty } : p))
       setSaleItems(prev => prev.map(item => item.product_id === productId ? { ...item, quantity: '' } : item))
       return
     }
 
-    // 2. Handle Numeric Input
     let newQty = parseInt(newQtyStr, 10)
     if (isNaN(newQty)) return 
 
     const oldQty = typeof cartItem.quantity === 'number' ? cartItem.quantity : 0
     const diff = newQty - oldQty
 
-    // Check if enough stock for the INCREASE
     if (diff > 0 && productData.stock < diff) {
        showMessage('Stock Error', `Only ${productData.stock} more units available.`, 'warning')
        return
@@ -216,7 +209,6 @@ const SalesPage = () => {
     setProducts(prev => prev.map(p => p.product_id === productId ? { ...p, stock: p.stock - diff } : p))
   }
 
-  // Handle Input Blur (Reset to 1 if left empty)
   const handleBlurCartQuantity = (productId) => {
     const item = saleItems.find(i => i.product_id === productId)
     if (item && (item.quantity === '' || item.quantity === 0)) {
@@ -224,7 +216,6 @@ const SalesPage = () => {
     }
   }
 
-  // --- SMART ADD LOGIC ---
   const handleAddProductClick = async (product) => {
     if (product.requires_serial) {
       setSelectedProductForSerial(product)
@@ -289,7 +280,6 @@ const SalesPage = () => {
   const removeFromSale = (productId) => {
     const item = saleItems.find(i => i.product_id === productId)
     if (!item) return
-    // Ensure we convert quantity to a Number (treat '' as 0 for refunding stock)
     const qtyToRestore = Number(item.quantity) || 0
     setSaleItems(saleItems.filter(i => i.product_id !== productId))
     setProducts(products.map(p => p.product_id === productId ? { ...p, stock: p.stock + qtyToRestore } : p))
@@ -328,8 +318,16 @@ const SalesPage = () => {
           <h2 className="mb-0 fw-bold text-brand-navy" style={{fontFamily: 'Oswald, sans-serif'}}>SALES TERMINAL</h2>
           <div className="text-medium-emphasis small">Point of Sale</div>
         </div>
-        <CButton color="secondary" variant="ghost" size="sm" onClick={() => window.location.reload()}>
-          <CIcon icon={cilCart} className="me-2" /> Reset
+        
+        {/* [FIX] Using Standard CoreUI Button with Outline Variant */}
+        <CButton 
+          color="danger" 
+          variant="outline" 
+          size="sm"
+          onClick={() => window.location.reload()} 
+          className="d-flex align-items-center fw-bold border-2"
+        >
+           <CIcon icon={cilCart} className="me-2" /> RESET TERMINAL
         </CButton>
       </div>
 
@@ -338,10 +336,19 @@ const SalesPage = () => {
         <div className="products-section">
           <div className="products-header">
             <h2 className="fs-6 mb-0 text-uppercase fw-bold text-brand-navy">Item Lookup</h2>
-            <CInputGroup size="sm" style={{ maxWidth: '280px' }}>
-              <CInputGroupText className="bg-light border-end-0"><CIcon icon={cilMagnifyingGlass}/></CInputGroupText>
-              <CFormInput className="border-start-0 ps-0" placeholder="Scan / Search Item..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} autoFocus/>
-            </CInputGroup>
+            
+            {/* Branded Search Component */}
+            <div className="brand-search-wrapper" style={{maxWidth: '280px'}}>
+              <span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass}/></span>
+              <input 
+                type="text" 
+                className="brand-search-input" 
+                placeholder="Scan / Search Item..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                autoFocus
+              />
+            </div>
           </div>
           
           <div className="products-table-container">
@@ -399,7 +406,7 @@ const SalesPage = () => {
                             <CButton 
                                 color="primary" 
                                 size="sm" 
-                                className="text-white btn-add-cart" 
+                                className="text-white" 
                                 disabled={!isStocked} 
                                 onClick={() => handleAddProductClick(product)}
                                 aria-label={`Add ${product.name} to order`}
@@ -439,18 +446,15 @@ const SalesPage = () => {
 
                 return (
                 <div className="sale-item" key={item.product_id}>
-                  {/* Cart Item Image */}
                   <div className="cart-item-image-wrapper">
                     {imgUrl ? <img src={imgUrl} alt="" className="cart-item-image" onError={(e)=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}} /> : null}
                     <div className="cart-item-image-placeholder" style={{display: imgUrl ? 'none' : 'flex'}}><CIcon icon={cilImage} className="text-secondary" size="sm"/></div>
                   </div>
 
-                  {/* Cart Item Info & Quantity */}
                   <div className="sale-item-info">
                     <div className="fw-bold text-dark text-truncate" style={{fontSize: '0.95rem'}}>{item.name}</div>
                     <div className="d-flex align-items-center justify-content-between mt-1">
                        
-                       {/* Quantity Controls */}
                        {isSerialItem ? (
                           <CTooltip content="Quantity cannot be adjusted in cart for serial items. Remove and re-scan.">
                             <div className="cart-qty-controls disabled op-50">
@@ -503,7 +507,7 @@ const SalesPage = () => {
                </div>
             </div>
 
-            {/* Client Details (Horizontal) */}
+            {/* Client Details */}
             <div className="pos-section border-bottom-0 pb-0">
               <div className="section-title"><CIcon icon={cilUser} className="me-2 text-brand-navy"/> Client Details</div>
               <div className="mb-2">
@@ -580,9 +584,11 @@ const SalesPage = () => {
 
               {paymentOption === 'GCash' && <CFormInput size="sm" className="mb-2" placeholder="GCash Reference No." value={gcashRef} onChange={e => setGcashRef(e.target.value)} />}
               
+              {/* [FIX] Using CoreUI Success Button for Clear CTA */}
               <CButton 
                 className="w-100 text-white fw-bold" 
-                color={isPaymentValid ? "success" : "secondary"} 
+                color={isPaymentValid ? "success" : "secondary"}
+                size="lg"
                 onClick={confirmSale} 
                 disabled={submitting || !isPaymentValid}
               >

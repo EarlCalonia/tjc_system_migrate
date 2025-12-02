@@ -3,7 +3,10 @@ import {
   CRow, CCol, CCard, CCardHeader, CCardBody, 
   CForm, CFormInput, CButton, CAvatar 
 } from '@coreui/react'
-import avatar8 from '../../assets/images/avatars/8.jpg' // Make sure this path matches your assets
+import avatar8 from '../../assets/images/avatars/8.jpg' 
+
+// Import Global
+import '../../styles/App.css'
 
 const ProfilePage = () => {
   return (
@@ -12,7 +15,7 @@ const ProfilePage = () => {
       <CCol xs={12} md={4}>
         <CCard className="mb-4 shadow-sm border-0">
           <CCardHeader className="bg-transparent border-bottom-0 pt-3 pb-0">
-            <h5 className="mb-0 text-gray-800">My Profile</h5>
+            <h5 className="mb-0 text-brand-navy">My Profile</h5>
           </CCardHeader>
           <CCardBody className="text-center pb-5">
             <div className="mb-3 position-relative d-inline-block">
@@ -23,11 +26,12 @@ const ProfilePage = () => {
                 title="Active"
               ></span>
             </div>
-            <h4 className="mb-1">John Doe</h4>
+            <h4 className="mb-1 text-brand-navy">John Doe</h4>
             <p className="text-medium-emphasis mb-4">Super Administrator</p>
             
             <div className="d-grid gap-2 col-10 mx-auto">
-              <CButton color="primary" variant="outline">
+              {/* Secondary Action: Outline or Ghost */}
+              <CButton color="info" variant="outline">
                 Change Avatar
               </CButton>
             </div>
@@ -39,7 +43,7 @@ const ProfilePage = () => {
       <CCol xs={12} md={8}>
         <CCard className="mb-4 shadow-sm border-0">
           <CCardHeader className="bg-transparent border-bottom-0 pt-3 pb-0">
-            <h5 className="mb-0 text-gray-800">Account Details</h5>
+            <h5 className="mb-0 text-brand-navy">Account Details</h5>
           </CCardHeader>
           <CCardBody>
             <CForm className="row g-3">
@@ -61,6 +65,7 @@ const ProfilePage = () => {
               </CCol>
               
               <CCol xs={12} className="mt-4 text-end">
+                {/* Primary Action: Blue/Primary */}
                 <CButton color="primary" type="submit">Save Changes</CButton>
               </CCol>
             </CForm>

@@ -6,16 +6,7 @@ import {
   CCard,
   CCardBody,
   CCardHeader,
-  CTable,
-  CTableHead,
-  CTableRow,
-  CTableHeaderCell,
-  CTableBody,
-  CTableDataCell,
   CButton,
-  CFormInput,
-  CFormSelect,
-  CFormLabel,
   CModal,
   CModalHeader,
   CModalTitle,
@@ -28,8 +19,6 @@ import {
   CSpinner,
   CBadge,
   CButtonGroup,
-  CInputGroup,
-  CInputGroupText,
   CTooltip
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
@@ -42,14 +31,15 @@ import {
   cilXCircle,
   cilArrowThickFromTop,
   cilCalendar,
-  cilFilter,
   cilSearch,
   cilReload
 } from '@coreui/icons'
 import { generateSalesReportPDF, generateInventoryReportPDF, generateReturnsReportPDF } from '../../utils/pdfGenerator'
 import { reportsAPI } from '../../utils/api'
-// Use global styles
-import '../../styles/Admin.css' 
+
+// [FIX] Import Global Brand Styles
+import '../../styles/Admin.css'
+import '../../styles/App.css' 
 import '../../styles/ReportsPage.css'
 
 const ReportsPage = () => {
@@ -58,7 +48,7 @@ const ReportsPage = () => {
   const [loading, setLoading] = useState(false)
   
   // Date Filters (Default to This Month)
-  const [dateRange, setDateRange] = useState({ start: '', end: '', label: 'Month' })
+  const [dateRange, setDateRange] = useState({ start: '', end: '', label: 'This Month' })
 
   // Advanced Filters
   const [filters, setFilters] = useState({
@@ -81,52 +71,60 @@ const ReportsPage = () => {
   // --- HELPERS ---
   const showMessage = (title, message, color = 'info') => setMsgModal({ visible: true, title, message, color })
   
-  const formatISODate = (date) => date.toISOString().split('T')[0]
+  // Standard Local Date Formatter
+  const formatLocalDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   // --- DATE LOGIC ---
   const applyDatePreset = (preset) => {
-    const today = new Date()
-    let start, end, label
+    const today = new Date();
+    let start = '', end = '', label = '';
 
     switch(preset) {
       case 'today':
-        start = end = formatISODate(today)
-        label = 'Today'
-        break
+        start = formatLocalDate(today);
+        end = formatLocalDate(today);
+        label = 'Today';
+        break;
       case 'week':
-        const day = today.getDay()
-        const diff = today.getDate() - day + (day === 0 ? -6 : 1) 
-        const monday = new Date(today.setDate(diff))
-        start = formatISODate(monday)
-        const sunday = new Date(monday)
-        sunday.setDate(monday.getDate() + 6)
-        end = formatISODate(sunday)
-        label = 'This Week'
-        break
+        const day = today.getDay();
+        const diffToMonday = day === 0 ? 6 : day - 1; 
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - diffToMonday);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        start = formatLocalDate(monday);
+        end = formatLocalDate(sunday);
+        label = 'This Week';
+        break;
       case 'month':
-        start = formatISODate(new Date(today.getFullYear(), today.getMonth(), 1))
-        end = formatISODate(new Date(today.getFullYear(), today.getMonth() + 1, 0))
-        label = 'This Month'
-        break
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        start = formatLocalDate(firstDay);
+        end = formatLocalDate(lastDay);
+        label = 'This Month';
+        break;
       case 'all':
-        start = ''
-        end = ''
-        label = 'All Time'
-        break
-      default:
-        return
+        start = '';
+        end = '';
+        label = 'All Time';
+        break;
+      default: return;
     }
-    setDateRange({ start, end, label })
-    setPagination(prev => ({ ...prev, page: 1 })) // Reset page
-  }
+    setDateRange({ start, end, label });
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
 
   // --- INITIALIZATION ---
   useEffect(() => {
     reportsAPI.getFilterOptions().then(res => {
       if(res.success) setOptions({ brands: res.data.brands, categories: res.data.categories })
     }).catch(err => console.error("Options Load Error:", err))
-
-    applyDatePreset('month')
+    applyDatePreset('month');
   }, [])
 
   // --- DATA FETCHING ---
@@ -158,7 +156,7 @@ const ReportsPage = () => {
         setReportData(res.returns || [])
       }
       
-      setPagination(prev => ({ ...prev, ...res.pagination }))
+      if (res.pagination) setPagination(prev => ({ ...prev, ...res.pagination }))
       setSummary(res.summary || null)
 
     } catch (e) {
@@ -226,13 +224,21 @@ const ReportsPage = () => {
           <div className="text-muted small">Real-time insights and performance metrics</div>
         </div>
         <div className="d-flex gap-2">
-           <CButton color="light" className="border" onClick={fetchReportData} disabled={loading}>
-             {/* FIX: Use spin={loading || undefined} to avoid 'false' string error */}
+           {/* [FIX] Branded Reload Button */}
+           <button 
+              className="btn-brand btn-brand-outline" 
+              onClick={fetchReportData} 
+              disabled={loading}
+              style={{width: '45px', padding: 0}}
+              title="Refresh Data"
+           >
              <CIcon icon={cilReload} spin={loading || undefined}/>
-           </CButton>
-           <CButton color="primary" className="text-white fw-bold d-flex align-items-center px-3" onClick={handleExportPDF}>
+           </button>
+           
+           {/* [FIX] Branded Export Button */}
+           <button className="btn-brand btn-brand-primary" onClick={handleExportPDF}>
               <CIcon icon={cilCloudDownload} className="me-2"/> Export Report
-           </CButton>
+           </button>
         </div>
       </div>
 
@@ -282,28 +288,59 @@ const ReportsPage = () => {
                  
                  {/* Date Controls (Hidden for Inventory) */}
                  {activeTab !== 'inventory' && (
-                    <div className="d-flex bg-light rounded p-1 border align-items-center">
-                       <CButtonGroup size="sm" className="me-2 shadow-0">
-                          <CButton color={dateRange.label === 'Today' ? 'white' : 'transparent'} className={dateRange.label === 'Today' ? 'shadow-sm text-primary fw-bold' : 'text-muted'} onClick={() => applyDatePreset('today')}>Today</CButton>
-                          <CButton color={dateRange.label === 'This Week' ? 'white' : 'transparent'} className={dateRange.label === 'This Week' ? 'shadow-sm text-primary fw-bold' : 'text-muted'} onClick={() => applyDatePreset('week')}>Week</CButton>
-                          <CButton color={dateRange.label === 'This Month' ? 'white' : 'transparent'} className={dateRange.label === 'This Month' ? 'shadow-sm text-primary fw-bold' : 'text-muted'} onClick={() => applyDatePreset('month')}>Month</CButton>
-                          <CTooltip content="Show All History"><CButton color={dateRange.label === 'All Time' ? 'white' : 'transparent'} className={dateRange.label === 'All Time' ? 'shadow-sm text-primary fw-bold' : 'text-muted'} onClick={() => applyDatePreset('all')}>All</CButton></CTooltip>
-                       </CButtonGroup>
-                       <div className="vr me-2"></div>
-                       <CInputGroup size="sm" style={{width: '260px'}}>
-                          <CInputGroupText className="bg-transparent border-0 px-1"><CIcon icon={cilCalendar} size="sm"/></CInputGroupText>
-                          <CFormInput type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value, label: 'Custom'})} className="bg-transparent border-0 p-0 text-center small fw-bold" />
-                          <span className="text-muted mx-1">-</span>
-                          <CFormInput type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value, label: 'Custom'})} className="bg-transparent border-0 p-0 text-center small fw-bold" />
-                       </CInputGroup>
+                    <div className="d-flex gap-2 align-items-center flex-wrap">
+                       {/* [FIX] Branded Date Presets */}
+                       <div className="d-flex gap-1">
+                          {['Today', 'Week', 'Month', 'All'].map(label => {
+                              const presetKey = label.toLowerCase() === 'all' ? 'all' : label.toLowerCase()
+                              let isMatch = false;
+                              if (label === 'Today' && dateRange.label === 'Today') isMatch = true;
+                              if (label === 'Week' && dateRange.label === 'This Week') isMatch = true;
+                              if (label === 'Month' && dateRange.label === 'This Month') isMatch = true;
+                              if (label === 'All' && dateRange.label === 'All Time') isMatch = true;
+
+                              return (
+                                <button
+                                  key={label}
+                                  className={`btn-brand ${isMatch ? 'btn-brand-accent' : 'btn-brand-outline'}`}
+                                  style={{padding: '0 16px', minWidth: '80px'}}
+                                  onClick={() => applyDatePreset(presetKey)}
+                                >
+                                  {label}
+                                </button>
+                              )
+                          })}
+                       </div>
+
+                       {/* [FIX] Branded Date Picker Wrapper */}
+                       <div className="brand-search-wrapper" style={{width: 'auto', minWidth: '280px', padding: '0 10px'}}>
+                          <span className="text-muted me-2 d-flex align-items-center"><CIcon icon={cilCalendar}/></span>
+                          <input 
+                            type="date" 
+                            value={dateRange.start} 
+                            onChange={e => setDateRange({...dateRange, start: e.target.value, label: 'Custom'})}
+                            style={{border: 'none', outline: 'none', background: 'transparent', color: 'var(--brand-navy)', fontFamily: 'Inter', fontWeight: 600, fontSize: '0.85rem', height: '100%'}}
+                          />
+                          <span className="mx-2 text-muted">-</span>
+                          <input 
+                            type="date" 
+                            value={dateRange.end} 
+                            onChange={e => setDateRange({...dateRange, end: e.target.value, label: 'Custom'})}
+                            style={{border: 'none', outline: 'none', background: 'transparent', color: 'var(--brand-navy)', fontFamily: 'Inter', fontWeight: 600, fontSize: '0.85rem', height: '100%'}}
+                          />
+                       </div>
                     </div>
                  )}
 
-                 {/* Inventory Specific Filters */}
+                 {/* Inventory Specific Filters (Branded Dropdowns) */}
                  {activeTab === 'inventory' && (
                     <div className="d-flex gap-2">
-                      <CFormSelect size="sm" value={filters.stockStatus} onChange={e => setFilters({...filters, stockStatus: e.target.value})} style={{maxWidth:'140px'}}><option>All Status</option><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option></CFormSelect>
-                      <CFormSelect size="sm" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} style={{maxWidth:'160px'}}><option>All Categories</option>{options.categories.map((c,i) => <option key={i}>{c}</option>)}</CFormSelect>
+                      <select className="brand-select" value={filters.stockStatus} onChange={e => setFilters({...filters, stockStatus: e.target.value})}>
+                        <option>All Status</option><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option>
+                      </select>
+                      <select className="brand-select" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}>
+                        <option>All Categories</option>{options.categories.map((c,i) => <option key={i}>{c}</option>)}
+                      </select>
                     </div>
                  )}
               </div>
@@ -314,7 +351,7 @@ const ReportsPage = () => {
         <CCardBody className="p-0">
           <div className="admin-table-container">
             <table className="admin-table table-hover">
-              <thead className="bg-light">
+              <thead>
                 <tr>
                   {activeTab === 'sales' && (
                     <>
@@ -361,14 +398,13 @@ const ReportsPage = () => {
                     <tr key={idx}>
                       {activeTab === 'sales' && (
                         <>
-                          {/* Support camelCase or snake_case to ensure data shows */}
                           <td className="ps-4 font-monospace text-primary small fw-bold">{row.orderId || row.order_id || row.sale_number}</td>
                           <td className="fw-semibold text-dark">{row.customerName || row.customer_name}</td>
                           <td className="text-muted">{row.productName || row.product_name}</td>
                           <td className="text-center"><CBadge color="light" className="text-dark border">{row.quantity}</CBadge></td>
                           <td className="text-end text-muted">₱{Number(row.unitPrice || row.unit_price || 0).toLocaleString()}</td>
                           <td className="text-end fw-bold text-brand-navy">₱{Number(row.totalPrice || row.total_price || 0).toLocaleString()}</td>
-                          <td className="text-end pe-4 small text-muted">{row.orderDate ? new Date(row.orderDate).toLocaleDateString() : (row.created_at ? new Date(row.created_at).toLocaleDateString() : '-')}</td>
+                          <td className="text-end pe-4 small text-muted">{row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}</td>
                         </>
                       )}
                       {activeTab === 'inventory' && (
@@ -399,10 +435,10 @@ const ReportsPage = () => {
           {/* PAGINATION FOOTER */}
           <div className="p-2 border-top d-flex justify-content-end bg-light align-items-center">
              <span className="small text-muted me-3">Page {pagination.current_page || pagination.page || 1} of {pagination.total_pages || 1}</span>
-             <CButtonGroup size="sm">
-                <CButton color="white" className="border" disabled={(pagination.current_page || pagination.page || 1) === 1} onClick={() => setPagination(p => ({...p, page: p.page - 1}))}>Prev</CButton>
-                <CButton color="white" className="border" disabled={(pagination.current_page || pagination.page || 1) >= (pagination.total_pages || 1)} onClick={() => setPagination(p => ({...p, page: p.page + 1}))}>Next</CButton>
-             </CButtonGroup>
+             <div className="d-flex gap-1">
+                <button className="btn-brand btn-brand-outline btn-brand-sm" disabled={(pagination.current_page || pagination.page || 1) === 1} onClick={() => setPagination(p => ({...p, page: p.page - 1}))}>Prev</button>
+                <button className="btn-brand btn-brand-outline btn-brand-sm" disabled={(pagination.current_page || pagination.page || 1) >= (pagination.total_pages || 1)} onClick={() => setPagination(p => ({...p, page: p.page + 1}))}>Next</button>
+             </div>
           </div>
         </CCardBody>
       </CCard>

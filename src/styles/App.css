@@ -39,3 +39,223 @@ h1, h2, h3, h4, h5, h6 {
   text-transform: uppercase; /* Adds to the "Garage/Pro" feel */
   color: var(--brand-navy);
 }
+
+/* =================================================================== */
+/* GLOBAL COMPONENT: BRANDED SEARCH BAR (Height Fixed)                 */
+/* =================================================================== */
+
+.brand-search-wrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  border: 2px solid #cbd5e1; 
+  border-radius: 6px;
+  background-color: white;
+  transition: all 0.2s ease-in-out;
+  overflow: hidden;
+  
+  /* [FIX] Force height to match buttons */
+  height: 45px; 
+}
+
+.brand-search-wrapper:focus-within {
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 3px rgba(36, 120, 189, 0.15);
+}
+
+.brand-search-icon {
+  color: var(--text-light);
+  padding: 0 12px;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.brand-search-input {
+  border: none;
+  outline: none;
+  width: 100%;
+  height: 100%; /* Fill wrapper */
+  padding: 0 12px 0 0; /* Right padding only */
+  font-family: var(--font-main);
+  font-size: 0.95rem;
+  color: var(--brand-navy);
+  background: transparent;
+}
+
+/* =================================================================== */
+/* GLOBAL COMPONENT: BRANDED SEARCH BAR (Fixed Height)                 */
+/* =================================================================== */
+
+.brand-search-wrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  border: 2px solid #cbd5e1; 
+  border-radius: 6px;
+  background-color: white;
+  transition: all 0.2s ease-in-out;
+  overflow: hidden;
+  
+  /* [CRITICAL] Force strict height to match buttons */
+  height: 45px; 
+  box-sizing: border-box;
+}
+
+.brand-search-wrapper:focus-within {
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 3px rgba(36, 120, 189, 0.15);
+}
+
+.brand-search-icon {
+  color: var(--text-light);
+  padding: 0 16px; /* Slightly wider for breathability */
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.brand-search-input {
+  border: none;
+  outline: none;
+  width: 100%;
+  height: 100%;
+  padding: 0 12px 0 0;
+  font-family: var(--font-main);
+  font-size: 0.95rem;
+  color: var(--brand-navy);
+  background: transparent;
+  /* Ensure text centers vertically */
+  display: flex;
+  align-items: center;
+}
+
+.brand-search-input::placeholder {
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* =================================================================== */
+/* GLOBAL COMPONENT: BRANDED DROPDOWNS (Fixed Height)                  */
+/* =================================================================== */
+
+.brand-select {
+  background-color: #ffffff;
+  border: 2px solid #cbd5e1;
+  border-radius: 6px;
+  /* Padding: Top/Bottom 0 allows line-height/height to control centering */
+  padding: 0 36px 0 12px; 
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--brand-navy);
+  cursor: pointer;
+  
+  /* [CRITICAL] Force strict height */
+  height: 45px;
+  box-sizing: border-box;
+  
+  /* Custom Arrow */
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2317334e' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 12px 12px;
+  
+  transition: all 0.2s ease;
+}
+
+.brand-select:hover {
+  border-color: var(--brand-navy);
+  background-color: #f8f9fa;
+}
+
+.brand-select:focus {
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 3px rgba(36, 120, 189, 0.15);
+  outline: none;
+}
+
+/* =================================================================== */
+/* GLOBAL COMPONENT: INDUSTRIAL BUTTONS (Fixed Height)                 */
+/* =================================================================== */
+
+.btn-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  
+  /* [CRITICAL] Force strict height */
+  height: 45px;
+  box-sizing: border-box;
+  padding: 0 24px;
+  
+  font-family: var(--font-header); 
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+/* Small variant for inside tables (height 32px) */
+.btn-brand-sm {
+  height: 32px;
+  padding: 0 16px;
+  font-size: 0.75rem;
+}
+
+/* --- BUTTON VARIANTS --- */
+.btn-brand-primary {
+  background-color: var(--brand-blue);
+  color: white;
+}
+.btn-brand-primary:hover {
+  background-color: #1a5a8e;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(36, 120, 189, 0.2);
+}
+
+.btn-brand-accent {
+  background-color: var(--brand-yellow);
+  color: var(--brand-navy);
+}
+.btn-brand-accent:hover {
+  background-color: #e5c235;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(241, 206, 68, 0.3);
+}
+
+.btn-brand-outline {
+  background-color: transparent;
+  border-color: var(--brand-navy);
+  color: var(--brand-navy);
+}
+.btn-brand-outline:hover {
+  background-color: var(--brand-navy);
+  color: white;
+}
+
+.btn-brand-danger {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+.btn-brand-danger:hover {
+  background-color: #dc2626;
+  color: white;
+  border-color: #dc2626;
+}

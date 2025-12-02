@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormInput, CFormSelect, CModal, CModalHeader,
-  CModalTitle, CModalBody, CModalFooter, CInputGroup, CInputGroupText, CWidgetStatsF, CSpinner, CBadge, CFormLabel
+  CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormSelect, CModal, CModalHeader,
+  CModalTitle, CModalBody, CModalFooter, CWidgetStatsF, CSpinner, CBadge
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
-  cilMagnifyingGlass, cilDescription, cilMoney, cilWarning, cilCheckCircle, cilArrowLeft, cilPrint, cilImage
+  cilMagnifyingGlass, cilDescription, cilMoney, cilWarning, cilCheckCircle, cilArrowLeft
 } from '@coreui/icons'
 import { salesAPI, returnsAPI } from '../../utils/api'
-import { generateSaleReceipt } from '../../utils/pdfGenerator'
-// Removed OrdersPage.css
+
+// Import Global Styles
+import '../../styles/Admin.css'
+import '../../styles/App.css' 
 
 const ASSET_URL = 'http://localhost:5000'
 
@@ -20,13 +22,9 @@ const OrdersPage = () => {
   const [currentPage, setCurrentPage] = useState(1); const itemsPerPage = 10 
   const [selectedOrder, setSelectedOrder] = useState(null); const [isModalOpen, setIsModalOpen] = useState(false)
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false); const [orderToReturn, setOrderToReturn] = useState(null); const [returnItems, setReturnItems] = useState([])
-  const [returnReason, setReturnReason] = useState(''); const [refundMethod, setRefundMethod] = useState('Cash'); const [isSubmittingReturn, setIsSubmittingReturn] = useState(false)
   const [msgModal, setMsgModal] = useState({ visible: false, title: '', message: '', color: 'info' })
 
   useEffect(() => { fetchOrdersWithItems(); fetchOrderStats(); }, [])
-
-  const getProductImageUrl = (path) => path ? (path.startsWith('http') ? path : `${ASSET_URL}${path.startsWith('/') ? path : '/' + path}`) : null
-  const showMessage = (title, message, color = 'info') => setMsgModal({ visible: true, title, message, color })
 
   const fetchOrdersWithItems = async () => {
     setLoading(true)
@@ -66,9 +64,7 @@ const OrdersPage = () => {
   const currentOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage)
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage)
 
-  const handlePrintReceipt = async (order) => { /* ... Same as before ... */ }
-  const handleOpenReturnModal = (order) => { /* ... Same as before ... */ setIsReturnModalOpen(true) }
-  const handleSubmitReturn = async () => { /* ... Same as before ... */ }
+  const handleOpenReturnModal = (order) => { setOrderToReturn(order); setIsReturnModalOpen(true) }
 
   return (
     <CContainer fluid className="px-4 py-4">
@@ -86,16 +82,45 @@ const OrdersPage = () => {
 
       <CCard className="mb-4 border-0 shadow-sm overflow-hidden">
         <CCardBody className="p-0">
+          
+          {/* CONTROL BAR */}
           <div className="p-4 bg-white border-bottom d-flex flex-wrap gap-3 align-items-center">
-             <CInputGroup style={{maxWidth: '350px'}}>
-                <CInputGroupText className="bg-light border-end-0 text-muted"><CIcon icon={cilMagnifyingGlass} /></CInputGroupText>
-                <CFormInput className="border-start-0 ps-0" placeholder="Search order ID or customer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-             </CInputGroup>
-             <CFormSelect style={{maxWidth: '220px'}} value={selectedOrderStatus} onChange={(e) => setSelectedOrderStatus(e.target.value)}>{['All Order Statuses', 'Pending', 'Processing', 'Completed', 'Cancelled', 'Returned'].map(s=><option key={s} value={s}>{s}</option>)}</CFormSelect>
-             <CFormSelect style={{maxWidth: '220px'}} value={selectedPaymentStatus} onChange={(e) => setSelectedPaymentStatus(e.target.value)}>{['All Payment Statuses', 'Paid', 'Unpaid', 'Refunded'].map(s=><option key={s} value={s}>{s}</option>)}</CFormSelect>
+             
+             {/* 1. Branded Search */}
+             <div className="brand-search-wrapper">
+                <span className="brand-search-icon">
+                  <CIcon icon={cilMagnifyingGlass} />
+                </span>
+                <input 
+                  type="text" 
+                  className="brand-search-input" 
+                  placeholder="Search order ID or customer..." 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                />
+             </div>
+
+             {/* 2. Branded Dropdowns */}
+             <CFormSelect 
+                className="brand-select" 
+                style={{maxWidth: '220px'}} 
+                value={selectedOrderStatus} 
+                onChange={(e) => setSelectedOrderStatus(e.target.value)}
+             >
+                {['All Order Statuses', 'Pending', 'Processing', 'Completed', 'Cancelled', 'Returned'].map(s=><option key={s} value={s}>{s}</option>)}
+             </CFormSelect>
+
+             <CFormSelect 
+                className="brand-select" 
+                style={{maxWidth: '220px'}} 
+                value={selectedPaymentStatus} 
+                onChange={(e) => setSelectedPaymentStatus(e.target.value)}
+             >
+                {['All Payment Statuses', 'Paid', 'Unpaid', 'Refunded'].map(s=><option key={s} value={s}>{s}</option>)}
+             </CFormSelect>
           </div>
 
-          {/* [FIX] Using Global Admin Table */}
+          {/* TABLE */}
           <div className="admin-table-container">
             <table className="admin-table">
               <thead>
@@ -128,10 +153,10 @@ const OrdersPage = () => {
                        <span className={`status-badge ${order.status === 'Completed' ? 'active' : order.status === 'Cancelled' ? 'cancelled' : 'pending'}`}>{order.status}</span>
                     </td>
                     <td className="text-end pe-4">
-                      <div className="d-flex justify-content-end">
-                        <CButton color="info" variant="ghost" title="View" onClick={() => { setSelectedOrder(order); setIsModalOpen(true); }}><CIcon icon={cilDescription} /></CButton>
+                      <div className="d-flex justify-content-end gap-2">
+                        <CButton size="sm" color="info" variant="ghost" title="View" onClick={() => { setSelectedOrder(order); setIsModalOpen(true); }}><CIcon icon={cilDescription} /></CButton>
                         {['Completed', 'Partially Returned'].includes(order.status) && (
-                          <CButton color="danger" variant="ghost" title="Return" onClick={() => handleOpenReturnModal(order)}><CIcon icon={cilArrowLeft} /></CButton>
+                          <CButton size="sm" color="danger" variant="ghost" title="Return" onClick={() => handleOpenReturnModal(order)}><CIcon icon={cilArrowLeft} /></CButton>
                         )}
                       </div>
                     </td>
@@ -148,10 +173,29 @@ const OrdersPage = () => {
         </CCardBody>
       </CCard>
 
-      {/* Modals remain mostly the same, just ensuring standard layout */}
+      {/* Modals */}
       <CModal visible={isModalOpen} onClose={() => setIsModalOpen(false)} size="lg" alignment="center">
          <CModalHeader><CModalTitle>Order Details</CModalTitle></CModalHeader>
-         <CModalBody>{/* Content from previous turn */}</CModalBody>
+         <CModalBody>
+            {selectedOrder && (
+              <div>
+                <h5>Order #{selectedOrder.sale_number}</h5>
+                <p>Customer: {selectedOrder.customer_name}</p>
+                <table className="table">
+                  <thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead>
+                  <tbody>
+                    {selectedOrder.items?.map((item, i) => (
+                      <tr key={i}>
+                        <td>{item.product_name}</td>
+                        <td>{item.quantity}</td>
+                        <td>₱{item.price}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+         </CModalBody>
          <CModalFooter><CButton color="secondary" onClick={() => setIsModalOpen(false)}>Close</CButton></CModalFooter>
       </CModal>
       
