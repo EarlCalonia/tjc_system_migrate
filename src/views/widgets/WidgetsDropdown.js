@@ -1,383 +1,193 @@
-import React, { useEffect, useRef } from 'react'
-import PropTypes from 'prop-types'
-
+import React from 'react'
 import {
   CRow,
   CCol,
-  CDropdown,
-  CDropdownMenu,
-  CDropdownItem,
-  CDropdownToggle,
   CWidgetStatsA,
 } from '@coreui/react'
-import { getStyle } from '@coreui/utils'
-import { CChartBar, CChartLine } from '@coreui/react-chartjs'
 import CIcon from '@coreui/icons-react'
-import { cilArrowBottom, cilArrowTop, cilOptions } from '@coreui/icons'
+import { cilArrowTop, cilArrowBottom, cilBasket, cilMoney, cilWarning, cilTruck } from '@coreui/icons'
+import { CChartLine, CChartBar } from '@coreui/react-chartjs'
 
-const WidgetsDropdown = (props) => {
-  const widgetChartRef1 = useRef(null)
-  const widgetChartRef2 = useRef(null)
-
-  useEffect(() => {
-    document.documentElement.addEventListener('ColorSchemeChange', () => {
-      if (widgetChartRef1.current) {
-        setTimeout(() => {
-          widgetChartRef1.current.data.datasets[0].pointBackgroundColor = getStyle('--cui-primary')
-          widgetChartRef1.current.update()
-        })
-      }
-
-      if (widgetChartRef2.current) {
-        setTimeout(() => {
-          widgetChartRef2.current.data.datasets[0].pointBackgroundColor = getStyle('--cui-info')
-          widgetChartRef2.current.update()
-        })
-      }
-    })
-  }, [widgetChartRef1, widgetChartRef2])
-
+const WidgetsDropdown = () => {
   return (
-    <CRow className={props.className} xs={{ gutter: 4 }}>
-      <CCol sm={6} xl={4} xxl={3}>
+    <CRow>
+      {/* --- STAT 1: TOTAL INVENTORY --- */}
+      <CCol sm={6} xl={3}>
         <CWidgetStatsA
-          color="primary"
+          className="mb-4 pb-2"
+          color="primary" // Maps to Brand Blue defined in SCSS
           value={
             <>
-              26K{' '}
+              1,245{' '}
               <span className="fs-6 fw-normal">
-                (-12.4% <CIcon icon={cilArrowBottom} />)
+                (+5% <CIcon icon={cilArrowTop} />)
               </span>
             </>
           }
-          title="Users"
-          action={
-            <CDropdown alignment="end">
-              <CDropdownToggle color="transparent" caret={false} className="text-white p-0">
-                <CIcon icon={cilOptions} />
-              </CDropdownToggle>
-              <CDropdownMenu>
-                <CDropdownItem>Action</CDropdownItem>
-                <CDropdownItem>Another action</CDropdownItem>
-                <CDropdownItem>Something else here...</CDropdownItem>
-                <CDropdownItem disabled>Disabled action</CDropdownItem>
-              </CDropdownMenu>
-            </CDropdown>
-          }
+          title="Total Inventory Items"
+          action={<CIcon icon={cilBasket} size="xl" className="text-white text-opacity-75"/>}
           chart={
             <CChartLine
-              ref={widgetChartRef1}
               className="mt-3 mx-3"
               style={{ height: '70px' }}
               data={{
-                labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
+                labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
                 datasets: [
                   {
-                    label: 'My First dataset',
+                    label: 'Stock Level',
                     backgroundColor: 'transparent',
                     borderColor: 'rgba(255,255,255,.55)',
-                    pointBackgroundColor: getStyle('--cui-primary'),
+                    pointBackgroundColor: '#321fdb',
                     data: [65, 59, 84, 84, 51, 55, 40],
                   },
                 ],
               }}
               options={{
-                plugins: {
-                  legend: {
-                    display: false,
-                  },
-                },
+                plugins: { legend: { display: false } },
                 maintainAspectRatio: false,
                 scales: {
-                  x: {
-                    border: {
-                      display: false,
-                    },
-                    grid: {
-                      display: false,
-                      drawBorder: false,
-                    },
-                    ticks: {
-                      display: false,
-                    },
-                  },
-                  y: {
-                    min: 30,
-                    max: 89,
-                    display: false,
-                    grid: {
-                      display: false,
-                    },
-                    ticks: {
-                      display: false,
-                    },
-                  },
+                  x: { display: false },
+                  y: { display: false },
                 },
                 elements: {
-                  line: {
-                    borderWidth: 1,
-                    tension: 0.4,
-                  },
-                  point: {
-                    radius: 4,
-                    hitRadius: 10,
-                    hoverRadius: 4,
-                  },
+                  line: { borderWidth: 2, tension: 0.4 },
+                  point: { radius: 0, hitRadius: 10, hoverRadius: 4 },
                 },
               }}
             />
           }
         />
       </CCol>
-      <CCol sm={6} xl={4} xxl={3}>
+
+      {/* --- STAT 2: MONTHLY REVENUE --- */}
+      <CCol sm={6} xl={3}>
         <CWidgetStatsA
-          color="info"
+          className="mb-4 pb-2"
+          color="success"
           value={
             <>
-              $6.200{' '}
+              ₱128,400{' '}
               <span className="fs-6 fw-normal">
-                (40.9% <CIcon icon={cilArrowTop} />)
+                (+12% <CIcon icon={cilArrowTop} />)
               </span>
             </>
           }
-          title="Income"
-          action={
-            <CDropdown alignment="end">
-              <CDropdownToggle color="transparent" caret={false} className="text-white p-0">
-                <CIcon icon={cilOptions} />
-              </CDropdownToggle>
-              <CDropdownMenu>
-                <CDropdownItem>Action</CDropdownItem>
-                <CDropdownItem>Another action</CDropdownItem>
-                <CDropdownItem>Something else here...</CDropdownItem>
-                <CDropdownItem disabled>Disabled action</CDropdownItem>
-              </CDropdownMenu>
-            </CDropdown>
-          }
+          title="Monthly Revenue"
+          action={<CIcon icon={cilMoney} size="xl" className="text-white text-opacity-75"/>}
           chart={
             <CChartLine
-              ref={widgetChartRef2}
               className="mt-3 mx-3"
               style={{ height: '70px' }}
               data={{
-                labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
                 datasets: [
                   {
-                    label: 'My First dataset',
+                    label: 'Revenue',
                     backgroundColor: 'transparent',
                     borderColor: 'rgba(255,255,255,.55)',
-                    pointBackgroundColor: getStyle('--cui-info'),
+                    pointBackgroundColor: '#2eb85c',
                     data: [1, 18, 9, 17, 34, 22, 11],
                   },
                 ],
               }}
               options={{
-                plugins: {
-                  legend: {
-                    display: false,
-                  },
-                },
+                plugins: { legend: { display: false } },
                 maintainAspectRatio: false,
                 scales: {
-                  x: {
-                    border: {
-                      display: false,
-                    },
-                    grid: {
-                      display: false,
-                      drawBorder: false,
-                    },
-                    ticks: {
-                      display: false,
-                    },
-                  },
-                  y: {
-                    min: -9,
-                    max: 39,
-                    display: false,
-                    grid: {
-                      display: false,
-                    },
-                    ticks: {
-                      display: false,
-                    },
-                  },
+                  x: { display: false },
+                  y: { display: false },
                 },
                 elements: {
-                  line: {
-                    borderWidth: 1,
-                  },
-                  point: {
-                    radius: 4,
-                    hitRadius: 10,
-                    hoverRadius: 4,
-                  },
+                  line: { borderWidth: 2, tension: 0.4 },
+                  point: { radius: 0, hitRadius: 10, hoverRadius: 4 },
                 },
               }}
             />
           }
         />
       </CCol>
-      <CCol sm={6} xl={4} xxl={3}>
+
+      {/* --- STAT 3: LOW STOCK ALERTS --- */}
+      <CCol sm={6} xl={3}>
         <CWidgetStatsA
-          color="warning"
+          className="mb-4 pb-2"
+          color="warning" // Brand Yellowish/Orange
           value={
             <>
-              2.49%{' '}
+              12 Items{' '}
               <span className="fs-6 fw-normal">
-                (84.7% <CIcon icon={cilArrowTop} />)
+                (Urgent)
               </span>
             </>
           }
-          title="Conversion Rate"
-          action={
-            <CDropdown alignment="end">
-              <CDropdownToggle color="transparent" caret={false} className="text-white p-0">
-                <CIcon icon={cilOptions} />
-              </CDropdownToggle>
-              <CDropdownMenu>
-                <CDropdownItem>Action</CDropdownItem>
-                <CDropdownItem>Another action</CDropdownItem>
-                <CDropdownItem>Something else here...</CDropdownItem>
-                <CDropdownItem disabled>Disabled action</CDropdownItem>
-              </CDropdownMenu>
-            </CDropdown>
-          }
-          chart={
-            <CChartLine
-              className="mt-3"
-              style={{ height: '70px' }}
-              data={{
-                labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
-                datasets: [
-                  {
-                    label: 'My First dataset',
-                    backgroundColor: 'rgba(255,255,255,.2)',
-                    borderColor: 'rgba(255,255,255,.55)',
-                    data: [78, 81, 80, 45, 34, 12, 40],
-                    fill: true,
-                  },
-                ],
-              }}
-              options={{
-                plugins: {
-                  legend: {
-                    display: false,
-                  },
-                },
-                maintainAspectRatio: false,
-                scales: {
-                  x: {
-                    display: false,
-                  },
-                  y: {
-                    display: false,
-                  },
-                },
-                elements: {
-                  line: {
-                    borderWidth: 2,
-                    tension: 0.4,
-                  },
-                  point: {
-                    radius: 0,
-                    hitRadius: 10,
-                    hoverRadius: 4,
-                  },
-                },
-              }}
-            />
-          }
-        />
-      </CCol>
-      <CCol sm={6} xl={4} xxl={3}>
-        <CWidgetStatsA
-          color="danger"
-          value={
-            <>
-              44K{' '}
-              <span className="fs-6 fw-normal">
-                (-23.6% <CIcon icon={cilArrowBottom} />)
-              </span>
-            </>
-          }
-          title="Sessions"
-          action={
-            <CDropdown alignment="end">
-              <CDropdownToggle color="transparent" caret={false} className="text-white p-0">
-                <CIcon icon={cilOptions} />
-              </CDropdownToggle>
-              <CDropdownMenu>
-                <CDropdownItem>Action</CDropdownItem>
-                <CDropdownItem>Another action</CDropdownItem>
-                <CDropdownItem>Something else here...</CDropdownItem>
-                <CDropdownItem disabled>Disabled action</CDropdownItem>
-              </CDropdownMenu>
-            </CDropdown>
-          }
+          title="Low Stock Alerts"
+          action={<CIcon icon={cilWarning} size="xl" className="text-white text-opacity-75"/>}
           chart={
             <CChartBar
               className="mt-3 mx-3"
               style={{ height: '70px' }}
               data={{
-                labels: [
-                  'January',
-                  'February',
-                  'March',
-                  'April',
-                  'May',
-                  'June',
-                  'July',
-                  'August',
-                  'September',
-                  'October',
-                  'November',
-                  'December',
-                  'January',
-                  'February',
-                  'March',
-                  'April',
-                ],
+                labels: ['Oil', 'Tires', 'Lights', 'Brakes', 'Batt', 'Filters', 'Wipers'],
                 datasets: [
                   {
-                    label: 'My First dataset',
+                    label: 'Stock Count',
                     backgroundColor: 'rgba(255,255,255,.2)',
                     borderColor: 'rgba(255,255,255,.55)',
-                    data: [78, 81, 80, 45, 34, 12, 40, 85, 65, 23, 12, 98, 34, 84, 67, 82],
+                    data: [5, 2, 4, 3, 1, 4, 2],
                     barPercentage: 0.6,
                   },
                 ],
               }}
               options={{
                 maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    display: false,
-                  },
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                  x: {
-                    grid: {
-                      display: false,
-                      drawTicks: false,
-                    },
-                    ticks: {
-                      display: false,
-                    },
+                  x: { display: false },
+                  y: { display: false },
+                },
+              }}
+            />
+          }
+        />
+      </CCol>
+
+      {/* --- STAT 4: PENDING ORDERS --- */}
+      <CCol sm={6} xl={3}>
+        <CWidgetStatsA
+          className="mb-4 pb-2"
+          color="danger"
+          value={
+            <>
+              8 Orders{' '}
+              <span className="fs-6 fw-normal">
+                (Action Req)
+              </span>
+            </>
+          }
+          title="Pending Shipments"
+          action={<CIcon icon={cilTruck} size="xl" className="text-white text-opacity-75"/>}
+          chart={
+            <CChartBar
+              className="mt-3 mx-3"
+              style={{ height: '70px' }}
+              data={{
+                labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+                datasets: [
+                  {
+                    label: 'Orders',
+                    backgroundColor: 'rgba(255,255,255,.2)',
+                    borderColor: 'rgba(255,255,255,.55)',
+                    data: [78, 81, 80, 45, 34, 12, 40],
+                    barPercentage: 0.6,
                   },
-                  y: {
-                    border: {
-                      display: false,
-                    },
-                    grid: {
-                      display: false,
-                      drawBorder: false,
-                      drawTicks: false,
-                    },
-                    ticks: {
-                      display: false,
-                    },
-                  },
+                ],
+              }}
+              options={{
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                  x: { display: false },
+                  y: { display: false },
                 },
               }}
             />
@@ -386,11 +196,6 @@ const WidgetsDropdown = (props) => {
       </CCol>
     </CRow>
   )
-}
-
-WidgetsDropdown.propTypes = {
-  className: PropTypes.string,
-  withCharts: PropTypes.bool,
 }
 
 export default WidgetsDropdown

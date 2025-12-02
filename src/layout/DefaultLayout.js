@@ -11,7 +11,8 @@ const DefaultLayout = () => {
         <AppHeader />
         
         <div className="body flex-grow-1 px-3">
-          <CContainer lg>
+          {/* [FIX] Changed to 'fluid' to occupy 100% width instead of fixed 1320px */}
+          <CContainer fluid>
             <AppContent />
           </CContainer>
         </div>

@@ -13,6 +13,7 @@ import {
   CInputGroupText,
   CRow,
   CAlert,
+  CSpinner
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser } from '@coreui/icons'
@@ -70,7 +71,7 @@ const Login = () => {
   return (
     <div 
       className="login-wrapper"
-      style={{ backgroundImage: `linear-gradient(rgba(23, 51, 78, 0.85), rgba(23, 51, 78, 0.9)), url(${loginBg})` }}
+      style={{ backgroundImage: `linear-gradient(rgba(23, 51, 78, 0.95), rgba(23, 51, 78, 0.95)), url(${loginBg})` }}
     >
       <CContainer>
         <CRow className="justify-content-center">
@@ -82,24 +83,22 @@ const Login = () => {
                 <CCardBody>
                   <CForm onSubmit={handleLogin}>
                     
-                    {/* [SMART FIX] 
-                       Only show this logo on Mobile (d-md-none). 
-                       On Desktop, we hide it because it's displayed prominently on the right card.
-                    */}
+                    {/* Mobile Logo View */}
                     <div className="text-center mb-4 d-md-none">
                       <img 
                         src={tcjLogo} 
-                        alt="TJC Logo" 
+                        alt="TJC Auto Supply Logo" 
                         style={{ height: '60px', objectFit: 'contain' }} 
                       />
                     </div>
 
-                    <h2 className="login-title">Admin Login</h2>
+                    <h1 className="login-title h2">Admin Login</h1>
                     <p className="text-medium-emphasis mb-4">Sign in to access the system</p>
                     
-                    {error && <CAlert color="danger" className="py-2 small">{error}</CAlert>}
+                    {error && <CAlert color="danger" className="py-2 small" role="alert">{error}</CAlert>}
 
-                    <CInputGroup className="mb-3">
+                    {/* [FIX] Added 'custom-input-group' class here to activate your new CSS */}
+                    <CInputGroup className="mb-3 custom-input-group">
                       <CInputGroupText className="login-input-icon">
                         <CIcon icon={cilUser} />
                       </CInputGroupText>
@@ -109,10 +108,12 @@ const Login = () => {
                         className="login-input"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        aria-label="Email Address"
                       />
                     </CInputGroup>
                     
-                    <CInputGroup className="mb-4">
+                    {/* [FIX] Added 'custom-input-group' class here too */}
+                    <CInputGroup className="mb-4 custom-input-group">
                       <CInputGroupText className="login-input-icon">
                         <CIcon icon={cilLockLocked} />
                       </CInputGroupText>
@@ -123,6 +124,7 @@ const Login = () => {
                         className="login-input"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        aria-label="Password"
                       />
                     </CInputGroup>
                     
@@ -133,14 +135,19 @@ const Login = () => {
                           type="submit" 
                           disabled={loading}
                         >
-                          {loading ? '...' : 'LOGIN'}
+                          {loading ? (
+                            <>
+                              <CSpinner component="span" size="sm" aria-hidden="true" className="me-2"/>
+                              ...
+                            </>
+                          ) : 'LOGIN'}
                         </CButton>
                       </CCol>
                       <CCol xs={6} className="text-end d-flex align-items-center justify-content-end">
                         <Link 
                           to="/admin/recover-password" 
                           className="text-decoration-none small fw-semibold"
-                          style={{ color: '#2478bd' }}
+                          style={{ color: '#17334e' }}
                         >
                           Forgot password?
                         </Link>
@@ -154,15 +161,15 @@ const Login = () => {
               <CCard className="text-white py-5 border-0 d-none d-md-flex brand-card">
                 <CCardBody className="text-center d-flex align-items-center justify-content-center">
                   <div>
-                    {/* [NEW] Logo Placement for Desktop */}
                     <div className="mb-4">
                       <img 
                         src={tcjLogo} 
-                        alt="TJC Logo" 
+                        alt="" 
+                        aria-hidden="true" 
                         style={{ 
                           height: '100px', 
                           objectFit: 'contain',
-                          filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' // Adds subtle depth
+                          filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' 
                         }} 
                       />
                     </div>

@@ -1,7 +1,6 @@
 import React from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { CSidebar, CSidebarBrand, CSidebarNav } from '@coreui/react'
-// import SimpleBar from 'simplebar-react' // REMOVED
+import { CSidebar, CSidebarBrand, CSidebarToggler } from '@coreui/react'
 import { AppSidebarNav } from './AppSidebarNav'
 import navigation from '../_nav'
 
@@ -24,8 +23,7 @@ const AppSidebar = () => {
       className="sidebar-brand-navy border-end" 
     >
       <CSidebarBrand className="d-none d-md-flex flex-column align-items-center justify-content-center" to="/">
-        
-        {/* --- FULL SIDEBAR VIEW (Expanded) --- */}
+        {/* --- FULL LOGO --- */}
         <div className="d-flex flex-column align-items-center py-4 sidebar-brand-full">
             <img 
                 src={sidebarIcon} 
@@ -37,7 +35,6 @@ const AppSidebar = () => {
                   filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' 
                 }} 
             />
-            
             <div style={{
                 fontFamily: "'Oswald', sans-serif", 
                 color: '#f1ce44', 
@@ -59,7 +56,7 @@ const AppSidebar = () => {
             </div>
         </div>
         
-        {/* --- MINIMIZED SIDEBAR VIEW (Collapsed) --- */}
+        {/* --- NARROW LOGO --- */}
         <img 
           className="sidebar-brand-narrow" 
           src={sidebarIcon} 
@@ -68,11 +65,14 @@ const AppSidebar = () => {
         />
       </CSidebarBrand>
       
-      <CSidebarNav className="no-scroll-fix">
-        {/* [FIX] Directly rendering navigation links now that SimpleBar is removed */}
-        <AppSidebarNav items={navigation} />
-      </CSidebarNav>
-      
+      {/* Navigation - Will grow to fill space and scroll if needed */}
+      <AppSidebarNav items={navigation} />
+
+      {/* Footer Toggler */}
+      <CSidebarToggler
+        className="d-none d-lg-flex"
+        onClick={() => dispatch({ type: 'set', sidebarUnfoldable: !unfoldable })}
+      />
     </CSidebar>
   )
 }

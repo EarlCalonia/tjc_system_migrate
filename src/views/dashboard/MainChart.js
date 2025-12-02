@@ -10,14 +10,10 @@ const MainChart = () => {
     const handleColorSchemeChange = () => {
       if (chartRef.current) {
         setTimeout(() => {
-          chartRef.current.options.scales.x.grid.borderColor = getStyle(
-            '--cui-border-color-translucent',
-          )
+          chartRef.current.options.scales.x.grid.borderColor = getStyle('--cui-border-color-translucent')
           chartRef.current.options.scales.x.grid.color = getStyle('--cui-border-color-translucent')
           chartRef.current.options.scales.x.ticks.color = getStyle('--cui-body-color')
-          chartRef.current.options.scales.y.grid.borderColor = getStyle(
-            '--cui-border-color-translucent',
-          )
+          chartRef.current.options.scales.y.grid.borderColor = getStyle('--cui-border-color-translucent')
           chartRef.current.options.scales.y.grid.color = getStyle('--cui-border-color-translucent')
           chartRef.current.options.scales.y.ticks.color = getStyle('--cui-body-color')
           chartRef.current.update()
@@ -30,8 +26,6 @@ const MainChart = () => {
       document.documentElement.removeEventListener('ColorSchemeChange', handleColorSchemeChange)
   }, [chartRef])
 
-  const random = (min = 0, max = 100) => Math.floor(Math.random() * (max - min + 1)) + min
-
   return (
     <>
       <CChartLine
@@ -41,46 +35,30 @@ const MainChart = () => {
           labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
           datasets: [
             {
-              label: 'My First dataset',
-              backgroundColor: `rgba(${getStyle('--cui-info-rgb')}, .1)`,
-              borderColor: getStyle('--cui-info'),
-              pointHoverBackgroundColor: getStyle('--cui-info'),
+              label: 'Total Revenue (₱)',
+              backgroundColor: `rgba(36, 120, 189, 0.1)`, // Brand Blue transparent
+              borderColor: '#2478bd', // Brand Blue
+              pointHoverBackgroundColor: '#2478bd',
               borderWidth: 2,
-              data: [
-                random(50, 200),
-                random(50, 200),
-                random(50, 200),
-                random(50, 200),
-                random(50, 200),
-                random(50, 200),
-                random(50, 200),
-              ],
+              data: [150000, 180000, 165000, 210000, 195000, 230000, 250000],
               fill: true,
             },
             {
-              label: 'My Second dataset',
+              label: 'Net Profit (₱)',
               backgroundColor: 'transparent',
-              borderColor: getStyle('--cui-success'),
-              pointHoverBackgroundColor: getStyle('--cui-success'),
+              borderColor: '#28a745', // Success Green
+              pointHoverBackgroundColor: '#28a745',
               borderWidth: 2,
-              data: [
-                random(50, 200),
-                random(50, 200),
-                random(50, 200),
-                random(50, 200),
-                random(50, 200),
-                random(50, 200),
-                random(50, 200),
-              ],
+              data: [80000, 95000, 85000, 110000, 100000, 125000, 140000],
             },
             {
-              label: 'My Third dataset',
+              label: 'Sales Target (₱)',
               backgroundColor: 'transparent',
-              borderColor: getStyle('--cui-danger'),
-              pointHoverBackgroundColor: getStyle('--cui-danger'),
+              borderColor: '#dc3545', // Danger/Target Red
+              pointHoverBackgroundColor: '#dc3545',
               borderWidth: 1,
               borderDash: [8, 5],
-              data: [65, 65, 65, 65, 65, 65, 65],
+              data: [200000, 200000, 200000, 200000, 200000, 200000, 200000],
             },
           ],
         }}
@@ -88,8 +66,23 @@ const MainChart = () => {
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              display: false,
+              display: true, // Show legend so users know what lines mean
+              position: 'top',
             },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        if (context.parsed.y !== null) {
+                            label += new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(context.parsed.y);
+                        }
+                        return label;
+                    }
+                }
+            }
           },
           scales: {
             x: {
@@ -109,22 +102,23 @@ const MainChart = () => {
               grid: {
                 color: getStyle('--cui-border-color-translucent'),
               },
-              max: 250,
               ticks: {
                 color: getStyle('--cui-body-color'),
                 maxTicksLimit: 5,
-                stepSize: Math.ceil(250 / 5),
+                callback: function(value) {
+                    return '₱' + value / 1000 + 'k'; // Format Y-axis as Currency
+                }
               },
             },
           },
           elements: {
             line: {
-              tension: 0.4,
+              tension: 0.3, // Smoother curve
             },
             point: {
-              radius: 0,
+              radius: 2,
               hitRadius: 10,
-              hoverRadius: 4,
+              hoverRadius: 6,
               hoverBorderWidth: 3,
             },
           },

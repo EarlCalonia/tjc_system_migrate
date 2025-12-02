@@ -14,7 +14,7 @@ import CIcon from '@coreui/icons-react'
 import { cilMenu, cilBell, cilEnvelopeOpen, cilList } from '@coreui/icons'
 
 import { AppBreadcrumb } from './index'
-import { AppHeaderDropdown } from './header/index' // Ensure you have this component
+import { AppHeaderDropdown } from './header/index'
 import { logo } from 'src/assets/brand/logo'
 
 const AppHeader = () => {
@@ -22,14 +22,16 @@ const AppHeader = () => {
   const sidebarShow = useSelector((state) => state.sidebarShow)
 
   return (
-    <CHeader position="sticky" className="mb-4 p-0">
+    // [FIX] Added 'app-header-brand' class for custom styling overlap prevention
+    // [FIX] Kept position="sticky" but we will enhance it in CSS
+    <CHeader position="sticky" className="mb-4 p-0 app-header-brand">
       <CContainer fluid>
-        {/* Mobile Menu Toggler - CRITICAL for Mobile Responsiveness */}
+        {/* Mobile Menu Toggler */}
         <CHeaderToggler
           className="ps-1"
           onClick={() => dispatch({ type: 'set', sidebarShow: !sidebarShow })}
         >
-          <CIcon icon={cilMenu} size="lg" />
+          <CIcon icon={cilMenu} size="lg" className="text-brand-navy" />
         </CHeaderToggler>
         
         {/* Mobile Brand Logo */}
@@ -37,13 +39,13 @@ const AppHeader = () => {
           <CIcon icon={logo} height={48} alt="Logo" />
         </CHeaderBrand>
 
-        {/* Desktop Header Navigation (Optional - often removed for cleaner look) */}
+        {/* Desktop Header Navigation */}
         <CHeaderNav className="d-none d-md-flex me-auto">
-          {/* You can put global search here later */}
+           {/* Future Global Search or Quick Links */}
         </CHeaderNav>
 
-        {/* Right Side Icons & Profile */}
-        <CHeaderNav>
+        {/* Right Side Icons */}
+        <CHeaderNav className="header-actions">
           <CNavItem>
             <CNavLink href="#">
               <CIcon icon={cilBell} size="lg" />
@@ -61,15 +63,15 @@ const AppHeader = () => {
           </CNavItem>
         </CHeaderNav>
         
-        {/* User Profile Dropdown (Moved from Sidebar) */}
+        {/* User Profile Dropdown */}
         <CHeaderNav className="ms-3">
           <AppHeaderDropdown />
         </CHeaderNav>
       </CContainer>
       
-      {/* Breadcrumbs - CRITICAL for Deep Navigation (e.g. Inventory > Product > Edit) */}
+      {/* Breadcrumbs Divider */}
       <CHeaderDivider />
-      <CContainer fluid>
+      <CContainer fluid className="pb-2">
         <AppBreadcrumb />
       </CContainer>
     </CHeader>

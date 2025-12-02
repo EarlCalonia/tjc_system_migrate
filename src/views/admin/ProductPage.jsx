@@ -16,9 +16,10 @@ import {
   CModalTitle,
   CModalBody,
   CModalFooter,
-  CBadge,
   CInputGroup,
   CInputGroupText,
+  CBadge,
+  CSpinner
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { 
@@ -33,8 +34,8 @@ import {
 } from '@coreui/icons'
 import { productAPI } from '../../utils/api'
 import { serialNumberAPI } from '../../utils/serialNumberApi'
+import '../../styles/ProductPage.css' 
 
-// --- CONFIGURATION ---
 const ASSET_URL = 'http://localhost:5000'
 
 const ProductPage = () => {
@@ -75,7 +76,7 @@ const ProductPage = () => {
     return `${ASSET_URL}${cleanPath}`
   }
 
-  // --- API CALLS (Wrapped in useCallback to fix linter) ---
+  // --- API ---
   const loadProducts = useCallback(async () => {
     setLoading(true)
     try {
@@ -108,7 +109,6 @@ const ProductPage = () => {
 
   // --- EFFECTS ---
   const didInit = useRef(false)
-  
   useEffect(() => {
     if (didInit.current) return
     didInit.current = true
@@ -177,7 +177,7 @@ const ProductPage = () => {
       
       const res = await apiCall
       if (res.success) {
-        showMessage('Success', isAddMode ? 'Product created' : 'Product updated', 'success')
+        showMessage('Success', isAddMode ? 'Product created successfully' : 'Product updated successfully', 'success')
         setIsModalOpen(false)
         loadProducts()
       } else {
@@ -190,45 +190,44 @@ const ProductPage = () => {
     }
   }
 
-  // Pagination Calculation
   const totalPages = Math.ceil(totalItems / itemsPerPage)
 
   return (
     <CContainer fluid>
       <div className="mb-4 d-flex justify-content-between align-items-end">
         <div>
-          <h2 className="fw-bold text-dark">Products</h2>
-          <div className="text-medium-emphasis">Manage catalog items</div>
+          <h2 className="fw-bold text-brand-navy" style={{fontFamily: 'Oswald, sans-serif'}}>PRODUCT CATALOG</h2>
+          <div className="text-medium-emphasis">Manage system products and pricing</div>
         </div>
-        <CButton color="primary" className="text-white" onClick={handleAddProduct}>
+        <CButton color="primary" className="text-white fw-bold d-flex align-items-center" onClick={handleAddProduct}>
           <CIcon icon={cilPlus} className="me-2" /> Add Product
         </CButton>
       </div>
 
       {/* FILTERS */}
       <CCard className="mb-4 border-0 shadow-sm">
-        <CCardBody className="bg-light rounded">
+        <CCardBody className="bg-light rounded p-3">
           <CRow className="g-3">
             <CCol md={3}>
               <CInputGroup>
                 <CInputGroupText className="bg-white border-end-0"><CIcon icon={cilMagnifyingGlass} /></CInputGroupText>
-                <CFormInput className="border-start-0" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                <CFormInput className="border-start-0" placeholder="Search products..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} aria-label="Search" />
               </CInputGroup>
             </CCol>
             <CCol md={3}>
-              <CFormSelect value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
+              <CFormSelect value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} aria-label="Filter Category">
                 <option>All Categories</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </CFormSelect>
             </CCol>
             <CCol md={3}>
-              <CFormSelect value={selectedBrand} onChange={e => setSelectedBrand(e.target.value)}>
+              <CFormSelect value={selectedBrand} onChange={e => setSelectedBrand(e.target.value)} aria-label="Filter Brand">
                 <option>All Brand</option>
                 {brands.map(b => <option key={b} value={b}>{b}</option>)}
               </CFormSelect>
             </CCol>
             <CCol md={3}>
-              <CFormSelect value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
+              <CFormSelect value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} aria-label="Filter Status">
                 <option>All Status</option><option>Active</option><option>Inactive</option>
               </CFormSelect>
             </CCol>
@@ -236,24 +235,30 @@ const ProductPage = () => {
         </CCardBody>
       </CCard>
 
-      {/* TABLE */}
+      {/* MAIN TABLE */}
       <CCard className="mb-4 border-0 shadow-sm">
         <CCardBody className="p-0">
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0">
-              <thead className="bg-light border-bottom">
+          <div className="table-responsive product-table-container">
+            <table className="table product-table table-hover align-middle mb-0">
+              <thead>
                 <tr>
-                  <th className="ps-4" style={{width: '35%'}}>Product</th>
-                  <th>Category</th>
-                  <th>Brand</th>
-                  <th>Price</th>
-                  <th className="text-center">Status</th>
-                  <th className="text-end pe-4">Actions</th>
+                  {/* WCAG: scope="col" for table headers */}
+                  <th scope="col" className="ps-4" style={{width: '35%'}}>Product Name</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Brand</th>
+                  <th scope="col">Price</th>
+                  <th scope="col" className="text-center">Status</th>
+                  <th scope="col" className="text-end pe-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="6" className="text-center py-5 text-muted">Loading products...</td></tr>
+                  <tr>
+                    <td colSpan="6" className="text-center py-5">
+                      <CSpinner color="primary" variant="grow"/>
+                      <div className="text-muted mt-2">Loading catalog...</div>
+                    </td>
+                  </tr>
                 ) : products.length === 0 ? (
                   <tr><td colSpan="6" className="text-center py-5 text-muted">No products found</td></tr>
                 ) : (
@@ -263,23 +268,12 @@ const ProductPage = () => {
                       <tr key={p.product_id}>
                         <td className="ps-4">
                           <div className="d-flex align-items-center gap-3">
-                            {/* Thumbnail */}
-                            <div style={{
-                              width: '48px', height: '48px', flexShrink: 0, 
-                              borderRadius: '8px', border: '1px solid #e9ecef', 
-                              overflow: 'hidden', backgroundColor: '#f8f9fa',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
+                            <div className="product-thumbnail-container">
                               {imgUrl ? (
-                                <img 
-                                  src={imgUrl} 
-                                  alt={p.name} 
-                                  style={{width: '100%', height: '100%', objectFit: 'cover'}} 
-                                  onError={(e) => {e.target.style.display='none'; e.target.nextSibling.style.display='flex'}} 
-                                />
+                                <img src={imgUrl} alt={p.name} onError={(e) => {e.target.style.display='none'; e.target.nextSibling.style.display='flex'}} />
                               ) : null}
-                              <div style={{display: imgUrl ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center'}}>
-                                <CIcon icon={cilImage} size="lg" className="text-secondary opacity-25"/>
+                              <div className="placeholder-icon" style={{display: imgUrl ? 'none' : 'flex'}}>
+                                <CIcon icon={cilImage} className="text-secondary opacity-50"/>
                               </div>
                             </div>
                             <div>
@@ -288,19 +282,19 @@ const ProductPage = () => {
                             </div>
                           </div>
                         </td>
-                        <td><span className="badge bg-light text-dark border">{p.category}</span></td>
+                        <td><span className="badge bg-light text-dark border fw-normal">{p.category}</span></td>
                         <td>{p.brand}</td>
-                        <td className="fw-semibold text-primary">₱{p.price?.toLocaleString()}</td>
+                        <td className="fw-semibold text-brand-blue">₱{p.price?.toLocaleString()}</td>
                         <td className="text-center">
                           <CBadge color={p.status === 'Active' ? 'success' : 'secondary'} shape="rounded-pill">
                             {p.status}
                           </CBadge>
                         </td>
                         <td className="text-end pe-4">
-                          <CButton size="sm" color="info" variant="ghost" onClick={() => handleEditProduct(p)}>
+                          <CButton size="sm" color="info" variant="ghost" onClick={() => handleEditProduct(p)} aria-label="Edit Product">
                             <CIcon icon={cilPencil} />
                           </CButton>
-                          <CButton size="sm" color="danger" variant="ghost" onClick={() => showMessage('Delete', 'Delete functionality placeholder', 'warning')}>
+                          <CButton size="sm" color="danger" variant="ghost" onClick={() => showMessage('Delete', 'Delete functionality placeholder', 'warning')} aria-label="Delete Product">
                             <CIcon icon={cilTrash} />
                           </CButton>
                         </td>
@@ -312,24 +306,26 @@ const ProductPage = () => {
             </table>
           </div>
 
-          {/* PAGINATION CONTROLS */}
-          <div className="p-3 border-top d-flex justify-content-between align-items-center">
-            <span className="text-medium-emphasis small">
-              Showing {products.length} of {totalItems} products
+          {/* PAGINATION */}
+          <div className="p-3 border-top d-flex justify-content-between align-items-center bg-light">
+            <span className="text-muted small">
+              Showing {products.length} of {totalItems} items
             </span>
             <div className="d-flex gap-2 align-items-center">
               <CButton 
                 size="sm" 
-                variant="outline" 
+                color="white"
+                className="border"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               >
                 <CIcon icon={cilChevronLeft} /> Prev
               </CButton>
-              <span className="small fw-bold">Page {currentPage} of {totalPages || 1}</span>
+              <span className="small fw-bold px-2">{currentPage} / {totalPages || 1}</span>
               <CButton 
                 size="sm" 
-                variant="outline" 
+                color="white"
+                className="border"
                 disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage(p => p + 1)}
               >
@@ -341,90 +337,42 @@ const ProductPage = () => {
         </CCardBody>
       </CCard>
 
-      {/* PRODUCT MODAL */}
+      {/* MODALS section remains the same... (Code shortened for brevity, keep your modal logic from previous file) */}
       <CModal visible={isModalOpen} onClose={() => setIsModalOpen(false)} size="lg" alignment="center">
-        <CModalHeader>
-          <CModalTitle>{isAddMode ? 'Add Product' : 'Edit Product'}</CModalTitle>
-        </CModalHeader>
+        <CModalHeader><CModalTitle className="fw-bold">{isAddMode ? 'Add New Product' : 'Edit Product Details'}</CModalTitle></CModalHeader>
         <CModalBody>
           <CRow className="g-3">
-            <CCol md={12} className="d-flex flex-column align-items-center mb-3">
-              <div 
-                className="mb-3 position-relative"
-                style={{
-                  width: '150px', height: '150px', 
-                  borderRadius: '12px', border: '2px dashed #ced4da',
-                  overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: '#f8f9fa'
-                }}
-              >
-                {imagePreview ? (
-                  <img src={imagePreview} alt="Preview" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
-                ) : (
-                  <div className="text-center text-muted">
-                    <CIcon icon={cilCloudUpload} size="3xl" className="mb-2"/>
-                    <small className="d-block">No Image</small>
-                  </div>
-                )}
+            <CCol md={4} className="d-flex flex-column align-items-center">
+              <div className="image-upload-preview">
+                {imagePreview ? <img src={imagePreview} alt="Preview" /> : <div className="text-center text-muted"><CIcon icon={cilCloudUpload} size="3xl" className="mb-2 text-secondary"/><small className="d-block">Upload Image</small></div>}
               </div>
-              <div className="w-100" style={{maxWidth: '300px'}}>
-                <CFormInput type="file" accept="image/*" onChange={handleFileChange} />
-              </div>
+              <div className="w-100"><CFormInput type="file" accept="image/*" size="sm" onChange={handleFileChange} /></div>
             </CCol>
-
-            <CCol md={6}>
-              <CFormLabel>Product Name</CFormLabel>
-              <CFormInput value={selectedProduct?.name || ''} onChange={e => setSelectedProduct({...selectedProduct, name: e.target.value})} />
+            <CCol md={8}>
+              <CRow className="g-3">
+                <CCol md={12}><CFormLabel>Product Name <span className="text-danger">*</span></CFormLabel><CFormInput value={selectedProduct?.name || ''} onChange={e => setSelectedProduct({...selectedProduct, name: e.target.value})} /></CCol>
+                <CCol md={6}><CFormLabel>Brand</CFormLabel><CFormSelect value={selectedProduct?.brand || ''} onChange={e => setSelectedProduct({...selectedProduct, brand: e.target.value})}><option value="">Select Brand</option>{brands.map(b => <option key={b} value={b}>{b}</option>)}</CFormSelect></CCol>
+                <CCol md={6}><CFormLabel>Category</CFormLabel><CFormSelect value={selectedProduct?.category || ''} onChange={e => setSelectedProduct({...selectedProduct, category: e.target.value})}><option value="">Select Category</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</CFormSelect></CCol>
+                <CCol md={6}><CFormLabel>Price (₱)</CFormLabel><CFormInput type="number" min="0" value={selectedProduct?.price || ''} onChange={e => setSelectedProduct({...selectedProduct, price: e.target.value})} /></CCol>
+                <CCol md={12}><CFormLabel>Description</CFormLabel><CFormTextarea rows={3} value={selectedProduct?.description || ''} onChange={e => setSelectedProduct({...selectedProduct, description: e.target.value})} /></CCol>
+              </CRow>
             </CCol>
-            <CCol md={6}>
-              <CFormLabel>Brand</CFormLabel>
-              <CFormSelect value={selectedProduct?.brand || ''} onChange={e => setSelectedProduct({...selectedProduct, brand: e.target.value})}>
-                <option value="">Select...</option>
-                {brands.map(b => <option key={b} value={b}>{b}</option>)}
-              </CFormSelect>
-            </CCol>
-            <CCol md={6}>
-              <CFormLabel>Category</CFormLabel>
-              <CFormSelect value={selectedProduct?.category || ''} onChange={e => setSelectedProduct({...selectedProduct, category: e.target.value})}>
-                <option value="">Select...</option>
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </CFormSelect>
-            </CCol>
-            <CCol md={6}>
-              <CFormLabel>Price (₱)</CFormLabel>
-              <CFormInput type="number" value={selectedProduct?.price || ''} onChange={e => setSelectedProduct({...selectedProduct, price: e.target.value})} />
-            </CCol>
-            <CCol md={12}>
-              <CFormLabel>Description</CFormLabel>
-              <CFormTextarea rows={3} value={selectedProduct?.description || ''} onChange={e => setSelectedProduct({...selectedProduct, description: e.target.value})} />
-            </CCol>
-            <CCol md={6}>
-              <CFormSwitch 
-                label="Requires Serial Number" 
-                checked={selectedProduct?.requires_serial || false} 
-                disabled={hasUnremovableSerials}
-                onChange={e => setSelectedProduct({...selectedProduct, requires_serial: e.target.checked})} 
-              />
-            </CCol>
-            <CCol md={6}>
-              <CFormSwitch 
-                label="Active Status" 
-                checked={selectedProduct?.status === 'Active'} 
-                onChange={e => setSelectedProduct({...selectedProduct, status: e.target.checked ? 'Active' : 'Inactive'})} 
-              />
+            <CCol md={12} className="border-top pt-3 mt-3">
+               <div className="d-flex justify-content-between">
+                  <CFormSwitch label="Requires Serial Number" checked={selectedProduct?.requires_serial || false} disabled={hasUnremovableSerials} onChange={e => setSelectedProduct({...selectedProduct, requires_serial: e.target.checked})} />
+                  <CFormSwitch label="Active Status" checked={selectedProduct?.status === 'Active'} onChange={e => setSelectedProduct({...selectedProduct, status: e.target.checked ? 'Active' : 'Inactive'})} />
+               </div>
             </CCol>
           </CRow>
         </CModalBody>
         <CModalFooter>
           <CButton color="secondary" onClick={() => setIsModalOpen(false)}>Cancel</CButton>
-          <CButton color="primary" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Save Changes'}
-          </CButton>
+          <CButton color="primary" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? <CSpinner size="sm" /> : 'Save Product'}</CButton>
         </CModalFooter>
       </CModal>
 
       <CModal visible={msgModal.visible} onClose={() => setMsgModal({...msgModal, visible: false})}>
-        <CModalHeader><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
+        <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
         <CModalBody>{msgModal.message}</CModalBody>
         <CModalFooter><CButton color="secondary" onClick={() => setMsgModal({...msgModal, visible: false})}>Close</CButton></CModalFooter>
       </CModal>

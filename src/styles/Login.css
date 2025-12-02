@@ -16,6 +16,25 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
+  min-height: 400px; /* Optional: Ensures there is vertical space to distribute */
+}
+
+/* [NEW] SCOPE PROTECTION: 
+   Applying your F12 adjustments ONLY to the login card body.
+*/
+.login-card-group .card-body {
+  /* Default CoreUI styles you noticed */
+  flex: 1 1 auto;
+  padding: var(--cui-card-spacer-y) var(--cui-card-spacer-x);
+  color: var(--cui-card-color);
+
+  /* Your Adjustments */
+  align-content: space-evenly;
+  
+  /* REQUIRED: These allow 'align-content/justify-content' to actually work */
+  display: flex;
+  flex-direction: column; 
+  justify-content: space-evenly; /* Often behaves better than align-content for single columns */
 }
 
 /* Typography */
@@ -28,20 +47,20 @@
   margin-bottom: 5px;
 }
 
-/* --- [NEW] INDUSTRIAL SQUARE BOX DESIGN --- */
+/* --- INDUSTRIAL SQUARE BOX DESIGN --- */
 
 /* 1. The Group Container */
 .custom-input-group {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background-color: #ffffff;
-  overflow: hidden; /* Ensures the square box gets rounded corners on the left */
+  overflow: hidden;
   transition: all 0.3s ease;
   display: flex;
-  align-items: stretch; /* Ensures both box and input are same height */
+  align-items: stretch;
 }
 
-/* Focus State: The whole group border lights up */
+/* Focus State */
 .custom-input-group:focus-within {
   border-color: #17334e;
   box-shadow: 0 0 0 3px rgba(23, 51, 78, 0.15);
@@ -49,22 +68,22 @@
 
 /* 2. The Icon "Square Box" */
 .login-input-icon {
-  width: 50px;                     /* Fixed Width */
-  min-width: 50px;                 /* Prevent shrinking */
-  background-color: #17334e !important; /* Brand Navy Background */
+  width: 50px;
+  min-width: 50px;
+  background-color: #17334e !important;
   border: none !important;
-  color: #ffffff;                  /* Default White Icon */
+  color: #ffffff;
   display: flex;
   align-items: center;
-  justify-content: center;         /* Perfectly Centered */
+  justify-content: center;
   transition: all 0.3s ease;
-  padding: 0 !important;           /* Remove default padding */
+  padding: 0 !important;
 }
 
-/* Interaction: Icon turns Yellow when user clicks input */
+/* Interaction */
 .custom-input-group:focus-within .login-input-icon {
-  color: #f1ce44;                  /* Brand Yellow */
-  background-color: #102a43 !important; /* Slightly darker Navy for depth */
+  color: #f1ce44;
+  background-color: #102a43 !important;
 }
 
 /* 3. The Input Field */
@@ -75,7 +94,7 @@
   color: #17334e;
   font-weight: 600;
   font-size: 1rem;
-  padding-left: 15px; /* Spacing from the square box */
+  padding-left: 15px;
   box-shadow: none !important;
 }
 

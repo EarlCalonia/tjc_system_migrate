@@ -41,6 +41,10 @@ body, #root, .wrapper {
   background-color: var(--color-bg-body) !important;
   color: var(--color-text-main) !important;
   -webkit-font-smoothing: antialiased;
+  
+  /* Prevent accidental horizontal scroll */
+  overflow-x: hidden; 
+  max-width: 100vw;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -53,7 +57,37 @@ h1, h2, h3, h4, h5, h6 {
 a { text-decoration: none; }
 
 /* =================================================================== */
-/* 2. CUSTOM SIDEBAR (NAVY & YELLOW) */
+/* 2. GLOBAL SCROLLBAR (The "Steel" Look for Main Content) */
+/* =================================================================== */
+
+/* This applies to the body and generic divs, BUT NOT the sidebar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1; /* Industrial Steel Grey */
+  border-radius: 5px;
+  border: 2px solid #f3f4f7; /* Creates padding effect */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--brand-navy); /* Navy on interaction */
+}
+
+/* Firefox Standard */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* =================================================================== */
+/* 3. CUSTOM SIDEBAR (With Protected Scrollbar) */
 /* =================================================================== */
 
 .sidebar-brand-navy {
@@ -62,10 +96,39 @@ a { text-decoration: none; }
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
   border-right: 1px solid var(--brand-navy-dark) !important;
   z-index: 1030; 
-  overflow: hidden; /* Prevent primary scrollbar on CSidebar */
+  overflow: hidden; 
 }
 
-/* Brand Header Area */
+/* --- SIDEBAR SCROLLBAR OVERRIDE --- */
+/* Using higher specificity to ensure Global Scrollbar doesn't touch this */
+
+.sidebar-brand-navy .sidebar-nav::-webkit-scrollbar {
+  width: 5px !important; /* Thinner than global */
+}
+
+.sidebar-brand-navy .sidebar-nav::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1) !important; /* Darker track for Navy bg */
+}
+
+.sidebar-brand-navy .sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2) !important; /* Transparent White Thumb */
+  border-radius: 10px !important;
+  border: none !important; /* No border */
+}
+
+.sidebar-brand-navy .sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-yellow) !important; /* Pop color */
+}
+
+/* Firefox Override for Sidebar */
+.sidebar-brand-navy .sidebar-nav {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.1) !important;
+}
+
+/* --- SIDEBAR CONTENT --- */
+
+/* Brand Header */
 .sidebar-brand-navy .sidebar-brand {
   background-color: var(--brand-navy-dark);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
@@ -73,7 +136,7 @@ a { text-decoration: none; }
   padding-bottom: 1.5rem !important;
 }
 
-/* Navigation Links */
+/* Links */
 .sidebar-brand-navy .nav-link {
   color: rgba(255, 255, 255, 0.8) !important;
   font-family: 'Inter', sans-serif;
@@ -92,7 +155,7 @@ a { text-decoration: none; }
   transition: all 0.2s ease-in-out;
 }
 
-/* Hover State - "Glow" Effect */
+/* Hover */
 .sidebar-brand-navy .nav-link:hover {
   background-color: rgba(241, 206, 68, 0.1) !important;
   color: #ffffff !important;
@@ -103,7 +166,7 @@ a { text-decoration: none; }
   transform: scale(1.1); 
 }
 
-/* Active State - High Visibility */
+/* Active */
 .sidebar-brand-navy .nav-link.active {
   background-color: var(--brand-yellow) !important;
   color: var(--brand-navy) !important;
@@ -116,62 +179,107 @@ a { text-decoration: none; }
 
 /* Section Titles */
 .sidebar-brand-navy .nav-title {
-  color: rgba(255, 255, 255, 0.5) !important;
+  color: var(--brand-yellow) !important; /* High Contrast WCAG */
   font-family: 'Oswald', sans-serif;
   letter-spacing: 1.5px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
   padding-left: 24px;
+  text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.5);
+  opacity: 1 !important;
 }
 
 /* =================================================================== */
-/* 3. SLEEK CUSTOM SCROLLBAR OVERRIDES */
+/* 4. GLOBAL ADMIN TABLES (Standardized Layout) */
 /* =================================================================== */
 
-/* Target the SimpleBar wrapper (the content that scrolls) */
-.sidebar-brand-navy .simplebar-content-wrapper {
-  /* Scrollbar styling for Firefox */
-  scrollbar-width: thin; 
-  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+/* The Container (Scrollable & Zoom Proof) */
+.admin-table-container {
+  height: 75vh;             
+  min-height: 400px;        
+  overflow-y: auto;         
+  overflow-x: auto;         
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;       
+  background-color: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
-/* Webkit (Chrome, Edge, Safari) Scrollbar Fix */
-.sidebar-brand-navy .simplebar-content-wrapper::-webkit-scrollbar {
-  width: 6px !important;
+/* The Table Structure */
+.admin-table {
+  width: 100%;
+  border-collapse: separate; 
+  border-spacing: 0;
+  margin-bottom: 0;
 }
 
-.sidebar-brand-navy .simplebar-content-wrapper::-webkit-scrollbar-track {
-  background: transparent !important;
+/* Sticky Navy Header */
+.admin-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10; 
+  background-color: var(--brand-navy) !important;
+  color: #ffffff !important;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 500;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 16px 20px;       
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+  white-space: nowrap;
 }
 
-.sidebar-brand-navy .simplebar-content-wrapper::-webkit-scrollbar-thumb {
-  /* [FIX] Increased opacity and used !important for visibility over OS defaults */
-  background-color: rgba(255, 255, 255, 0.4) !important; 
-  border-radius: 20px !important; 
-  border: 2px solid transparent !important; 
-  background-clip: content-box !important; /* Ensures the thumb is thin and centered */
+/* Zebra Striping */
+.admin-table tbody tr:nth-of-type(even) td {
+  background-color: #f1f5f9 !important; 
 }
 
-/* SimpleBar custom thumb styling */
-.sidebar-brand-navy .simplebar-scrollbar::before {
-  background-color: rgba(255, 255, 255, 0.2) !important;
-  border-radius: 10px;
-  width: 4px; 
-  left: 2px;
-  opacity: 0.5;
-  transition: opacity 0.2s linear;
+.admin-table tbody tr:hover td {
+  background-color: rgba(36, 120, 189, 0.1) !important; 
+  color: var(--brand-navy) !important; 
+  transition: background-color 0.2s ease;
 }
 
-/* Hover to make it more prominent */
-.sidebar-brand-navy:hover .simplebar-scrollbar::before {
-  opacity: 0.8;
-  background-color: rgba(255, 255, 255, 0.4) !important;
+/* Cell Typography */
+.admin-table td {
+  vertical-align: middle;
+  padding: 16px 20px;       
+  font-size: 1rem;          
+  color: var(--color-text-main);
+  border-bottom: 1px solid #e9ecef;
+}
+
+/* Standardized Image Thumbnails */
+.table-thumbnail {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  object-fit: cover;
+  background-color: #f8f9fa;
+  display: block;
+}
+
+/* Action Buttons in Tables */
+.admin-table .btn {
+  margin-left: 4px;
+  border-radius: 6px;
+  padding: 6px 12px;
+  transition: all 0.2s;
+}
+.admin-table .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 /* =================================================================== */
-/* 4. CARDS & LAYOUT */
+/* 5. CARDS, BUTTONS & FORMS */
 /* =================================================================== */
 
 .card {
@@ -182,59 +290,13 @@ a { text-decoration: none; }
   margin-bottom: 20px;
 }
 
-.card-header-action {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.card-header-action h2 {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.stat-card {
-  background: white;
-  border-radius: var(--radius-md);
-  padding: 20px;
-  box-shadow: var(--shadow-md);
-  border-left: 4px solid var(--brand-blue); 
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-card.inventory { border-color: #6f42c1; }
-.stat-card.low-stock { border-color: var(--color-warning); }
-.stat-card.revenue { border-color: var(--color-success); }
-.stat-card.sales { border-color: var(--brand-blue); }
-
-.stat-card h3 {
-  font-size: 0.85rem;
-  color: var(--color-text-light) !important;
-  margin-bottom: 5px;
-  font-family: 'Inter', sans-serif;
-}
-
-.stat-card .stat-value {
-  font-size: 1.8rem;
-  font-weight: 700;
-  font-family: 'Oswald', sans-serif;
-  color: var(--color-text-main);
-}
-
-/* =================================================================== */
-/* 5. BUTTONS */
-/* =================================================================== */
-
 .btn {
   font-family: 'Inter', sans-serif;
   font-weight: 600;
   border-radius: 6px;
   text-transform: uppercase;
-  font-size: 0.85rem;
-  padding: 8px 16px;
+  font-size: 0.9rem; /* Larger for touch */
+  padding: 10px 20px; /* Larger touch target */
   transition: all 0.2s ease;
 }
 
@@ -248,70 +310,11 @@ a { text-decoration: none; }
   transform: translateY(-1px);
 }
 
-.btn-secondary {
-  background-color: var(--brand-navy) !important;
-  border-color: var(--brand-navy) !important;
-  color: white !important;
-}
-.btn-secondary:hover {
-  background-color: var(--brand-navy-dark) !important;
-}
-
-.btn-warning {
-  background-color: var(--brand-yellow) !important;
-  border-color: var(--brand-yellow) !important;
-  color: var(--brand-navy) !important;
-}
-
-/* =================================================================== */
-/* 6. TABLES & DATA */
-/* =================================================================== */
-
-.table {
-  color: var(--color-text-main) !important;
-  vertical-align: middle;
-}
-
-.table thead th {
-  background-color: var(--brand-navy) !important;
-  color: white !important;
-  font-family: 'Oswald', sans-serif;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  border: none;
-  padding: 12px;
-}
-
-.table tbody tr:hover {
-  background-color: #f1f5f9 !important;
-}
-
-.status-badge {
-  padding: 5px 12px;
-  border-radius: 50px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.status-badge.active, .status-badge.paid {
-  background-color: #d1fae5; color: #065f46;
-}
-.status-badge.pending, .status-badge.processing {
-  background-color: #fef3c7; color: #92400e;
-}
-.status-badge.cancelled, .status-badge.out-of-stock {
-  background-color: #fee2e2; color: #991b1b;
-}
-
-/* =================================================================== */
-/* 7. FORMS */
-/* =================================================================== */
-
 .form-control, .form-select {
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  padding: 10px;
+  padding: 12px; /* Taller inputs */
+  font-size: 1rem;
 }
 
 .form-control:focus, .form-select:focus {
@@ -319,25 +322,27 @@ a { text-decoration: none; }
   box-shadow: 0 0 0 3px rgba(23, 51, 78, 0.15);
 }
 
-.search-box {
-  display: flex;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  overflow: hidden;
+/* =================================================================== */
+/* 6. STATUS BADGES */
+/* =================================================================== */
+
+.status-badge {
+  display: inline-block;
+  min-width: 90px;
+  text-align: center;
+  padding: 6px 12px;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
-.search-input {
-  border: none;
-  padding: 8px 12px;
-  outline: none;
-  flex: 1;
+.status-badge.active, .status-badge.paid, .status-badge.in-stock {
+  background-color: #d1fae5; color: #065f46;
 }
-
-.search-btn {
-  background-color: var(--brand-navy);
-  color: white;
-  border: none;
-  padding: 0 15px;
-  cursor: pointer;
+.status-badge.pending, .status-badge.processing, .status-badge.low-stock {
+  background-color: #fef3c7; color: #92400e;
 }
-.search-btn:hover { background-color: var(--brand-yellow); color: var(--brand-navy); }
+.status-badge.cancelled, .status-badge.out-of-stock {
+  background-color: #fee2e2; color: #991b1b;
+}

@@ -3,15 +3,14 @@ import { CFooter } from '@coreui/react'
 
 const AppFooter = () => {
   return (
-    <CFooter>
+    <CFooter className="border-top-0 bg-transparent">
       <div>
-        <span className="ms-1">&copy; 2025 TJC Auto Supply.</span>
+        <span className="fw-bold me-1 text-brand-navy">TJC AUTO SUPPLY</span>
+        <span className="text-secondary">&copy; {new Date().getFullYear()} Admin Portal.</span>
       </div>
       <div className="ms-auto">
-        <span className="me-1">Powered by</span>
-        <a href="https://coreui.io/react" target="_blank" rel="noopener noreferrer">
-          CoreUI & React
-        </a>
+        <span className="me-1 text-secondary">System Version</span>
+        <span className="fw-semibold text-brand-navy">1.0.0</span>
       </div>
     </CFooter>
   )
