@@ -221,11 +221,19 @@ export const inventoryAPI = {
     const response = await fetch(`${API_BASE_URL}/inventory/stats`, { credentials: 'include' });
     return handleResponse(response);
   },
+  // [FIX] Updated to support Pagination & Filters
   getProducts: async (filters = {}) => {
     const params = new URLSearchParams();
     if (filters.search) params.append('search', filters.search);
-    if (filters.category) params.append('category', filters.category);
-    if (filters.status) params.append('status', filters.status);
+    
+    // Only append filters if they are not the default "All" value
+    if (filters.category && filters.category !== 'All') params.append('category', filters.category);
+    if (filters.status && filters.status !== 'All') params.append('status', filters.status);
+
+    // Pagination Params
+    if (filters.page) params.append('page', filters.page);
+    if (filters.limit) params.append('limit', filters.limit);
+
     const response = await fetch(`${API_BASE_URL}/inventory/products?${params}`, { credentials: 'include' });
     return handleResponse(response);
   },
@@ -429,7 +437,7 @@ export const serialNumberAPI = {
   }
 };
 
-// Suppliers API (THIS WAS MISSING)
+// Suppliers API
 export const suppliersAPI = {
   getAll: async () => {
     const response = await fetch(`${API_BASE_URL}/suppliers`, { credentials: 'include' });

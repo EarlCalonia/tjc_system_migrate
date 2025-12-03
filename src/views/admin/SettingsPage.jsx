@@ -31,7 +31,7 @@ import {
 } from '@coreui/icons'
 import { settingsAPI, usersAPI, authAPI } from '../../utils/api'
 
-// [FIX] Import Global Brand Styles
+// Import Global Brand Styles
 import '../../styles/App.css'
 import '../../styles/Admin.css'
 import '../../styles/SettingsPage.css'
@@ -300,7 +300,6 @@ const SettingsPage = () => {
              </CCard>
              
              <div className="d-grid">
-                {/* [FIX] Success Color for "Save" (Positive Action) */}
                 <CButton color="success" className="text-white" size="lg" onClick={saveGeneralSettings} disabled={savingBiz}>
                   {savingBiz ? <CSpinner size="sm" variant="grow"/> : <><CIcon icon={cilSave} className="me-2"/> Save All Settings</>}
                 </CButton>
@@ -313,7 +312,7 @@ const SettingsPage = () => {
       {activeTab === 'users' && isAdmin && (
         <CCard className="shadow-sm border-0">
            <CCardHeader className="bg-white p-3 border-bottom d-flex justify-content-between align-items-center">
-              {/* [FIX] Branded Search */}
+              {/* Branded Search */}
               <div className="brand-search-wrapper" style={{maxWidth: '300px'}}>
                   <span className="brand-search-icon"><CIcon icon={cilSearch}/></span>
                   <input 
@@ -325,7 +324,7 @@ const SettingsPage = () => {
                   />
               </div>
               
-              {/* [FIX] Primary Action */}
+              {/* Primary Action */}
               <CButton color="primary" className="text-white fw-bold" onClick={openAddUser}>
                   <CIcon icon={cilPlus} className="me-2"/> Add New User
               </CButton>
@@ -403,7 +402,6 @@ const SettingsPage = () => {
                           {pwd.next !== pwd.confirm && pwd.confirm.length > 0 && <div className="text-danger small mt-1">Passwords do not match</div>}
                        </div>
                        <div className="d-grid">
-                          {/* [FIX] Danger Color for Security Action */}
                           <CButton color="danger" className="text-white" onClick={savePassword} disabled={savingPwd}>
                              {savingPwd ? <CSpinner size="sm" variant="grow"/> : 'Update Password'}
                           </CButton>
@@ -420,6 +418,7 @@ const SettingsPage = () => {
         <CModalHeader><CModalTitle>{editUser ? 'Edit User Account' : 'Create New User'}</CModalTitle></CModalHeader>
         <CModalBody>
            <CRow className="g-3">
+             {/* Added Avatar Upload Input */}
              <CCol md={12} className="text-center mb-3">
                <div className="p-3 border rounded bg-light d-inline-block">
                  <label className="form-label fw-bold small text-muted">Profile Picture</label>
@@ -449,7 +448,8 @@ const SettingsPage = () => {
              </CCol>
              <CCol md={6}>
                 <CFormLabel htmlFor="uRole" className="small text-muted fw-bold">Role</CFormLabel>
-                <CFormSelect id="uRole" value={formRole} onChange={e => setFormRole(e.target.value)}>
+                {/* [FIX] Branded Dropdown */}
+                <CFormSelect id="uRole" value={formRole} onChange={e => setFormRole(e.target.value)} className="brand-select">
                    <option value="staff">Staff</option>
                    <option value="admin">Admin</option>
                    <option value="driver">Driver</option>
@@ -457,7 +457,8 @@ const SettingsPage = () => {
              </CCol>
              <CCol md={6}>
                 <CFormLabel htmlFor="uStatus" className="small text-muted fw-bold">Status</CFormLabel>
-                <CFormSelect id="uStatus" value={formStatus} onChange={e => setFormStatus(e.target.value)}>
+                {/* [FIX] Branded Dropdown */}
+                <CFormSelect id="uStatus" value={formStatus} onChange={e => setFormStatus(e.target.value)} className="brand-select">
                    <option value="Active">Active</option>
                    <option value="Inactive">Inactive</option>
                 </CFormSelect>

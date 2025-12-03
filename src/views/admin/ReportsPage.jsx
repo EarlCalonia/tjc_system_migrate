@@ -18,7 +18,6 @@ import {
   CNavLink,
   CSpinner,
   CBadge,
-  CButtonGroup,
   CTooltip
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
@@ -32,12 +31,13 @@ import {
   cilArrowThickFromTop,
   cilCalendar,
   cilSearch,
-  cilReload
+  cilReload,
+  cilBarcode // [FIX] Added cilBarcode
 } from '@coreui/icons'
 import { generateSalesReportPDF, generateInventoryReportPDF, generateReturnsReportPDF } from '../../utils/pdfGenerator'
 import { reportsAPI } from '../../utils/api'
 
-// [FIX] Import Global Brand Styles
+// Global Styles
 import '../../styles/Admin.css'
 import '../../styles/App.css' 
 import '../../styles/ReportsPage.css'
@@ -53,8 +53,9 @@ const ReportsPage = () => {
   // Advanced Filters
   const [filters, setFilters] = useState({
     stockStatus: 'All Status',
-    brand: 'All Brand',
+    brand: 'All Brand', 
     category: 'All Categories',
+    isSerializedOnly: false,
     search: ''
   })
   
@@ -71,7 +72,7 @@ const ReportsPage = () => {
   // --- HELPERS ---
   const showMessage = (title, message, color = 'info') => setMsgModal({ visible: true, title, message, color })
   
-  // Standard Local Date Formatter
+  // Standard Local Date Formatter (YYYY-MM-DD)
   const formatLocalDate = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -79,7 +80,7 @@ const ReportsPage = () => {
     return `${year}-${month}-${day}`;
   };
 
-  // --- DATE LOGIC ---
+  // --- DATE LOGIC (FIXED) ---
   const applyDatePreset = (preset) => {
     const today = new Date();
     let start = '', end = '', label = '';
@@ -91,8 +92,9 @@ const ReportsPage = () => {
         label = 'Today';
         break;
       case 'week':
-        const day = today.getDay();
-        const diffToMonday = day === 0 ? 6 : day - 1; 
+        const currentDay = today.getDay(); 
+        const dayOfWeek = currentDay === 0 ? 7 : currentDay;
+        const diffToMonday = dayOfWeek - 1; 
         const monday = new Date(today);
         monday.setDate(today.getDate() - diffToMonday);
         const sunday = new Date(monday);
@@ -102,8 +104,10 @@ const ReportsPage = () => {
         label = 'This Week';
         break;
       case 'month':
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0); 
         start = formatLocalDate(firstDay);
         end = formatLocalDate(lastDay);
         label = 'This Month';
@@ -119,12 +123,24 @@ const ReportsPage = () => {
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
+  // Handle manual date change from input
+  const handleDateInputChange = (e, type) => {
+    setDateRange(prev => ({ ...prev, [type]: e.target.value, label: 'Custom' }));
+  };
+
+  // Toggle Serialized Filter
+  const toggleSerializedFilter = () => {
+    setFilters(prev => ({ ...prev, isSerializedOnly: !prev.isSerializedOnly }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+  }
+
+
   // --- INITIALIZATION ---
   useEffect(() => {
     reportsAPI.getFilterOptions().then(res => {
       if(res.success) setOptions({ brands: res.data.brands, categories: res.data.categories })
     }).catch(err => console.error("Options Load Error:", err))
-    applyDatePreset('month');
+    applyDatePreset('month'); // Default to current month
   }, [])
 
   // --- DATA FETCHING ---
@@ -140,8 +156,9 @@ const ReportsPage = () => {
 
       if (activeTab === 'inventory') {
         if (filters.stockStatus !== 'All Status') query.stock_status = filters.stockStatus
-        if (filters.brand !== 'All Brand') query.brand = filters.brand
+        if (filters.brand !== 'All Brand') query.brand = filters.brand 
         if (filters.category !== 'All Categories') query.category = filters.category
+        if (filters.isSerializedOnly) query.requires_serial = true 
       }
 
       let res
@@ -181,9 +198,18 @@ const ReportsPage = () => {
   const handleExportPDF = async () => {
     if (!reportData.length) return showMessage('No Data', 'Nothing to export.', 'warning')
     try {
-        const query = { start_date: dateRange.start, end_date: dateRange.end, page: 1, limit: 999999 }
+        const query = { 
+            start_date: dateRange.start, 
+            end_date: dateRange.end, 
+            page: 1, 
+            limit: 999999 
+        }
+        
         if (activeTab === 'inventory') {
             if (filters.stockStatus !== 'All Status') query.stock_status = filters.stockStatus
+            if (filters.brand !== 'All Brand') query.brand = filters.brand
+            if (filters.category !== 'All Categories') query.category = filters.category
+            if (filters.isSerializedOnly) query.requires_serial = true
         }
 
         let doc;
@@ -224,7 +250,6 @@ const ReportsPage = () => {
           <div className="text-muted small">Real-time insights and performance metrics</div>
         </div>
         <div className="d-flex gap-2">
-           {/* [FIX] Branded Reload Button */}
            <button 
               className="btn-brand btn-brand-outline" 
               onClick={fetchReportData} 
@@ -235,7 +260,6 @@ const ReportsPage = () => {
              <CIcon icon={cilReload} spin={loading || undefined}/>
            </button>
            
-           {/* [FIX] Branded Export Button */}
            <button className="btn-brand btn-brand-primary" onClick={handleExportPDF}>
               <CIcon icon={cilCloudDownload} className="me-2"/> Export Report
            </button>
@@ -272,7 +296,7 @@ const ReportsPage = () => {
       {/* MAIN CONTENT CARD */}
       <CCard className="border-0 shadow-sm">
         
-        {/* CONTROL TOOLBAR */}
+        {/* CONTROL TOOLBAR - Optimized for Analysis */}
         <CCardHeader className="bg-white p-3 border-bottom">
            <div className="d-flex flex-column flex-lg-row gap-3 justify-content-between align-items-lg-end">
               
@@ -286,25 +310,21 @@ const ReportsPage = () => {
               {/* 2. FILTERS */}
               <div className="d-flex flex-wrap gap-2 align-items-center justify-content-end">
                  
-                 {/* Date Controls (Hidden for Inventory) */}
+                 {/* Date Controls (Sales/Returns) - Fixed Functionality */}
                  {activeTab !== 'inventory' && (
                     <div className="d-flex gap-2 align-items-center flex-wrap">
-                       {/* [FIX] Branded Date Presets */}
+                       {/* Branded Date Presets */}
                        <div className="d-flex gap-1">
                           {['Today', 'Week', 'Month', 'All'].map(label => {
                               const presetKey = label.toLowerCase() === 'all' ? 'all' : label.toLowerCase()
-                              let isMatch = false;
-                              if (label === 'Today' && dateRange.label === 'Today') isMatch = true;
-                              if (label === 'Week' && dateRange.label === 'This Week') isMatch = true;
-                              if (label === 'Month' && dateRange.label === 'This Month') isMatch = true;
-                              if (label === 'All' && dateRange.label === 'All Time') isMatch = true;
-
+                              const isMatch = dateRange.label.includes(label.replace('This ', ''))
+                              
                               return (
                                 <button
                                   key={label}
-                                  className={`btn-brand ${isMatch ? 'btn-brand-accent' : 'btn-brand-outline'}`}
-                                  style={{padding: '0 16px', minWidth: '80px'}}
+                                  className={`btn-brand btn-brand-sm ${isMatch ? 'btn-brand-accent' : 'btn-brand-outline'}`}
                                   onClick={() => applyDatePreset(presetKey)}
+                                  style={{padding: '0 16px', minWidth: '80px', height: '45px'}} 
                                 >
                                   {label}
                                 </button>
@@ -312,20 +332,20 @@ const ReportsPage = () => {
                           })}
                        </div>
 
-                       {/* [FIX] Branded Date Picker Wrapper */}
+                       {/* Branded Date Picker Wrapper */}
                        <div className="brand-search-wrapper" style={{width: 'auto', minWidth: '280px', padding: '0 10px'}}>
-                          <span className="text-muted me-2 d-flex align-items-center"><CIcon icon={cilCalendar}/></span>
+                          <CIcon icon={cilCalendar} className="text-muted me-2"/>
                           <input 
                             type="date" 
                             value={dateRange.start} 
-                            onChange={e => setDateRange({...dateRange, start: e.target.value, label: 'Custom'})}
+                            onChange={e => handleDateInputChange(e, 'start')}
                             style={{border: 'none', outline: 'none', background: 'transparent', color: 'var(--brand-navy)', fontFamily: 'Inter', fontWeight: 600, fontSize: '0.85rem', height: '100%'}}
                           />
                           <span className="mx-2 text-muted">-</span>
                           <input 
                             type="date" 
                             value={dateRange.end} 
-                            onChange={e => setDateRange({...dateRange, end: e.target.value, label: 'Custom'})}
+                            onChange={e => handleDateInputChange(e, 'end')}
                             style={{border: 'none', outline: 'none', background: 'transparent', color: 'var(--brand-navy)', fontFamily: 'Inter', fontWeight: 600, fontSize: '0.85rem', height: '100%'}}
                           />
                        </div>
@@ -335,10 +355,41 @@ const ReportsPage = () => {
                  {/* Inventory Specific Filters (Branded Dropdowns) */}
                  {activeTab === 'inventory' && (
                     <div className="d-flex gap-2">
-                      <select className="brand-select" value={filters.stockStatus} onChange={e => setFilters({...filters, stockStatus: e.target.value})}>
+                      {/* 1. Serialized Toggle Button (Key analytical filter) */}
+                      <CButton
+                        color={filters.isSerializedOnly ? "primary" : "outline-primary"}
+                        onClick={toggleSerializedFilter}
+                        className="fw-bold d-flex align-items-center"
+                        style={{height: '45px'}}
+                      >
+                         <CIcon icon={cilBarcode} className="me-2"/> Only Serialized
+                      </CButton>
+                      
+                      {/* 2. Stock Status Dropdown (Primary sorting tool) */}
+                      <select 
+                        className="brand-select" 
+                        value={filters.stockStatus} 
+                        onChange={e => setFilters({...filters, stockStatus: e.target.value})}
+                      >
                         <option>All Status</option><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option>
                       </select>
-                      <select className="brand-select" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}>
+                      
+                      {/* 3. Brand Dropdown Filter */}
+                      <select 
+                        className="brand-select" 
+                        value={filters.brand} 
+                        onChange={e => setFilters({...filters, brand: e.target.value})}
+                      >
+                        <option>All Brand</option>
+                        {options.brands.map((b,i) => <option key={i}>{b}</option>)}
+                      </select>
+                      
+                      {/* 4. Category Dropdown Filter */}
+                      <select 
+                        className="brand-select" 
+                        value={filters.category} 
+                        onChange={e => setFilters({...filters, category: e.target.value})}
+                      >
                         <option>All Categories</option>{options.categories.map((c,i) => <option key={i}>{c}</option>)}
                       </select>
                     </div>
@@ -365,12 +416,14 @@ const ReportsPage = () => {
                     </>
                   )}
                   {activeTab === 'inventory' && (
+                    // [FIX] Added Type Column and adjusted widths
                     <>
-                      <th className="ps-4">Product</th>
-                      <th>Category</th>
-                      <th>Brand</th>
-                      <th className="text-center">Stock</th>
-                      <th className="text-center pe-4">Status</th>
+                      <th className="ps-4" style={{width: '30%'}}>Product</th>
+                      <th style={{width: '15%'}}>Category</th>
+                      <th style={{width: '15%'}}>Brand</th>
+                      <th style={{width: '10%'}}>Type</th> 
+                      <th className="text-center" style={{width: '10%'}}>Stock</th>
+                      <th className="text-center pe-4" style={{width: '20%'}}>Status</th>
                     </>
                   )}
                   {activeTab === 'returns' && (
@@ -412,7 +465,19 @@ const ReportsPage = () => {
                           <td className="ps-4 fw-bold text-dark">{row.productName || row.name}</td>
                           <td><CBadge color="light" className="text-dark fw-normal border">{row.category}</CBadge></td>
                           <td className="text-muted">{row.brand}</td>
-                          <td className="text-center fw-bold fs-6">{row.currentStock || row.current_stock}</td>
+                          {/* [FIX] Display Type Status */}
+                          <td className="text-center">
+                            {row.requires_serial && (
+                              <CTooltip content="Serialized Item">
+                                <CBadge color="primary" shape="rounded-pill" className="ms-1" style={{fontSize: '0.75rem'}}>
+                                    <CIcon icon={cilBarcode} size="sm"/> SN
+                                </CBadge>
+                              </CTooltip>
+                            )}
+                          </td>
+                          <td className="text-center fw-bold fs-6">
+                              {Number(row.currentStock ?? row.current_stock ?? 0).toLocaleString()}
+                          </td>
                           <td className="text-center pe-4">{renderStatusBadge(row.stockStatus || row.stock_status, 'stock')}</td>
                         </>
                       )}
