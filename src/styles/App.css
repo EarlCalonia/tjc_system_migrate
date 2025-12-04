@@ -1,261 +1,172 @@
 /* src/styles/App.css */
 
-/* 1. Import Fonts: Oswald (Headings) & Inter (Body) */
+/* 1. Import Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Oswald:wght@500;700&display=swap');
 
 :root {
-  /* --- CORPORATE INDUSTRIAL PALETTE --- */
-  --brand-navy: #17334e;        /* Primary Structure */
-  --brand-yellow: #f1ce44;      /* Identity & Highlights */
-  --brand-blue: #2478bd;        /* Interaction */
+  /* --- INDUSTRIAL PALETTE --- */
+  --brand-navy: #0f2438;        
+  --brand-blue: #185c96;        
+  --brand-yellow: #f1ce44;      
   
-  /* --- WCAG COMPLIANT TEXT COLORS --- */
-  --text-main: #2c3e50;         /* Dark Blue-Grey for Body Text */
-  --text-light: #6c757d;        /* Muted Grey */
-  --text-on-navy: #ffffff;      /* White text on Navy */
-  --text-on-yellow: #17334e;    /* Navy text on Yellow */
-
-  /* --- TYPOGRAPHY VARIABLES --- */
-  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-header: 'Oswald', sans-serif; 
-
+  /* --- TEXT COLORS --- */
+  --text-main: #212529;         
+  --text-light: #495057;        
+  --text-on-navy: #ffffff;
+  
   /* --- UTILITIES --- */
   --bg-light: #f8f9fa;
-  --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-header: 'Oswald', sans-serif; 
 }
 
-/* Global Typography Settings */
+/* --- BASE STYLES --- */
 body {
   font-family: var(--font-main);
   color: var(--text-main);
   background-color: var(--bg-light);
-  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
 }
 
-/* Apply Industrial Font to All Headings */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-header);
+  color: var(--brand-navy);
   letter-spacing: 0.5px;
-  text-transform: uppercase; /* Adds to the "Garage/Pro" feel */
-  color: var(--brand-navy);
+  text-transform: uppercase;
+  font-weight: 700; 
 }
+
+/* Utilities */
+.text-brand-navy { color: var(--brand-navy) !important; }
+.text-brand-blue { color: var(--brand-blue) !important; }
+.bg-brand-navy { background-color: var(--brand-navy) !important; color: var(--text-on-navy) !important; }
+.text-muted { color: var(--text-light) !important; }
+small, .small { font-size: 0.875rem !important; font-weight: 500; }
 
 /* =================================================================== */
-/* GLOBAL COMPONENT: BRANDED SEARCH BAR (Height Fixed)                 */
-/* =================================================================== */
-
-.brand-search-wrapper {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  max-width: 400px;
-  position: relative;
-  border: 2px solid #cbd5e1; 
-  border-radius: 6px;
-  background-color: white;
-  transition: all 0.2s ease-in-out;
-  overflow: hidden;
-  
-  /* [FIX] Force height to match buttons */
-  height: 45px; 
-}
-
-.brand-search-wrapper:focus-within {
-  border-color: var(--brand-blue);
-  box-shadow: 0 0 0 3px rgba(36, 120, 189, 0.15);
-}
-
-.brand-search-icon {
-  color: var(--text-light);
-  padding: 0 12px;
-  font-size: 1.1rem;
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-.brand-search-input {
-  border: none;
-  outline: none;
-  width: 100%;
-  height: 100%; /* Fill wrapper */
-  padding: 0 12px 0 0; /* Right padding only */
-  font-family: var(--font-main);
-  font-size: 0.95rem;
-  color: var(--brand-navy);
-  background: transparent;
-}
-
-/* =================================================================== */
-/* GLOBAL COMPONENT: BRANDED SEARCH BAR (Fixed Height)                 */
+/* COMPONENTS: SEARCH & INPUTS                                         */
 /* =================================================================== */
 
 .brand-search-wrapper {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  max-width: 400px;
-  position: relative;
-  border: 2px solid #cbd5e1; 
-  border-radius: 6px;
-  background-color: white;
-  transition: all 0.2s ease-in-out;
-  overflow: hidden;
-  
-  /* [CRITICAL] Force strict height to match buttons */
-  height: 45px; 
-  box-sizing: border-box;
+  display: flex; align-items: center; width: 100%; max-width: 400px;
+  position: relative; border: 2px solid #cbd5e1; border-radius: 6px;
+  background-color: white; transition: all 0.2s ease-in-out;
+  height: 45px; box-sizing: border-box;
 }
 
+/* [FIX] Simple Blue Focus Glow */
 .brand-search-wrapper:focus-within {
-  border-color: var(--brand-blue);
-  box-shadow: 0 0 0 3px rgba(36, 120, 189, 0.15);
+  border-color: var(--brand-blue) !important;
+  box-shadow: 0 0 0 3px rgba(24, 92, 150, 0.25) !important;
 }
 
 .brand-search-icon {
-  color: var(--text-light);
-  padding: 0 16px; /* Slightly wider for breathability */
-  font-size: 1.1rem;
-  display: flex;
-  align-items: center;
-  height: 100%;
+  color: var(--text-light); padding: 0 16px; font-size: 1.1rem;
+  display: flex; align-items: center; height: 100%;
+  background-color: #f8f9fa; border-right: 1px solid #edf2f7;
 }
 
 .brand-search-input {
-  border: none;
+  border: none; outline: none; width: 100%; height: 100%; padding: 0 12px;
+  font-family: var(--font-main); font-size: 0.95rem; color: var(--brand-navy);
+  background: transparent; display: flex; align-items: center;
+}
+.brand-search-input::placeholder { color: #64748b; font-weight: 400; }
+
+/* [FIX] Standardize Input Focus */
+.form-control:focus, .form-select:focus {
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 3px rgba(24, 92, 150, 0.25);
   outline: none;
-  width: 100%;
-  height: 100%;
-  padding: 0 12px 0 0;
-  font-family: var(--font-main);
-  font-size: 0.95rem;
-  color: var(--brand-navy);
-  background: transparent;
-  /* Ensure text centers vertically */
-  display: flex;
-  align-items: center;
 }
 
-.brand-search-input::placeholder {
-  color: #64748b;
-  font-weight: 400;
-}
-
-/* =================================================================== */
-/* GLOBAL COMPONENT: BRANDED DROPDOWNS (Fixed Height)                  */
-/* =================================================================== */
-
+/* Dropdowns */
 .brand-select {
-  background-color: #ffffff;
-  border: 2px solid #cbd5e1;
-  border-radius: 6px;
-  /* Padding: Top/Bottom 0 allows line-height/height to control centering */
-  padding: 0 36px 0 12px; 
-  font-family: var(--font-main);
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--brand-navy);
-  cursor: pointer;
+  background-color: #ffffff; border: 2px solid #cbd5e1; border-radius: 6px;
+  padding: 0 36px 0 12px; font-family: var(--font-main); font-size: 0.9rem;
+  font-weight: 600; color: var(--brand-navy); cursor: pointer;
+  height: 45px; box-sizing: border-box;
   
-  /* [CRITICAL] Force strict height */
-  height: 45px;
-  box-sizing: border-box;
-  
-  /* Custom Arrow */
-  appearance: none;
+  /* [FIX] Standard Appearance Reset */
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2317334e' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 16px center;
-  background-size: 12px 12px;
+  -moz-appearance: none;
+  appearance: none;
   
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%230f2438' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat; background-position: right 16px center; background-size: 12px 12px;
   transition: all 0.2s ease;
 }
-
-.brand-select:hover {
-  border-color: var(--brand-navy);
-  background-color: #f8f9fa;
-}
-
-.brand-select:focus {
-  border-color: var(--brand-blue);
-  box-shadow: 0 0 0 3px rgba(36, 120, 189, 0.15);
-  outline: none;
+.brand-select:focus { 
+  border-color: var(--brand-blue); 
+  box-shadow: 0 0 0 3px rgba(24, 92, 150, 0.25); 
+  outline: none; 
 }
 
 /* =================================================================== */
-/* GLOBAL COMPONENT: INDUSTRIAL BUTTONS (Fixed Height)                 */
+/* COMPONENTS: BUTTONS & LISTS                                         */
 /* =================================================================== */
 
 .btn-brand {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  
-  /* [CRITICAL] Force strict height */
-  height: 45px;
-  box-sizing: border-box;
-  padding: 0 24px;
-  
-  font-family: var(--font-header); 
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  border-radius: 6px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-  white-space: nowrap;
-  font-size: 0.9rem;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 45px; box-sizing: border-box; padding: 0 24px;
+  font-family: var(--font-header); font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1px; border-radius: 6px; border: 2px solid transparent;
+  cursor: pointer; transition: all 0.2s ease; text-decoration: none;
+  white-space: nowrap; font-size: 0.95rem; padding-top: 2px;
+}
+.btn-brand-sm { height: 34px; padding: 0 16px; font-size: 0.8rem; padding-top: 1px; }
+
+.btn-brand-primary { background-color: var(--brand-blue); color: white !important; }
+.btn-brand-primary:hover { background-color: #134b7a; box-shadow: 0 4px 12px rgba(24, 92, 150, 0.3); }
+
+.btn-brand-secondary { background-color: #ffffff; border: 2px solid #cbd5e1; color: var(--text-light); }
+.btn-brand-secondary:hover { background-color: #f1f5f9; color: var(--brand-navy); border-color: var(--brand-navy); }
+
+.btn-brand-accent { background-color: var(--brand-yellow); color: var(--brand-navy); }
+.btn-brand-accent:hover { background-color: #e0c035; }
+
+.btn-brand-outline { background-color: transparent; border: 2px solid #cbd5e1; color: var(--brand-navy); }
+.btn-brand-outline:hover { background-color: var(--brand-navy); border-color: var(--brand-navy); color: white !important; }
+
+.btn-brand-danger { background-color: #fee2e2; color: #dc2626; border-color: #fecaca; }
+.btn-brand-danger:hover { background-color: #dc2626; color: white; border-color: #dc2626; }
+
+/* Focus Ring */
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 2px;
 }
 
-/* Small variant for inside tables (height 32px) */
-.btn-brand-sm {
-  height: 32px;
-  padding: 0 16px;
-  font-size: 0.75rem;
+/* Modal Close Button */
+.bg-brand-navy .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+  opacity: 0.8;
+}
+.bg-brand-navy .btn-close:hover { opacity: 1; }
+.bg-brand-navy .btn-close:focus { 
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.5); 
+  opacity: 1; 
 }
 
-/* --- BUTTON VARIANTS --- */
-.btn-brand-primary {
-  background-color: var(--brand-blue);
-  color: white;
-}
-.btn-brand-primary:hover {
-  background-color: #1a5a8e;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(36, 120, 189, 0.2);
+/* Active List Items */
+.list-group-item.active, .list-group-item.active:hover {
+  background-color: var(--brand-blue) !important;
+  border-color: var(--brand-blue) !important;
+  color: #ffffff !important;
 }
 
-.btn-brand-accent {
-  background-color: var(--brand-yellow);
-  color: var(--brand-navy);
-}
-.btn-brand-accent:hover {
-  background-color: #e5c235;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(241, 206, 68, 0.3);
-}
+/* --- SIDEBAR OVERRIDES --- */
+.sidebar { background-color: var(--brand-navy) !important; color: var(--text-on-navy) !important; border-right: 1px solid rgba(255, 255, 255, 0.1); }
+.sidebar-brand { background-color: rgba(0, 0, 0, 0.2) !important; }
+.sidebar-nav .nav-link { color: rgba(255, 255, 255, 0.7) !important; font-family: var(--font-main); font-weight: 500; }
+.sidebar-nav .nav-link:hover { color: var(--brand-yellow) !important; background-color: rgba(255, 255, 255, 0.05) !important; }
+.sidebar-nav .nav-link.active { background-color: var(--brand-yellow) !important; color: var(--brand-navy) !important; font-weight: 700; border-left: none; }
+.sidebar-nav .nav-link.active .nav-icon { color: var(--brand-navy) !important; }
+.sidebar-nav .nav-icon { color: var(--brand-yellow) !important; }
 
-.btn-brand-outline {
-  background-color: transparent;
-  border-color: var(--brand-navy);
-  color: var(--brand-navy);
-}
-.btn-brand-outline:hover {
-  background-color: var(--brand-navy);
-  color: white;
-}
-
-.btn-brand-danger {
-  background-color: #fee2e2;
-  color: #dc2626;
-  border-color: #fecaca;
-}
-.btn-brand-danger:hover {
-  background-color: #dc2626;
-  color: white;
-  border-color: #dc2626;
+/* --- GLOBAL FIX: HIDE SPINNERS --- */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }

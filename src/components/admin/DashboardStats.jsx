@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { CRow, CCol, CWidgetStatsF } from '@coreui/react'; // Reverted to CWidgetStatsF
+import { CRow, CCol, CWidgetStatsF } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
-// Removed CChartLine import as it's no longer used here
 import { 
   cilMoney, 
   cilChartLine, 
-  cilList, // Used for Inventory Action Required
+  cilList, 
   cilClock,
-  cilArrowTop,
-  cilArrowRight
+  cilArrowRight,
+  cilArrowTop
 } from '@coreui/icons';
 import { dashboardAPI } from '../../utils/api';
 
@@ -44,47 +43,42 @@ const DashboardStats = () => {
     `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    // Margin reduced to mb-3 for tighter vertical spacing
-    <CRow className="g-4 mb-3"> 
-      
-      {/* 1. Today's Sales (Reverted to Icon-on-Top) */}
+    <CRow className="g-4 mb-4"> 
+      {/* 1. Today's Sales */}
       <CCol sm={6} lg={3}>
         <CWidgetStatsF
-          className="shadow-sm border-0 h-100"
-          color="success"
-          // Restored icon prop for CWidgetStatsF
-          icon={<CIcon icon={cilMoney} height={24} />} 
+          className="shadow-sm h-100 border-start border-start-4 border-start-success"
+          color="white"
+          icon={<CIcon icon={cilMoney} height={24} className="text-success"/>}
           padding={false}
-          title="Today's Sales"
-          value={loading ? 'Loading...' : formatPeso(stats.todaySales)}
+          title="Today's Revenue"
+          value={loading ? '-' : formatPeso(stats.todaySales)}
           footer={
             <div className="d-flex justify-content-between align-items-center text-medium-emphasis small px-1">
-               <span>Daily Revenue</span>
-               <span className="text-success fw-semibold">
-                 <CIcon icon={cilArrowTop} size="sm" /> +12%
+               <span>Daily Sales</span>
+               <span className="text-success fw-bold">
+                 <CIcon icon={cilArrowTop} size="sm" /> Live
                </span>
             </div>
           }
         />
       </CCol>
 
-      {/* 2. Sales This Week (Reverted to Icon-on-Top) */}
+      {/* 2. Weekly Sales */}
       <CCol sm={6} lg={3}>
         <CWidgetStatsF
-          className="shadow-sm border-0 h-100"
-          color="primary"
-          // Restored icon prop for CWidgetStatsF
-          icon={<CIcon icon={cilChartLine} height={24} />} 
+          className="shadow-sm h-100 border-start border-start-4 border-start-primary"
+          color="white"
+          icon={<CIcon icon={cilChartLine} height={24} className="text-primary"/>}
           padding={false}
-          title="Sales This Week"
-          value={loading ? '...' : formatPeso(stats.weekSales)}
+          title="Weekly Revenue"
+          value={loading ? '-' : formatPeso(stats.weekSales)}
           footer={
-            // Kept click-to-drill functionality
             <Link to="/reports" className="text-decoration-none w-100">
               <div className="d-flex justify-content-between align-items-center text-primary small cursor-pointer hover-overlay px-1">
                 <span className="text-medium-emphasis">7 Day Performance</span>
                 <span className="fw-bold d-flex align-items-center">
-                  View Report <CIcon icon={cilArrowRight} size="sm" className="ms-1"/>
+                  Reports <CIcon icon={cilArrowRight} size="sm" className="ms-1"/>
                 </span>
               </div>
             </Link>
@@ -92,23 +86,21 @@ const DashboardStats = () => {
         />
       </CCol>
 
-      {/* 3. Inventory Action Required (Reverted to Icon-on-Top - Combined Metric) */}
+      {/* 3. Inventory Alerts */}
       <CCol sm={6} lg={3}>
         <CWidgetStatsF
-          className="shadow-sm border-0 h-100"
-          color="danger" 
-          // Restored icon prop for CWidgetStatsF
-          icon={<CIcon icon={cilList} height={24} />} 
+          className="shadow-sm h-100 border-start border-start-4 border-start-danger"
+          color="white"
+          icon={<CIcon icon={cilList} height={24} className="text-danger"/>}
           padding={false}
-          title="Inventory Action Required" 
-          value={loading ? '...' : stats.lowStockItems.toString()}
+          title="Critical Inventory" 
+          value={loading ? '-' : stats.lowStockItems.toString()}
           footer={
-            // Kept click-to-drill functionality
             <Link to="/inventory" className="text-decoration-none w-100">
               <div className="d-flex justify-content-between align-items-center text-danger small cursor-pointer hover-overlay px-1">
-                <span className="text-medium-emphasis">Total Critical Items</span>
+                <span className="text-medium-emphasis">Low Stock / OOS</span>
                 <span className="fw-bold d-flex align-items-center">
-                  View Alerts <CIcon icon={cilArrowRight} size="sm" className="ms-1"/>
+                  Restock <CIcon icon={cilArrowRight} size="sm" className="ms-1"/>
                 </span>
               </div>
             </Link>
@@ -116,23 +108,21 @@ const DashboardStats = () => {
         />
       </CCol>
 
-      {/* 4. Pending Orders (Reverted to Icon-on-Top) */}
+      {/* 4. Pending Orders */}
       <CCol sm={6} lg={3}>
         <CWidgetStatsF
-          className="shadow-sm border-0 h-100"
-          color="warning"
-          // Restored icon prop for CWidgetStatsF
-          icon={<CIcon icon={cilClock} height={24} />} 
+          className="shadow-sm h-100 border-start border-start-4 border-start-warning"
+          color="white"
+          icon={<CIcon icon={cilClock} height={24} className="text-warning"/>}
           padding={false}
           title="Pending Orders"
-          value={loading ? '...' : stats.pendingOrders.toString()}
+          value={loading ? '-' : stats.pendingOrders.toString()}
           footer={
-            // Kept click-to-drill functionality
             <Link to="/orders" className="text-decoration-none w-100">
               <div className="d-flex justify-content-between align-items-center text-warning small cursor-pointer hover-overlay px-1">
-                <span className="text-medium-emphasis">Awaiting Processing</span>
+                <span className="text-medium-emphasis">Needs Processing</span>
                 <span className="fw-bold d-flex align-items-center">
-                  Action <CIcon icon={cilArrowRight} size="sm" className="ms-1"/>
+                  Process <CIcon icon={cilArrowRight} size="sm" className="ms-1"/>
                 </span>
               </div>
             </Link>

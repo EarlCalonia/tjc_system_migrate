@@ -1,209 +1,175 @@
+/* src/styles/SalesPage.css */
+
 /* =================================================================== */
-/* SALES PAGE SPECIFIC STYLES (Optimized) */
+/* SALES TERMINAL LAYOUT (Hybrid Flow)                                 */
 /* =================================================================== */
 
-/* Custom Utility */
-.text-brand-navy { color: var(--brand-navy) !important; }
-
-/* Main Layout */
+/* 1. Main Grid: Unlocked height to allow Right Panel to grow */
 .sales-content {
   display: grid;
-  grid-template-columns: 1fr 380px; /* Right panel fixed width */
+  grid-template-columns: 1fr 420px; /* Fixed width for Right Panel */
   gap: 20px;
-  align-items: start;
+  align-items: start; /* Top align both panels */
+  min-height: calc(100vh - 130px); /* Ensure it fills at least one screen */
+  margin-bottom: 40px; /* Safety margin for Footer */
 }
 
-/* --- LEFT COLUMN: PRODUCT CATALOG --- */
+/* --- LEFT PANEL: PRODUCT CATALOG (Sticky & Fixed Height) --- */
 .products-section {
   background: #ffffff;
   border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  overflow: hidden;
-  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-subtle);
+  border: 1px solid #dee2e6;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 120px); /* Fill remaining space */
+  
+  /* [CRITICAL] Keep Catalog Fixed Height even if page scrolls */
+  height: calc(100vh - 140px); 
+  position: sticky;
+  top: 90px; /* Stick below the App Header */
+  overflow: hidden;
 }
 
 .products-header {
-  padding: 12px 16px;
+  padding: 12px 20px;
   background-color: #ffffff;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid #e9ecef;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
 }
 
-/* --- TABLE STYLES --- */
 .products-table-container {
   flex-grow: 1;
   overflow-y: auto;
   scrollbar-width: thin;
 }
 
-.products-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+/* --- TABLE STYLES --- */
+.admin-table { 
+  width: 100%; 
+  border-collapse: separate; 
+  border-spacing: 0; 
+}
 
-/* Sticky Navy Header */
-.products-table thead th {
+.admin-table thead th {
   position: sticky;
   top: 0;
   z-index: 10; 
-  background-color: var(--brand-navy) !important;
-  color: #ffffff !important;
+  background-color: var(--brand-navy);
+  color: #ffffff;
   font-family: 'Oswald', sans-serif;
   font-weight: 500;
-  font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 12px 16px;
   border: none;
+  font-size: 0.85rem;
 }
 
-/* Zebra Striping */
-.products-table tbody tr:nth-of-type(even),
-.products-table tbody tr:nth-of-type(even) > td {
-  background-color: #f8fafc !important; 
-}
-
-/* Hover State */
-.products-table tbody tr:hover,
-.products-table tbody tr:hover > td {
-  background-color: rgba(36, 120, 189, 0.1) !important;
-  color: var(--brand-navy) !important;
-}
-
-.products-table td {
+.admin-table tbody td {
   vertical-align: middle;
-  padding: 10px 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-main);
   font-size: 0.9rem;
-  border-bottom: 1px solid #e9ecef;
 }
 
-/* --- PRODUCT IMAGE CELL --- */
-.product-combo-cell { display: flex; align-items: center; gap: 10px; }
-.product-thumbnail-wrapper {
-  width: 40px; height: 40px; flex-shrink: 0; border-radius: 4px; border: 1px solid #dee2e6; overflow: hidden; background-color: #ffffff; display: flex; align-items: center; justify-content: center;
+.admin-table tbody tr:hover {
+  background-color: #f8fafc;
 }
-.product-thumbnail { width: 100%; height: 100%; object-fit: cover; }
-.product-thumbnail-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa; }
-.product-text-info { display: flex; flex-direction: column; }
-.product-name-text { font-weight: 600; color: var(--color-text-main); line-height: 1.2; margin-bottom: 2px; }
 
-/* --- QUANTITY CONTROLS --- */
-.quantity-controls { 
-  display: flex; align-items: center; gap: 4px; justify-content: center; background-color: #f8f9fa; padding: 2px; border-radius: 4px; width: fit-content; margin: 0 auto; border: 1px solid #dee2e6;
+.table-thumbnail-slot {
+  width: 40px; 
+  height: 40px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
 }
-.quantity-btn {
-  width: 24px; height: 24px; border: none; background: #ffffff; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--color-text-dark); box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-.quantity-btn:hover:not(:disabled) { background-color: var(--brand-blue); color: white; }
-.quantity-btn:disabled { opacity: 0.5; }
-.quantity-input { width: 30px; text-align: center; font-weight: 700; border: none; background: transparent; height: 24px; font-size: 0.85rem; color: var(--brand-navy); }
+.table-thumbnail { width: 100%; height: 100%; object-fit: cover; }
 
-/* --- RIGHT PANEL (FIXED POS LAYOUT) --- */
+/* --- RIGHT PANEL: POS MANIFEST (Auto Height) --- */
 .right-panel {
   background: #ffffff;
   border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.08); 
+  box-shadow: var(--shadow-subtle);
+  border: 1px solid #dee2e6;
   display: flex;
   flex-direction: column;
-  position: sticky;
-  top: 20px;
-  border: 1px solid var(--color-border);
-  overflow: hidden;
-  height: calc(100vh - 120px); /* Fixed height based on viewport */
+  
+  /* [CRITICAL] Let height adjust to content */
+  height: auto; 
+  overflow: visible; 
 }
 
-/* Header */
 .sale-header {
   padding: 16px 20px;
-  background-color: #ffffff;
-  border-bottom: 1px solid var(--color-border);
+  background-color: var(--brand-navy);
+  color: white;
   flex-shrink: 0;
-}
-.sale-header h2 { 
-  margin: 0; font-size: 1.1rem; font-weight: 700; font-family: 'Oswald', sans-serif; letter-spacing: 1px; color: var(--brand-navy);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
 }
 
-/* Scrollable Cart Items (Expands to fill space) */
+/* --- CART ITEMS (Fixed 300px Height) --- */
 .sale-items { 
-  flex-grow: 1;
+  /* [FIX] Fixed height as requested */
+  height: 300px; 
   overflow-y: auto;
-  padding: 0;
   background-color: #fff;
-  min-height: 100px;
+  border-bottom: 1px solid #e9ecef;
+  flex-grow: 0; /* Don't expand */
+  flex-shrink: 0; /* Don't shrink */
 }
 
-.empty-sale { padding: 40px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
-
-.sale-item {
-  display: flex; align-items: flex-start; padding: 12px 16px; border-bottom: 1px solid #f0f2f5; gap: 8px;
-}
-.sale-item-info { flex: 1; }
-.sale-item-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.sale-item-price { font-weight: 700; color: var(--brand-blue); font-size: 0.95rem; }
-.remove-btn { background: transparent; border: none; color: #dc3545; cursor: pointer; padding: 2px; }
-
-/* --- PINNED BOTTOM SECTION --- */
-/* This section stays anchored at the bottom inside the flex column */
+/* --- POS BOTTOM ANCHOR (Your Specific Request) --- */
 .pos-bottom-anchor {
-  flex-shrink: 0; /* Prevents shrinking */
-  background-color: #fff;
-  z-index: 20;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+    flex-shrink: 0;
+    background-color: #fff;
+    z-index: 20;
+    
+    /* [FIX] User requested style */
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+    max-height: fit-content;
+    overflow-y: auto;
+    
+    /* Rounded corners to match panel */
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
 }
 
-/* Total Banner */
-.sale-total-banner {
-  background-color: var(--brand-yellow);
+.display-total { 
+  font-family: 'Oswald', sans-serif; 
   color: var(--brand-navy);
-  padding: 12px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.sale-total-banner span { font-weight: 700; font-size: 0.9rem; }
-.display-total { font-family: 'Oswald', sans-serif; font-size: 1.6rem; font-weight: 700; }
-
-/* Sections */
-.pos-section {
-  padding: 12px 20px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #f0f2f5;
-}
-.section-title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--brand-navy);
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
+  line-height: 1;
 }
 
-/* --- RESPONSIVE / ZOOM OVERRIDES --- */
-
-/* If viewport is short (zoomed in or small laptop), disable fixed height to allow scrolling */
-@media (max-height: 700px) {
-  .products-section {
-    height: 500px; /* Fallback static height */
+/* --- RESPONSIVE --- */
+@media (max-width: 992px) {
+  .sales-content {
+    grid-template-columns: 1fr; 
+    height: auto;
+    margin-bottom: 60px;
   }
+  
+  /* On mobile, remove sticky so it flows normally */
+  .products-section {
+    height: 500px; 
+    position: static;
+    margin-bottom: 20px;
+  }
+  
   .right-panel {
-    height: auto; /* Allow expanding */
-    position: relative; /* Remove sticky */
+    height: auto;
+  }
+
+  .pos-bottom-anchor {
     max-height: none;
   }
-  .pos-bottom-anchor {
-    position: static;
-    box-shadow: none;
-    border-top: 2px solid var(--brand-yellow);
-  }
-}
-
-/* Mobile Stack */
-@media (max-width: 992px) {
-  .sales-content { grid-template-columns: 1fr; }
-  .products-section { height: 500px; }
-  .right-panel { height: auto; position: static; }
 }

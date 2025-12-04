@@ -5,18 +5,12 @@ import DashboardSections from '../../components/admin/DashboardSections'
 
 const DashboardPage = () => {
   return (
-    <CContainer fluid>
+    <CContainer fluid className="px-4 py-4">
       <div className="mb-4">
-        <h1 className="h2">Dashboard Overview</h1>
-        <p className="text-medium-emphasis">
-          Welcome Back! Here's what's happening with your store today.
-        </p>
+        <h2 className="fw-bold text-brand-navy mb-1" style={{fontFamily: 'Oswald, sans-serif', letterSpacing: '1px'}}>COMMAND DASHBOARD</h2>
+        <div className="text-medium-emphasis fw-semibold">Real-time operational overview</div>
       </div>
 
-      {/* NOTE: DashboardStats and DashboardSections should ideally also be refactored
-        to use <CRow>, <CCol>, and <CWidgetStatsF> components internally 
-        for consistent spacing and responsive behavior. 
-      */}
       <DashboardStats />
       <DashboardSections />
     </CContainer>
