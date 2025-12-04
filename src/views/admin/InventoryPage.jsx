@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormInput, CFormSelect, CFormLabel,
-  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter, CInputGroup, CInputGroupText, CWidgetStatsF, CSpinner, CBadge, CTooltip
+  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter, CWidgetStatsF, CSpinner, 
+  CBadge, CTooltip, CPagination, CPaginationItem
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
-  cilMagnifyingGlass, cilPencil, cilInbox, cilCheckCircle, cilWarning, cilXCircle, cilList, cilPlus, cilImage, cilChevronLeft, cilChevronRight, cilBarcode, cilSave, cilTrash, cilTruck, cilSearch
+  cilMagnifyingGlass, cilPencil, cilInbox, cilCheckCircle, cilWarning, cilXCircle, 
+  cilList, cilPlus, cilImage, cilBarcode, cilTrash, cilTruck, cilChevronLeft, cilChevronRight, cilChevronBottom, cilMinus
 } from '@coreui/icons'
 import { inventoryAPI, serialNumberAPI, suppliersAPI, productAPI } from '../../utils/api'
 
@@ -36,29 +38,32 @@ const InventoryPage = () => {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedStatus, setSelectedStatus] = useState('All')
   
-  // --- RECEIVE STOCK (BULK) STATE ---
+  // --- UNIFIED STOCK IN STATE ---
   const [bulkModalOpen, setBulkModalOpen] = useState(false)
   const [manifestItems, setManifestItems] = useState([]) 
   const [productSearchTerm, setProductSearchTerm] = useState('')
   const [searchedProducts, setSearchedProducts] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false) 
   const [selectedManifestProduct, setSelectedManifestProduct] = useState(null)
   
-  // Simplified Form
+  // Supplier Combobox
   const [globalSupplierId, setGlobalSupplierId] = useState('')
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState('')
+  const [showSupplierSuggestions, setShowSupplierSuggestions] = useState(false)
+  const [filteredSuppliers, setFilteredSuppliers] = useState([])
+
+  // Form State
   const [itemForm, setItemForm] = useState({ quantity: 1, serials: [] })
   const [serialInput, setSerialInput] = useState('')
   const serialInputRef = useRef(null)
+  const searchWrapperRef = useRef(null)
+  const supplierWrapperRef = useRef(null)
 
-  // Check Manifest Serials Modal
+  // Sub-Modals
   const [checkManifestSnModal, setCheckManifestSnModal] = useState({ open: false, items: [], productName: '' })
-  
-  // Other Modals
   const [viewSerialsModal, setViewSerialsModal] = useState({ open: false, product: null, serials: [] })
   const [editModal, setEditModal] = useState({ open: false, product: null, reorderPoint: 10 })
   const [msgModal, setMsgModal] = useState({ visible: false, title: '', message: '', color: 'info', onConfirm: null })
-  
-  const [stockInModal, setStockInModal] = useState({ open: false, product: null }) 
-  const [stockInForm, setStockInForm] = useState({ supplierId: '', quantity: 1 })
 
   // --- LIFECYCLE ---
   useEffect(() => { loadInventoryStats(); loadSuppliers(); }, [])
@@ -68,22 +73,43 @@ const InventoryPage = () => {
      return () => clearTimeout(t);
   }, [currentPage, searchQuery, selectedCategory, selectedStatus]);
 
+  // Click Outside Handler
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+      if (supplierWrapperRef.current && !supplierWrapperRef.current.contains(event.target)) {
+        setShowSupplierSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Product Search Debounce
   useEffect(() => {
-    if (!productSearchTerm) {
-        setSearchedProducts([]);
-        return;
-    }
     if (selectedManifestProduct && productSearchTerm === selectedManifestProduct.name) return;
 
     const t = setTimeout(async () => {
-        try {
-            const res = await inventoryAPI.getProducts({ search: productSearchTerm, limit: 5 });
-            if (res.success) setSearchedProducts(res.data.products || []);
-        } catch (e) { console.error(e); }
-    }, 400);
+        if (productSearchTerm || showSuggestions) {
+            fetchProductSuggestions(productSearchTerm);
+        }
+    }, 300);
     return () => clearTimeout(t);
-  }, [productSearchTerm, selectedManifestProduct]);
+  }, [productSearchTerm]);
+
+  // Filter Suppliers
+  useEffect(() => {
+    if (!supplierSearchTerm) {
+        setFilteredSuppliers(suppliersList);
+    } else {
+        const lower = supplierSearchTerm.toLowerCase();
+        setFilteredSuppliers(suppliersList.filter(s => 
+            (s.name || s.supplier_name).toLowerCase().includes(lower)
+        ));
+    }
+  }, [supplierSearchTerm, suppliersList]);
 
   // --- HELPERS ---
   const getProductImageUrl = (path) => {
@@ -101,6 +127,15 @@ const InventoryPage = () => {
   }
 
   // --- API CALLS ---
+  const fetchProductSuggestions = async (term) => {
+      try {
+          const res = await inventoryAPI.getProducts({ search: term, limit: 10 });
+          if (res.success) {
+              setSearchedProducts(res.data.products || []);
+          }
+      } catch (e) { console.error(e); }
+  }
+
   const loadProducts = useCallback(async () => {
     setLoading(true)
     try {
@@ -143,30 +178,108 @@ const InventoryPage = () => {
   const loadSuppliers = async () => {
     try {
       const res = await suppliersAPI.getAll()
-      if (res.success) setSuppliersList(res.data || [])
+      if (res.success) {
+          setSuppliersList(res.data || [])
+          setFilteredSuppliers(res.data || [])
+      }
     } catch (e) { console.error(e) }
   }
 
-  // --- BULK HANDLERS ---
+  // --- HANDLERS ---
+  const handleOpenStockIn = () => {
+      setItemForm({ quantity: 1, serials: [] });
+      setManifestItems([]);
+      setSelectedManifestProduct(null);
+      setProductSearchTerm('');
+      setSearchedProducts([]); 
+      setShowSuggestions(false);
+      setSupplierSearchTerm('');
+      setGlobalSupplierId('');
+      setFilteredSuppliers(suppliersList);
+      setShowSupplierSuggestions(false);
+      setBulkModalOpen(true);
+  }
+
+  // Quantity Stepper Logic
+  const updateQuantity = (val) => {
+      let newQty = parseInt(val);
+      if (isNaN(newQty) || newQty < 1) newQty = 1;
+      
+      if (selectedManifestProduct?.requires_serial && newQty < itemForm.serials.length) {
+          const trimmed = itemForm.serials.slice(0, newQty);
+          setItemForm(prev => ({...prev, quantity: newQty, serials: trimmed}));
+      } else {
+          setItemForm(prev => ({...prev, quantity: newQty}));
+      }
+  }
+  const handleIncrement = () => updateQuantity(itemForm.quantity + 1);
+  const handleDecrement = () => { if(itemForm.quantity > 1) updateQuantity(itemForm.quantity - 1); };
+
+  // Product Selection
+  const handleProductInputFocus = () => {
+      setShowSuggestions(true);
+      if (searchedProducts.length === 0) fetchProductSuggestions('');
+  }
+  const handleSearchInput = (e) => {
+      setProductSearchTerm(e.target.value);
+      if(selectedManifestProduct && e.target.value !== selectedManifestProduct.name) {
+          setSelectedManifestProduct(null);
+      }
+      setShowSuggestions(true);
+  }
+  const handleSelectSuggestion = (product) => {
+      const cleanProduct = { ...product, requires_serial: !!product.requires_serial };
+      setSelectedManifestProduct(cleanProduct);
+      setProductSearchTerm(cleanProduct.name);
+      setItemForm(prev => ({...prev, serials: []}));
+      setShowSuggestions(false);
+  }
+
+  // Supplier Selection
+  const handleSupplierInputFocus = () => {
+      setShowSupplierSuggestions(true);
+      if (!globalSupplierId) setFilteredSuppliers(suppliersList);
+  }
+  const handleSupplierSearchInput = (e) => {
+      setSupplierSearchTerm(e.target.value);
+      const exactMatch = suppliersList.find(s => (s.name || s.supplier_name) === e.target.value);
+      if (!exactMatch) setGlobalSupplierId('');
+      setShowSupplierSuggestions(true);
+  }
+  const handleSelectSupplier = (supplier) => {
+      setGlobalSupplierId(supplier.id);
+      setSupplierSearchTerm(supplier.name || supplier.supplier_name);
+      setShowSupplierSuggestions(false);
+  }
+
+  // Manifest Handlers
   const handleAddToManifest = () => {
-      if (!selectedManifestProduct) return showMessage('Validation', 'Please search and select a product first.', 'warning');
+      if (!selectedManifestProduct) return showMessage('Validation', 'Please select a valid product.', 'warning');
       if (itemForm.quantity < 1) return showMessage('Validation', 'Quantity must be at least 1.', 'warning');
       
       if (selectedManifestProduct.requires_serial) {
           if (itemForm.serials.length !== parseInt(itemForm.quantity)) {
-              return showMessage('Serial Mismatch', `You set quantity to ${itemForm.quantity} but entered ${itemForm.serials.length} serials.`, 'warning');
+              return showMessage('Serial Mismatch', `You set quantity to ${itemForm.quantity} but scanned ${itemForm.serials.length} serials.`, 'warning');
           }
       }
 
-      const newItem = {
-          ...selectedManifestProduct,
-          addQuantity: parseInt(itemForm.quantity),
-          newSerials: itemForm.serials
-      };
-
-      setManifestItems(prev => [newItem, ...prev]); 
+      const existingIdx = manifestItems.findIndex(i => i.product_id === selectedManifestProduct.product_id);
       
-      // Reset Item Form
+      if (existingIdx >= 0) {
+          const updatedItems = [...manifestItems];
+          updatedItems[existingIdx].addQuantity += parseInt(itemForm.quantity);
+          updatedItems[existingIdx].newSerials = [...updatedItems[existingIdx].newSerials, ...itemForm.serials];
+          setManifestItems(updatedItems);
+      } else {
+          const newItem = {
+              ...selectedManifestProduct,
+              addQuantity: parseInt(itemForm.quantity),
+              newSerials: itemForm.serials
+          };
+          setManifestItems(prev => [newItem, ...prev]); 
+      }
+      
+      // Reset form
       setSelectedManifestProduct(null);
       setProductSearchTerm('');
       setItemForm({ quantity: 1, serials: [] });
@@ -186,9 +299,8 @@ const InventoryPage = () => {
       });
   }
 
-  // [CRITICAL FIX] Updated Payload Keys to match Backend Controller (productId)
   const handleBulkSubmit = async () => {
-      if (!globalSupplierId) return showMessage('Missing Info', 'Please select the Supplier for this shipment.', 'warning');
+      if (!globalSupplierId) return showMessage('Missing Info', 'Please select the Supplier.', 'warning');
       if (manifestItems.length === 0) return showMessage('Empty', 'No items in shipment list.', 'warning');
       
       setIsSubmitting(true);
@@ -197,16 +309,15 @@ const InventoryPage = () => {
               supplier: globalSupplierId, 
               receivedBy: localStorage.getItem('username') || 'Admin', 
               products: manifestItems.map(item => ({ 
-                  // [FIX] Mapped to 'productId' (CamelCase) for backend compatibility
                   productId: item.product_id, 
                   quantity: item.addQuantity,
-                  serialNumbers: item.newSerials // [FIX] Mapped to 'serialNumbers'
+                  serialNumbers: item.newSerials 
               }))
           };
 
           await inventoryAPI.bulkStockIn(payload);
           
-          showMessage('Success', 'Shipment received and inventory updated!', 'success', () => {
+          showMessage('Success', 'Stock received successfully.', 'success', () => {
               setBulkModalOpen(false);
               setManifestItems([]);
               setGlobalSupplierId('');
@@ -214,7 +325,7 @@ const InventoryPage = () => {
               loadInventoryStats();
           });
       } catch (e) {
-          showMessage('Error', e.message || 'Failed to process shipment.', 'danger');
+          showMessage('Error', e.message || 'Failed to process.', 'danger');
       } finally {
           setIsSubmitting(false);
       }
@@ -233,7 +344,6 @@ const InventoryPage = () => {
       }
   }
 
-  // --- OTHER HANDLERS ---
   const handleViewSerials = async (product) => {
     setViewSerialsModal({ open: true, product, serials: [] }) 
     setLoadingSerials(true)
@@ -242,14 +352,6 @@ const InventoryPage = () => {
       if (res.success) setViewSerialsModal(prev => ({ ...prev, serials: res.data || [] }))
     } catch (e) { showMessage('Error', 'Failed to load serials', 'danger') } 
     finally { setLoadingSerials(false) }
-  }
-  
-  const handleSingleStockInSubmit = async () => {
-    setStockInModal({ open: false, product: null });
-    setSelectedManifestProduct(stockInModal.product);
-    setProductSearchTerm(stockInModal.product.name);
-    setItemForm({ quantity: 1, serials: [] });
-    setBulkModalOpen(true);
   }
 
   const handleSaveReorderPoint = async () => {
@@ -263,6 +365,72 @@ const InventoryPage = () => {
       } catch (e) { showMessage('Error', 'Failed to update.', 'danger') } 
       finally { setIsSubmitting(false) }
   }
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisiblePages = 5; 
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    items.push(
+      <CPaginationItem 
+        key="prev" 
+        disabled={currentPage === 1} 
+        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+        style={{cursor: currentPage === 1 ? 'not-allowed' : 'pointer'}}
+      >
+        <CIcon icon={cilChevronLeft} size="sm"/>
+      </CPaginationItem>
+    );
+
+    if (startPage > 1) {
+      items.push(<CPaginationItem key={1} onClick={() => setCurrentPage(1)}>1</CPaginationItem>);
+      if (startPage > 2) items.push(<CPaginationItem key="ellipsis-start" disabled>...</CPaginationItem>);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <CPaginationItem 
+          key={i} 
+          active={i === currentPage} 
+          onClick={() => setCurrentPage(i)}
+          style={{cursor: 'pointer', backgroundColor: i === currentPage ? 'var(--brand-navy)' : '', borderColor: i === currentPage ? 'var(--brand-navy)' : ''}}
+        >
+          {i}
+        </CPaginationItem>
+      );
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) items.push(<CPaginationItem key="ellipsis-end" disabled>...</CPaginationItem>);
+      items.push(<CPaginationItem key={totalPages} onClick={() => setCurrentPage(totalPages)}>{totalPages}</CPaginationItem>);
+    }
+
+    items.push(
+      <CPaginationItem 
+        key="next" 
+        disabled={currentPage === totalPages} 
+        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+        style={{cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'}}
+      >
+        <CIcon icon={cilChevronRight} size="sm"/>
+      </CPaginationItem>
+    );
+
+    return items;
+  };
+
+  const modalTitleStyle = {
+    fontFamily: 'Oswald, sans-serif', 
+    textTransform: 'uppercase', 
+    letterSpacing: '1px', 
+    fontSize: '1.25rem', 
+    fontWeight: 700
+  };
 
   return (
     <CContainer fluid className="px-4 py-4">
@@ -302,8 +470,8 @@ const InventoryPage = () => {
                 </select>
              </div>
              
-             <button className="btn-brand btn-brand-accent" onClick={() => setBulkModalOpen(true)}>
-                <CIcon icon={cilTruck} className="me-2"/> Receive Stock
+             <button className="btn-brand btn-brand-accent" onClick={handleOpenStockIn}>
+                <CIcon icon={cilTruck} className="me-2"/> Stock In
              </button>
           </div>
 
@@ -313,7 +481,8 @@ const InventoryPage = () => {
                 <tr>
                   <th scope="col" style={{width: '30%'}}>Product Details</th>
                   <th scope="col" style={{width: '15%'}}>Category</th>
-                  <th scope="col" style={{width: '10%'}}>Type</th>
+                  {/* UPDATED HEADER */}
+                  <th scope="col" className="text-center" style={{width: '15%'}}>Type</th>
                   <th scope="col" className="text-center" style={{width: '10%'}}>Stock</th>
                   <th scope="col" className="text-center" style={{width: '15%'}}>Status</th>
                   <th scope="col" className="text-end pe-4" style={{width: '20%'}}>Actions</th>
@@ -349,14 +518,44 @@ const InventoryPage = () => {
                           </div>
                         </td>
                         <td><span className="badge bg-light text-dark border fw-normal px-3 py-2">{p.category}</span></td>
-                        <td>{p.requires_serial ? <CBadge color="info" shape="rounded-pill" className="small"><CIcon icon={cilBarcode} size="sm" className="me-1"/> SN</CBadge> : <span className="text-muted small">Standard</span>}</td>
+                        
+                        {/* WCAG COMPLIANT BADGES */}
+                        <td className="text-center">
+                           {p.requires_serial ? (
+                              <CBadge 
+                                shape="rounded-pill" 
+                                className="py-1 px-2"
+                                style={{backgroundColor: 'var(--brand-navy)', color: '#fff', border: '1px solid var(--brand-navy)'}}
+                              >
+                                 <CIcon icon={cilBarcode} size="sm" className="me-1"/> SERIAL
+                              </CBadge>
+                           ) : (
+                              <CBadge 
+                                shape="rounded-pill" 
+                                className="py-1 px-2"
+                                style={{backgroundColor: '#fff', color: 'var(--brand-navy)', border: '1px solid var(--brand-navy)'}}
+                              >
+                                 <CIcon icon={cilInbox} size="sm" className="me-1"/> STANDARD
+                              </CBadge>
+                           )}
+                        </td>
+
                         <td className="text-center"><span className="fw-bold fs-5 text-brand-navy">{Number(p.stock ?? 0).toLocaleString()}</span></td>
                         <td className="text-center">{renderStatusBadge(p.computedStatus)}</td>
                         <td className="text-end pe-4">
                            <div className="d-flex justify-content-end gap-2">
-                              <CTooltip content="Stock In"><button className="btn-brand btn-brand-primary btn-brand-sm" onClick={() => { setSelectedManifestProduct(p); setProductSearchTerm(p.name); setItemForm({ quantity: 1, serials: [] }); setBulkModalOpen(true); }}><CIcon icon={cilPlus}/></button></CTooltip>
-                              {p.requires_serial && <CTooltip content="View Serials"><button className="btn-brand btn-brand-outline btn-brand-sm" onClick={() => handleViewSerials(p)}><CIcon icon={cilList}/></button></CTooltip>}
-                              <CTooltip content="Quick Edit Settings"><button className="btn-brand btn-brand-outline btn-brand-sm" onClick={() => setEditModal({ open: true, product: p, reorderPoint: p.reorderPoint })}><CIcon icon={cilPencil}/></button></CTooltip>
+                              {p.requires_serial && (
+                                <CTooltip content="View Serials">
+                                  <button className="btn-brand btn-brand-outline btn-brand-sm" onClick={() => handleViewSerials(p)}>
+                                    <CIcon icon={cilList}/>
+                                  </button>
+                                </CTooltip>
+                              )}
+                              <CTooltip content="Settings">
+                                <button className="btn-brand btn-brand-outline btn-brand-sm" onClick={() => setEditModal({ open: true, product: p, reorderPoint: p.reorderPoint })}>
+                                  <CIcon icon={cilPencil}/>
+                                </button>
+                              </CTooltip>
                            </div>
                         </td>
                       </tr>
@@ -367,196 +566,219 @@ const InventoryPage = () => {
             </table>
           </div>
           
-          <div className="p-2 border-top d-flex justify-content-between align-items-center bg-light">
-             <span className="small text-muted">Showing {products.length} of {totalItems} (Page {currentPage} of {totalPages})</span>
-             <div className="d-flex gap-1">
-                <button className="btn-brand btn-brand-outline btn-brand-sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}><CIcon icon={cilChevronLeft} /> Prev</button>
-                <button className="btn-brand btn-brand-outline btn-brand-sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next <CIcon icon={cilChevronRight} /></button>
-             </div>
+          <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white">
+             <span className="small text-muted fw-semibold">
+                Showing {products.length} of {totalItems} items (Page {currentPage} of {totalPages})
+             </span>
+             <CPagination className="mb-0 justify-content-end" aria-label="Inventory navigation">
+                {renderPaginationItems()}
+             </CPagination>
           </div>
         </CCardBody>
       </CCard>
 
-      {/* --- RECEIVE SHIPMENT MODAL (VERTICAL) --- */}
-      <CModal visible={bulkModalOpen} onClose={() => setBulkModalOpen(false)} size="lg" alignment="center" backdrop="static">
-        <CModalHeader><CModalTitle className="fw-bold text-brand-navy">RECEIVE STOCK (INBOUND)</CModalTitle></CModalHeader>
-        <CModalBody>
-            <div className="vertical-product-form">
+      {/* --- UNIFIED STOCK IN MODAL (Industrial Style) --- */}
+      <CModal visible={bulkModalOpen} onClose={() => setBulkModalOpen(false)} size="lg" alignment="center" backdrop="static" scrollable>
+        <CModalHeader className="bg-brand-navy">
+            <CModalTitle component="span" className="text-white" style={modalTitleStyle}>STOCK IN</CModalTitle>
+        </CModalHeader>
+        <CModalBody className="p-4 bg-light">
+            <div className="d-flex flex-column gap-4">
                 
-                {/* STEP 1: SOURCE */}
-                <div className="mb-4 p-3 bg-light rounded border">
-                    <CFormLabel className="fw-bold text-brand-navy mb-2">1. SHIPMENT SOURCE</CFormLabel>
-                    <select className="brand-select w-100" value={globalSupplierId} onChange={e => setGlobalSupplierId(e.target.value)}>
-                        <option value="">Select Supplier...</option>
-                        {suppliersList.map(s => <option key={s.id} value={s.id}>{s.name || s.supplier_name}</option>)}
-                    </select>
+                {/* 1. SHIPMENT SOURCE */}
+                <div className="bg-white p-3 rounded shadow-sm border">
+                    <CFormLabel className="fw-bold text-brand-navy mb-1 text-uppercase small ls-1">Shipment Source</CFormLabel>
+                    <div className="position-relative" ref={supplierWrapperRef}>
+                        <div className="input-group">
+                            <input 
+                                type="text"
+                                className="form-control"
+                                placeholder="Select or Search Supplier..." 
+                                value={supplierSearchTerm}
+                                onChange={handleSupplierSearchInput}
+                                onFocus={handleSupplierInputFocus}
+                                autoComplete="off"
+                            />
+                            <span className="input-group-text bg-white text-muted"><CIcon icon={cilChevronBottom}/></span>
+                        </div>
+                        {showSupplierSuggestions && (
+                            <div className="position-absolute w-100 bg-white border rounded shadow-lg" style={{zIndex: 1060, maxHeight: '200px', overflowY: 'auto', marginTop: '2px'}}>
+                                {filteredSuppliers.length === 0 ? (
+                                    <div className="p-3 text-muted text-center small">No suppliers found.</div>
+                                ) : (
+                                    filteredSuppliers.map(s => (
+                                        <div key={s.id} className="p-2 border-bottom px-3 dropdown-item-custom" onClick={() => handleSelectSupplier(s)}>
+                                            <div className="fw-bold text-dark">{s.name || s.supplier_name}</div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* STEP 2: ADD ITEMS */}
-                <div className="mb-4">
-                    <CFormLabel className="fw-bold text-brand-navy mb-2">2. ADD ITEMS TO LIST</CFormLabel>
+                {/* 2. ITEM ENTRY - GRID LAYOUT */}
+                <div className="bg-white p-3 rounded shadow-sm border">
+                    <CFormLabel className="fw-bold text-brand-navy mb-3 text-uppercase small ls-1">Add Items</CFormLabel>
                     
-                    {/* Item Entry Row */}
-                    <div className="d-flex gap-3 align-items-start mb-3">
-                        <div style={{flex: 2}} className="position-relative">
-                            <CFormLabel className="small text-muted fw-bold">Scan or Search Item</CFormLabel>
-                            <div className="brand-search-wrapper w-100">
-                                <span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass}/></span>
-                                <input 
-                                    type="text" 
-                                    className="brand-search-input" 
-                                    placeholder="Type name or ID..." 
-                                    value={productSearchTerm} 
-                                    onChange={e => setProductSearchTerm(e.target.value)}
-                                    autoComplete="off"
-                                />
-                            </div>
-                            {/* Search Results */}
-                            {searchedProducts.length > 0 && !selectedManifestProduct && (
-                                <div className="list-group position-absolute w-100 shadow border-0" style={{zIndex: 1050, maxHeight: '200px', overflowY: 'auto', top: '100%'}}>
-                                    {searchedProducts.map(p => (
-                                        <button key={p.product_id} className="list-group-item list-group-item-action small" 
-                                            onClick={() => { setSelectedManifestProduct(p); setProductSearchTerm(p.name); setSearchedProducts([]); setItemForm(prev => ({...prev, serials: []})); }}
-                                        >
-                                            <div className="fw-bold">{p.name}</div><small>{p.product_id}</small>
-                                        </button>
-                                    ))}
+                    <CRow className="g-3 mb-3">
+                         {/* PRODUCT SEARCH (Col 8) */}
+                         <CCol sm={8}>
+                             <div className="position-relative" ref={searchWrapperRef}>
+                                <label className="text-muted small fw-bold mb-1">Product</label>
+                                <div className="input-group">
+                                    <span className="input-group-text bg-white"><CIcon icon={cilMagnifyingGlass}/></span>
+                                    <input 
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="Search Product..." 
+                                        value={productSearchTerm}
+                                        onChange={handleSearchInput}
+                                        onFocus={handleProductInputFocus}
+                                        autoComplete="off"
+                                    />
                                 </div>
-                            )}
-                        </div>
-                        <div style={{flex: 1}}>
-                            <CFormLabel className="small text-muted fw-bold">Quantity</CFormLabel>
-                            <CFormInput type="number" min="1" value={itemForm.quantity} onChange={e => setItemForm({...itemForm, quantity: e.target.value})} style={{height: '45px'}} className="fw-bold text-center"/>
-                        </div>
-                        <div className="pt-4">
-                           <button className="btn-brand btn-brand-primary" onClick={handleAddToManifest} disabled={!selectedManifestProduct}><CIcon icon={cilPlus} className="me-1"/> ADD</button>
-                        </div>
-                    </div>
+                                {showSuggestions && (
+                                    <div className="position-absolute w-100 bg-white border rounded shadow-lg" style={{zIndex: 1050, maxHeight: '250px', overflowY: 'auto', top: '100%', marginTop: '5px'}}>
+                                        {searchedProducts.map(p => (
+                                            <div key={p.product_id} className="p-2 border-bottom d-flex align-items-center gap-3 dropdown-item-custom" onClick={() => handleSelectSuggestion(p)}>
+                                                {p.image ? <img src={getProductImageUrl(p.image)} alt="" style={{width:'35px', height:'35px', objectFit:'cover', borderRadius:'4px'}} /> : <div className="bg-light rounded d-flex align-items-center justify-content-center" style={{width:'35px', height:'35px'}}><CIcon icon={cilImage} className="text-secondary"/></div>}
+                                                <div>
+                                                    <div className="fw-bold text-dark small">{p.name}</div>
+                                                    <div className="small text-muted" style={{fontSize:'0.75rem'}}>ID: {p.product_id} | Stock: {p.stock}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                             </div>
+                         </CCol>
+
+                         {/* QUANTITY STEPPER (Col 4) */}
+                         <CCol sm={4}>
+                             <label className="text-muted small fw-bold mb-1">Quantity</label>
+                             <div className="input-group">
+                                <button className="btn btn-light border" type="button" onClick={handleDecrement}><CIcon icon={cilMinus} size="sm"/></button>
+                                <input type="number" className="form-control text-center fw-bold" value={itemForm.quantity} onChange={(e) => updateQuantity(e.target.value)} />
+                                <button className="btn btn-light border" type="button" onClick={handleIncrement}><CIcon icon={cilPlus} size="sm"/></button>
+                             </div>
+                         </CCol>
+                    </CRow>
                     
-                    {/* Serial Scan Area (Conditional) */}
+                    {/* SELECTED PRODUCT INDICATOR */}
+                    {selectedManifestProduct && (
+                        <div className="mb-3 p-2 bg-success bg-opacity-10 border border-success rounded d-flex align-items-center gap-2">
+                            <CIcon icon={cilCheckCircle} className="text-success"/>
+                            <div className="small text-success fw-bold">{selectedManifestProduct.name}</div>
+                            <CButton color="secondary" variant="ghost" size="sm" className="ms-auto" onClick={() => {setSelectedManifestProduct(null); setProductSearchTerm('');}}>
+                                <CIcon icon={cilXCircle}/>
+                            </CButton>
+                        </div>
+                    )}
+
+                    {/* SERIAL SCANNER (Strictly Conditional) */}
                     {selectedManifestProduct?.requires_serial && (
-                        <div className="p-3 border rounded bg-white mb-3 border-info">
-                            <div className="d-flex justify-content-between mb-2">
-                                <span className="fw-bold text-info small">ENTER SERIAL NUMBERS</span>
-                                <CBadge color={itemForm.serials.length == itemForm.quantity ? 'success' : 'warning'}>{itemForm.serials.length} / {itemForm.quantity}</CBadge>
+                        <div className="p-3 bg-light border rounded mb-3">
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                                <span className="text-brand-blue fw-bold small">SCAN SERIALS</span>
+                                <span className="badge bg-secondary">Scanned: {itemForm.serials.length} of {itemForm.quantity}</span>
                             </div>
                             <div className="d-flex gap-2">
-                                <CFormInput ref={serialInputRef} placeholder="Type Serial + Enter..." value={serialInput} onChange={e => setSerialInput(e.target.value)} onKeyDown={handleSerialInput} disabled={itemForm.serials.length >= parseInt(itemForm.quantity)} />
-                                <CButton color="secondary" variant="outline" onClick={() => handleSerialInput({key:'Enter', preventDefault:()=>{}})}>+</CButton>
+                                <CFormInput 
+                                    ref={serialInputRef} 
+                                    placeholder="Scan Serial + Enter" 
+                                    value={serialInput} 
+                                    onChange={e => setSerialInput(e.target.value)} 
+                                    onKeyDown={handleSerialInput} 
+                                    disabled={itemForm.serials.length >= parseInt(itemForm.quantity)}
+                                />
+                                <CButton color="primary" variant="outline" onClick={() => handleSerialInput({key:'Enter', preventDefault:()=>{}})}>+</CButton>
                             </div>
                             <div className="d-flex flex-wrap gap-1 mt-2">
-                                {itemForm.serials.map((s, i) => <CBadge key={i} color="light" className="border text-dark">{s}</CBadge>)}
+                                {itemForm.serials.map((s, i) => <CBadge key={i} color="info" shape="rounded-pill">{s}</CBadge>)}
                             </div>
                         </div>
                     )}
+
+                    <button className="btn-brand btn-brand-primary w-100" onClick={handleAddToManifest} disabled={!selectedManifestProduct}>
+                        <CIcon icon={cilPlus} className="me-2"/> ADD TO SHIPMENT
+                    </button>
                 </div>
 
-                {/* STEP 3: REVIEW LIST */}
-                <div className="mb-3">
-                    <CFormLabel className="fw-bold text-brand-navy mb-2">3. INCOMING SHIPMENT LIST</CFormLabel>
-                    <div className="table-responsive border rounded" style={{maxHeight: '250px'}}>
-                        <table className="table table-striped mb-0 align-middle">
-                            <thead className="bg-light sticky-top"><tr><th>Product</th><th className="text-center">Qty</th><th>Details</th><th className="text-end"></th></tr></thead>
+                {/* 3. SHIPMENT LIST */}
+                <div className="bg-white p-3 rounded shadow-sm border">
+                    <CFormLabel className="fw-bold text-brand-navy mb-2 text-uppercase small ls-1">Shipment List</CFormLabel>
+                    <div className="border rounded overflow-hidden" style={{maxHeight: '300px', overflowY: 'auto'}}>
+                        <table className="admin-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col" style={{width: '50%'}}>Product</th>
+                                    <th scope="col" className="text-center" style={{width: '20%'}}>Qty</th>
+                                    <th scope="col" className="text-center" style={{width: '30%'}}>Action</th>
+                                </tr>
+                            </thead>
                             <tbody>
-                                {manifestItems.length === 0 ? <tr><td colSpan="4" className="text-center text-muted py-4">List is empty. Add items above.</td></tr> : 
+                                {manifestItems.length === 0 ? (
+                                    <tr><td colSpan="3" className="text-center text-muted py-4">No items added yet.</td></tr>
+                                ) : (
                                     manifestItems.map((item, i) => (
                                         <tr key={i}>
-                                            <td><div className="fw-bold">{item.name}</div><small className="text-muted">{item.product_id}</small></td>
-                                            <td className="text-center fw-bold fs-5">{item.addQuantity}</td>
                                             <td>
-                                                {item.requires_serial ? (
-                                                    <button className="btn btn-sm btn-outline-info py-0" onClick={() => handleCheckManifestSerials(item)}>Check SN</button>
-                                                ) : '-'}
+                                                <div className="fw-bold">{item.name}</div>
+                                                <div className="text-muted small">{item.product_id}</div>
+                                                {item.requires_serial && (
+                                                    <button className="btn btn-sm btn-link text-decoration-none p-0 small" onClick={() => handleCheckManifestSerials(item)}>
+                                                        View Serials ({item.newSerials.length})
+                                                    </button>
+                                                )}
                                             </td>
-                                            <td className="text-end"><CButton size="sm" color="danger" variant="ghost" onClick={() => handleRemoveFromManifest(i)}><CIcon icon={cilTrash}/></CButton></td>
+                                            <td className="text-center fw-bold fs-5">{item.addQuantity}</td>
+                                            <td className="text-center">
+                                                <CTooltip content="Remove line">
+                                                    <CButton size="sm" color="danger" variant="ghost" onClick={() => handleRemoveFromManifest(i)}>
+                                                        <CIcon icon={cilTrash}/>
+                                                    </CButton>
+                                                </CTooltip>
+                                            </td>
                                         </tr>
                                     ))
-                                }
+                                )}
                             </tbody>
                         </table>
                     </div>
                 </div>
-
             </div>
         </CModalBody>
-        <CModalFooter>
-            <button className="btn-brand btn-brand-outline" onClick={() => setBulkModalOpen(false)}>Cancel</button>
+        <CModalFooter className="bg-light">
+            <button className="btn-brand btn-brand-outline" onClick={() => setBulkModalOpen(false)}>Close</button>
             <button className="btn-brand btn-brand-success" onClick={handleBulkSubmit} disabled={isSubmitting || manifestItems.length === 0}>
-                {isSubmitting ? <CSpinner size="sm"/> : 'Process Shipment'}
+                {isSubmitting ? <CSpinner size="sm"/> : 'PROCESS STOCK IN'}
             </button>
         </CModalFooter>
       </CModal>
 
-      {/* CHECK MANIFEST SERIALS MODAL */}
+      {/* Other Modals Remain Unchanged */}
       <CModal visible={checkManifestSnModal.open} onClose={() => setCheckManifestSnModal({...checkManifestSnModal, open: false})} alignment="center" size="sm">
-        <CModalHeader><CModalTitle className="fs-6 fw-bold">Serials: {checkManifestSnModal.productName}</CModalTitle></CModalHeader>
-        <CModalBody>
-            <ul className="list-group">
-                {checkManifestSnModal.items.map((sn, i) => (
-                    <li key={i} className="list-group-item py-1">{sn}</li>
-                ))}
-            </ul>
-        </CModalBody>
-        <CModalFooter><CButton color="secondary" size="sm" onClick={() => setCheckManifestSnModal({...checkManifestSnModal, open: false})}>Close</CButton></CModalFooter>
+        <CModalHeader className="bg-brand-navy"><CModalTitle component="span" className="text-white" style={modalTitleStyle}>SERIAL NUMBERS</CModalTitle></CModalHeader>
+        <CModalBody><ul className="list-group list-group-flush">{checkManifestSnModal.items.map((sn, i) => <li key={i} className="list-group-item px-0 py-2 small fw-bold text-dark">{sn}</li>)}</ul></CModalBody>
       </CModal>
 
-      {/* Other Modals (View Serials, Edit, Msg, StockInModal) - Unchanged */}
       <CModal visible={viewSerialsModal.open} onClose={() => setViewSerialsModal({...viewSerialsModal, open: false})} alignment="center">
-        <CModalHeader><CModalTitle>Available Serials</CModalTitle></CModalHeader>
-        <CModalBody>
-            {loadingSerials ? <div className="text-center"><CSpinner color="primary"/></div> : 
-             viewSerialsModal.serials.length === 0 ? <div className="text-center text-muted">No serials found in stock.</div> : (
-                 <ul className="list-group" style={{maxHeight: '300px', overflowY: 'auto'}}>
-                     {viewSerialsModal.serials.map((s, i) => (
-                         <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
-                             <span className="font-monospace">{s.serial_number}</span>
-                             <CBadge color="success" shape="rounded-pill">Available</CBadge>
-                         </li>
-                     ))}
-                 </ul>
-             )
-            }
-        </CModalBody>
-        <CModalFooter><button className="btn-brand btn-brand-outline" onClick={() => setViewSerialsModal({...viewSerialsModal, open: false})}>Close</button></CModalFooter>
+        <CModalHeader className="bg-brand-navy"><CModalTitle component="span" className="text-white" style={modalTitleStyle}>AVAILABLE SERIALS</CModalTitle></CModalHeader>
+        <CModalBody className="p-0">{loadingSerials ? <div className="text-center py-4"><CSpinner color="primary"/></div> : viewSerialsModal.serials.length === 0 ? <div className="text-center text-muted py-4">No serials found.</div> : (<ul className="list-group list-group-flush" style={{maxHeight: '400px', overflowY: 'auto'}}>{viewSerialsModal.serials.map((s, i) => (<li key={i} className="list-group-item d-flex justify-content-between align-items-center py-3 px-4"><span className="font-monospace fw-bold text-dark">{s.serial_number}</span><CBadge color="success" shape="rounded-pill">Available</CBadge></li>))}</ul>)}</CModalBody>
+        <CModalFooter className="bg-light"><button className="btn-brand btn-brand-outline" onClick={() => setViewSerialsModal({...viewSerialsModal, open: false})}>Close</button></CModalFooter>
       </CModal>
 
       <CModal visible={editModal.open} onClose={() => setEditModal({...editModal, open: false})} alignment="center">
-          <CModalHeader><CModalTitle>Inventory Settings</CModalTitle></CModalHeader>
-          <CModalBody>
-              <div className="mb-3">
-                  <CFormLabel className="fw-bold small text-muted">REORDER POINT</CFormLabel>
-                  <CFormInput type="number" min="0" value={editModal.reorderPoint} onChange={(e) => setEditModal({...editModal, reorderPoint: e.target.value})} />
-              </div>
-          </CModalBody>
-          <CModalFooter>
-              <button className="btn-brand btn-brand-outline" onClick={() => setEditModal({...editModal, open: false})}>Cancel</button>
-              <button className="btn-brand btn-brand-primary" onClick={handleSaveReorderPoint} disabled={isSubmitting}>
-                  {isSubmitting ? <CSpinner size="sm"/> : 'Save Settings'}
-              </button>
-          </CModalFooter>
+          <CModalHeader className="bg-brand-navy"><CModalTitle component="span" className="text-white" style={modalTitleStyle}>INVENTORY SETTINGS</CModalTitle></CModalHeader>
+          <CModalBody className="p-4"><div className="mb-3"><CFormLabel className="fw-bold text-brand-navy mb-2 text-uppercase small ls-1">Reorder Level</CFormLabel><CFormInput type="number" min="0" value={editModal.reorderPoint} onChange={(e) => setEditModal({...editModal, reorderPoint: e.target.value})} /><div className="form-text mt-2">Alert when stock falls below this number.</div></div></CModalBody>
+          <CModalFooter className="bg-light"><button className="btn-brand btn-brand-outline" onClick={() => setEditModal({...editModal, open: false})}>Cancel</button><button className="btn-brand btn-brand-primary" onClick={handleSaveReorderPoint} disabled={isSubmitting}>{isSubmitting ? <CSpinner size="sm"/> : 'SAVE SETTINGS'}</button></CModalFooter>
       </CModal>
 
       <CModal visible={msgModal.visible} onClose={() => setMsgModal({...msgModal, visible: false})}>
-        <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
-        <CModalBody>{msgModal.message}</CModalBody>
-        <CModalFooter>
-            {msgModal.onConfirm ? (
-                <CButton color={msgModal.color} className="text-white" onClick={() => { msgModal.onConfirm(); setMsgModal(p => ({ ...p, visible: false })) }}>Confirm</CButton>
-            ) : (
-                <CButton color="secondary" onClick={() => setMsgModal({...msgModal, visible: false})}>Close</CButton>
-            )}
-        </CModalFooter>
-      </CModal>
-      
-      <CModal visible={stockInModal.open} onClose={() => setStockInModal({...stockInModal, open: false})}>
-         <CModalHeader><CModalTitle>Stock In</CModalTitle></CModalHeader>
-         <CModalBody>
-            <CFormLabel>Supplier</CFormLabel>
-            <CFormSelect value={stockInForm.supplierId} onChange={(e)=>setStockInForm({...stockInForm, supplierId:e.target.value})} className="mb-3"><option value="">Select</option>{suppliersList.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</CFormSelect>
-            <CFormLabel>Quantity</CFormLabel>
-            <CFormInput type="number" value={stockInForm.quantity} onChange={(e)=>setStockInForm({...stockInForm, quantity:e.target.value})}/>
-         </CModalBody>
-         <CModalFooter><CButton color="primary" onClick={handleSingleStockInSubmit}>Confirm</CButton></CModalFooter>
+        <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle component="span" style={modalTitleStyle}>{msgModal.title}</CModalTitle></CModalHeader>
+        <CModalBody className="py-4">{msgModal.message}</CModalBody>
+        <CModalFooter className="bg-light">{msgModal.onConfirm ? (<CButton color={msgModal.color} className="text-white" onClick={() => { msgModal.onConfirm(); setMsgModal(p => ({ ...p, visible: false })) }}>Confirm</CButton>) : (<CButton color="secondary" onClick={() => setMsgModal({...msgModal, visible: false})}>Close</CButton>)}</CModalFooter>
       </CModal>
     </CContainer>
   )

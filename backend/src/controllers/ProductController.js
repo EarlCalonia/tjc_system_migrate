@@ -1,11 +1,11 @@
 import { Product } from '../models/Product.js';
 
 export class ProductController {
-  // Get all products with server-side pagination
+  // Get all products with server-side pagination & filtering
   static async getAllProducts(req, res) {
     try {
       // 1. Parse Query Parameters
-      const { search, category, brand, status } = req.query;
+      const { search, category, brand, status, unit } = req.query;
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
       const offset = (page - 1) * limit;
@@ -14,26 +14,25 @@ export class ProductController {
         search,
         category,
         brand,
-        status
+        status,
+        unit // [FIX] Added unit filter
       };
 
       // 2. Call the Model
-      // NOTE: Product.findAll must be updated to accept (filters, limit, offset)
-      // and return an object: { products: [...], total: 13 }
       const result = await Product.findAll(filters, limit, offset);
 
-      // Handle response structure (Support if model returns object or just array)
+      // Handle response structure
       const products = result.products || result || [];
       const totalCount = result.total || products.length;
 
       res.json({
         success: true,
         data: {
-          products: products, // This is the specific 10 items
+          products: products,
           pagination: {
             currentPage: page,
             totalPages: Math.ceil(totalCount / limit),
-            totalProducts: totalCount, // This will now show the REAL total (e.g., 13)
+            totalProducts: totalCount,
             hasNextPage: (page * limit) < totalCount,
             hasPrevPage: page > 1
           }
@@ -81,7 +80,10 @@ export class ProductController {
     try {
       const productData = req.body;
       productData.image = req.file ? `/uploads/${req.file.filename}` : null;
-      productData.requires_serial = req.body.requires_serial === 'true';
+      
+      // [FIX] Robust boolean conversion
+      const rs = String(req.body.requires_serial);
+      productData.requires_serial = rs === 'true' || rs === '1';
 
       const productId = await Product.create(productData);
 
@@ -106,8 +108,9 @@ export class ProductController {
       const { id } = req.params;
       const productData = req.body;
       
-      // Convert string 'true'/'false' to boolean
-      productData.requires_serial = req.body.requires_serial === 'true';
+      // [FIX] Robust boolean conversion
+      const rs = String(req.body.requires_serial);
+      productData.requires_serial = rs === 'true' || rs === '1';
 
       // --- VALIDATION BLOCK ---
       if (productData.requires_serial === false) {
@@ -116,8 +119,7 @@ export class ProductController {
         
         // Check if the setting is being changed from true (1) to false (0)
         if (currentProduct && currentProduct.requires_serial) {
-          // The user is trying to disable serial numbers.
-          // Check if any serial numbers exist for this product.
+          // Check if any serial numbers exist (sold or active)
           const serialsExist = await Product.hasSerialNumbers(id); 
           
           if (serialsExist) {
@@ -131,7 +133,8 @@ export class ProductController {
       if (req.file) {
         productData.image = `/uploads/${req.file.filename}`;
       } else {
-        productData.image = productData.image || null;
+        // Ensure we don't accidentally save "null" string if passed by FormData
+        if (productData.image === 'null') productData.image = null;
       }
       
       const updated = await Product.update(id, productData);

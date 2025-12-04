@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
   CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormInput, CModal,
-  CModalHeader, CModalTitle, CModalBody, CModalFooter, CSpinner, CFormLabel, CTooltip
+  CModalHeader, CModalTitle, CModalBody, CModalFooter, CSpinner, CFormLabel
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { 
   cilMagnifyingGlass, cilUserPlus, cilPencil, cilTrash, cilTruck, cilPhone,
-  cilEnvelopeClosed, cilLocationPin, cilReload, cilAddressBook, cilCheckCircle, cilWarning
+  cilEnvelopeClosed, cilLocationPin, cilReload, cilAddressBook
 } from '@coreui/icons'
 import { suppliersAPI } from '../../utils/api'
 
-// [FIX] Import Global Brand Styles
+// Import Global Brand Styles
 import '../../styles/Admin.css'
 import '../../styles/App.css' 
 import '../../styles/SuppliersPage.css'
@@ -37,6 +37,8 @@ const SuppliersPage = () => {
   }
   
   const closeMsgModal = () => setMsgModal({ ...msgModal, visible: false })
+
+  const brandHeaderStyle = { fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' };
 
   // Client-side filtering
   const filteredSuppliers = useMemo(() => {
@@ -90,7 +92,7 @@ const SuppliersPage = () => {
   }
 
   const handleDelete = (id) => {
-    showMessage('Confirm Delete', 'Are you sure you want to remove this supplier?', 'warning', async () => {
+    showMessage('Confirm Delete', 'Are you sure you want to remove this partner? This action cannot be undone.', 'danger', async () => {
         try {
             const res = await suppliersAPI.delete(id)
             if (res.success) {
@@ -105,8 +107,19 @@ const SuppliersPage = () => {
     })
   }
 
+  const handleContactChange = (e) => {
+    // [FIX] Restrict to numbers only and max 11 digits
+    const value = e.target.value.replace(/\D/g, '').slice(0, 11);
+    setSelectedSupplier({ ...selectedSupplier, contact_number: value });
+  }
+
   const handleSubmit = async () => {
     if (!selectedSupplier.name) return showMessage('Validation', 'Supplier Name is required.', 'warning')
+    
+    // [FIX] Add validation for contact length if entered
+    if (selectedSupplier.contact_number && selectedSupplier.contact_number.length !== 11) {
+        return showMessage('Validation', 'Contact number must be exactly 11 digits (e.g., 09123456789).', 'warning');
+    }
     
     setSubmitting(true)
     try {
@@ -140,14 +153,13 @@ const SuppliersPage = () => {
   }
 
   return (
-    <CContainer fluid>
+    <CContainer fluid className="px-4 py-4">
       {/* HEADER */}
       <div className="d-flex justify-content-between align-items-end mb-4">
         <div>
-          <h2 className="fw-bold text-brand-navy mb-0" style={{fontFamily: 'Oswald, sans-serif'}}>SUPPLIER NETWORK</h2>
-          <div className="text-muted small">Manage vendors and supply chain partners</div>
+          <h2 className="fw-bold text-brand-navy mb-1" style={brandHeaderStyle}>SUPPLIER NETWORK</h2>
+          <div className="text-medium-emphasis fw-semibold">Manage vendors and supply chain partners</div>
         </div>
-        {/* [FIX] Branded Primary Button */}
         <button className="btn-brand btn-brand-primary" onClick={handleAdd}>
           <CIcon icon={cilUserPlus} className="me-2" /> Add Supplier
         </button>
@@ -155,9 +167,8 @@ const SuppliersPage = () => {
 
       {/* TOOLBAR */}
       <CCard className="border-0 shadow-sm mb-4">
-        <CCardBody className="bg-light rounded p-3">
+        <CCardBody className="bg-white p-4 rounded">
           <div className="d-flex gap-2 align-items-center">
-             {/* [FIX] Branded Search Bar */}
              <div className="brand-search-wrapper" style={{maxWidth: '350px'}}>
                 <span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass}/></span>
                 <input 
@@ -171,12 +182,11 @@ const SuppliersPage = () => {
 
              <div className="vr mx-2"></div>
              
-             {/* [FIX] Branded Outline Button (Icon Only variant logic) */}
              <button 
                 className="btn-brand btn-brand-outline" 
                 onClick={fetchSuppliers} 
                 disabled={loading}
-                style={{width: '45px', padding: 0}} // Square button for icon
+                style={{width: '45px', padding: 0}} 
                 title="Reload"
              >
                <CIcon icon={cilReload} spin={loading || undefined} />
@@ -190,10 +200,10 @@ const SuppliersPage = () => {
       </CCard>
 
       {/* TABLE */}
-      <CCard className="border-0 shadow-sm">
+      <CCard className="border-0 shadow-sm overflow-hidden">
         <CCardBody className="p-0">
           <div className="admin-table-container">
-            <table className="admin-table table-hover">
+            <table className="admin-table">
               <thead>
                 <tr>
                   <th className="ps-4" style={{width: '25%'}}>Supplier Name</th>
@@ -215,36 +225,37 @@ const SuppliersPage = () => {
                    filteredSuppliers.map((supplier) => (
                      <tr key={supplier.id || supplier.supplier_id}>
                        <td className="ps-4">
-                          <div className="fw-bold text-brand-navy">{supplier.supplier_name}</div>
-                          <small className="text-muted" style={{fontSize: '0.75rem'}}>ID: {supplier.id || supplier.supplier_id}</small>
+                          <div className="fw-bold text-brand-navy fs-6">{supplier.supplier_name}</div>
+                          <small className="text-muted font-monospace" style={{fontSize: '0.75rem'}}>ID: {supplier.id || supplier.supplier_id}</small>
                        </td>
                        <td>
                          <div className="d-flex align-items-center">
-                           <div className="icon-circle me-3"><CIcon icon={cilAddressBook} size="sm"/></div>
+                           <div className="icon-circle me-3 bg-light text-brand-blue rounded-circle d-flex align-items-center justify-content-center" style={{width: '32px', height: '32px'}}>
+                              <CIcon icon={cilAddressBook} size="sm"/>
+                           </div>
                            <span className="fw-semibold text-dark">{supplier.contact_person || 'N/A'}</span>
                          </div>
                        </td>
                        <td>
-                         <div className="d-flex flex-column">
-                           <div className="contact-info-row">
+                         <div className="d-flex flex-column gap-1">
+                           <div className="d-flex align-items-center text-muted small">
                              <CIcon icon={cilPhone} className="me-2 text-info" size="sm"/>
                              {supplier.contact_number || '--'}
                            </div>
-                           <div className="contact-info-row">
+                           <div className="d-flex align-items-center text-muted small">
                              <CIcon icon={cilEnvelopeClosed} className="me-2 text-warning" size="sm"/>
                              {supplier.email || '--'}
                            </div>
                          </div>
                        </td>
                        <td>
-                         <div className="d-flex align-items-start contact-info-row">
+                         <div className="d-flex align-items-start text-muted small">
                            <CIcon icon={cilLocationPin} className="me-2 mt-1 text-danger"/>
                            <span className="text-truncate" style={{maxWidth: '200px'}} title={supplier.address}>{supplier.address || 'No Address'}</span>
                          </div>
                        </td>
                        <td className="text-end pe-4">
-                          <div className="action-btn-group">
-                            {/* [FIX] Branded Small Buttons */}
+                          <div className="d-flex justify-content-end gap-2">
                             <button className="btn-brand btn-brand-outline btn-brand-sm" onClick={() => handleEdit(supplier)} title="Edit">
                               <CIcon icon={cilPencil}/>
                             </button>
@@ -262,19 +273,46 @@ const SuppliersPage = () => {
         </CCardBody>
       </CCard>
 
-      {/* MODAL (Using Branded buttons in footer) */}
+      {/* ADD/EDIT MODAL */}
       <CModal visible={modalVisible} onClose={() => setModalVisible(false)} alignment="center" backdrop="static">
-        <CModalHeader><CModalTitle className="fw-bold">{isEditMode ? 'Update Supplier' : 'Onboard New Supplier'}</CModalTitle></CModalHeader>
-        <CModalBody>
-           <div className="mb-3"><CFormLabel>Company Name <span className="text-danger">*</span></CFormLabel><CFormInput value={selectedSupplier.name} onChange={e => setSelectedSupplier({...selectedSupplier, name: e.target.value})} /></div>
-           <CRow className="mb-3">
-              <CCol md={6}><CFormLabel>Contact Person</CFormLabel><CFormInput value={selectedSupplier.contact_person} onChange={e => setSelectedSupplier({...selectedSupplier, contact_person: e.target.value})} /></CCol>
-              <CCol md={6}><CFormLabel>Phone Number</CFormLabel><CFormInput value={selectedSupplier.contact_number} onChange={e => setSelectedSupplier({...selectedSupplier, contact_number: e.target.value})} /></CCol>
-           </CRow>
-           <div className="mb-3"><CFormLabel>Email Address</CFormLabel><CFormInput type="email" value={selectedSupplier.email} onChange={e => setSelectedSupplier({...selectedSupplier, email: e.target.value})} /></div>
-           <div className="mb-3"><CFormLabel>Office Address</CFormLabel><CFormInput value={selectedSupplier.address} onChange={e => setSelectedSupplier({...selectedSupplier, address: e.target.value})} /></div>
+        <CModalHeader className="bg-brand-navy">
+            <CModalTitle component="span" className="text-white" style={{...brandHeaderStyle, fontSize: '1.25rem'}}>
+                {isEditMode ? 'UPDATE SUPPLIER' : 'ONBOARD NEW SUPPLIER'}
+            </CModalTitle>
+        </CModalHeader>
+        <CModalBody className="p-4 bg-light">
+           <div className="bg-white p-3 rounded shadow-sm border">
+               <div className="mb-3">
+                   <CFormLabel className="small fw-bold text-muted">Company Name <span className="text-danger">*</span></CFormLabel>
+                   <CFormInput value={selectedSupplier.name} onChange={e => setSelectedSupplier({...selectedSupplier, name: e.target.value})} placeholder="e.g. Bosch Automotive" />
+               </div>
+               <CRow className="mb-3 g-3">
+                  <CCol md={6}>
+                      <CFormLabel className="small fw-bold text-muted">Contact Person</CFormLabel>
+                      <CFormInput value={selectedSupplier.contact_person} onChange={e => setSelectedSupplier({...selectedSupplier, contact_person: e.target.value})} placeholder="e.g. John Doe" />
+                  </CCol>
+                  <CCol md={6}>
+                      <CFormLabel className="small fw-bold text-muted">Phone Number</CFormLabel>
+                      {/* [FIX] Applied numeric restriction and length limit */}
+                      <CFormInput 
+                        value={selectedSupplier.contact_number} 
+                        onChange={handleContactChange} 
+                        placeholder="e.g. 09123456789"
+                        maxLength={11}
+                      />
+                  </CCol>
+               </CRow>
+               <div className="mb-3">
+                   <CFormLabel className="small fw-bold text-muted">Email Address</CFormLabel>
+                   <CFormInput type="email" value={selectedSupplier.email} onChange={e => setSelectedSupplier({...selectedSupplier, email: e.target.value})} placeholder="e.g. purchasing@company.com" />
+               </div>
+               <div className="mb-0">
+                   <CFormLabel className="small fw-bold text-muted">Office Address</CFormLabel>
+                   <CFormInput value={selectedSupplier.address} onChange={e => setSelectedSupplier({...selectedSupplier, address: e.target.value})} placeholder="Full business address" />
+               </div>
+           </div>
         </CModalBody>
-        <CModalFooter className="bg-light border-top-0">
+        <CModalFooter className="bg-light">
           <button className="btn-brand btn-brand-outline" onClick={() => setModalVisible(false)}>Cancel</button>
           <button className="btn-brand btn-brand-primary" onClick={handleSubmit} disabled={submitting}>
             {submitting ? <CSpinner size="sm" component="span" aria-hidden="true"/> : (isEditMode ? 'Save Changes' : 'Create Supplier')}
@@ -282,11 +320,22 @@ const SuppliersPage = () => {
         </CModalFooter>
       </CModal>
 
-      {/* Message Modal */}
+      {/* MESSAGE MODAL */}
       <CModal visible={msgModal.visible} onClose={closeMsgModal} alignment="center">
-        <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle>{msgModal.title}</CModalTitle></CModalHeader>
+        <CModalHeader className={`bg-${msgModal.color} text-white`}>
+            <CModalTitle component="span" style={brandHeaderStyle}>{msgModal.title}</CModalTitle>
+        </CModalHeader>
         <CModalBody className="p-4 text-center"><div className="fs-5">{msgModal.message}</div></CModalBody>
-        <CModalFooter className="justify-content-center"><CButton color="secondary" onClick={closeMsgModal}>Close</CButton>{msgModal.onConfirm && <CButton color={msgModal.color} className="text-white" onClick={msgModal.onConfirm}>Confirm</CButton>}</CModalFooter>
+        <CModalFooter className="bg-light justify-content-center">
+            {msgModal.onConfirm ? (
+                <>
+                    <CButton color="secondary" onClick={closeMsgModal}>Cancel</CButton>
+                    <CButton color={msgModal.color} className="text-white" onClick={msgModal.onConfirm}>Confirm</CButton>
+                </>
+            ) : (
+                <CButton color="secondary" onClick={closeMsgModal}>Close</CButton>
+            )}
+        </CModalFooter>
       </CModal>
     </CContainer>
   )

@@ -5,28 +5,36 @@ export class Product {
     const pool = getPool();
     const {
       name, brand, category, price, status, description,
-      vehicle_compatibility, image, requires_serial
+      vehicle_compatibility, image, requires_serial, unit_tag // [FIX] Added unit_tag
     } = productData;
 
     const [maxIdResult] = await pool.execute('SELECT MAX(id) as maxId FROM products');
     const nextId = (maxIdResult[0].maxId || 0) + 1;
     const productId = `P${nextId.toString().padStart(3, '0')}`;
 
+    // [FIX] Added unit_tag to INSERT
     const [result] = await pool.execute(
-      `INSERT INTO products (product_id, name, brand, category, vehicle_compatibility, price, status, description, image, requires_serial, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [productId, name, brand, category, vehicle_compatibility || null, price, status, description, image, requires_serial ? 1 : 0]
+      `INSERT INTO products (
+        product_id, name, brand, category, vehicle_compatibility, 
+        price, unit_tag, status, description, image, 
+        requires_serial, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [
+        productId, name, brand, category, vehicle_compatibility || null, 
+        price, unit_tag || 'EA', status, description, image, 
+        requires_serial ? 1 : 0
+      ]
     );
     return result.insertId;
   }
 
-  // --- THIS IS THE CRITICAL FIX ---
   static async findAll(filters = {}, limit = 10, offset = 0) {
     const pool = getPool();
     
     let whereClause = ' WHERE 1=1';
     let params = [];
-    const { search, category, brand, status } = filters;
+    // [FIX] Added unit to filters
+    const { search, category, brand, status, unit } = filters;
 
     if (search) {
       whereClause += ' AND (name LIKE ? OR product_id LIKE ? OR brand LIKE ?)';
@@ -44,9 +52,13 @@ export class Product {
       whereClause += ' AND status = ?';
       params.push(status);
     }
+    // [FIX] Added Unit Filter Logic
+    if (unit && unit !== 'All Units') {
+      whereClause += ' AND unit_tag = ?';
+      params.push(unit);
+    }
 
-    // [FIX] We use 'stock' here because that is what your tjsims_db.sql uses.
-    // We alias it as 'quantity' because that is what your React Frontend expects.
+    // [FIX] Subquery to get live inventory stock
     const quantitySubquery = `(SELECT COALESCE(SUM(stock), 0) FROM inventory WHERE product_id = products.product_id)`;
 
     const dataQuery = `
@@ -64,14 +76,6 @@ export class Product {
     const [rows] = await pool.execute(dataQuery, dataParams);
     const [countResult] = await pool.execute(countQuery, params);
 
-    // [DEBUG] This prints the first product to your VS Code terminal so you can verify the data.
-    if (rows.length > 0) {
-      console.log("DEBUG: First Product Fetched:", { 
-        name: rows[0].name, 
-        inventory_stock: rows[0].quantity // This should show 55, 18, etc.
-      });
-    }
-
     return {
       products: rows,
       total: countResult[0].total
@@ -80,22 +84,21 @@ export class Product {
 
   static async findById(id) {
     const pool = getPool();
-    // [FIX] Ensure single product lookup also gets the stock
+    // [FIX] Added stock subquery here too
     const quantitySubquery = `(SELECT COALESCE(SUM(stock), 0) FROM inventory WHERE product_id = products.product_id)`;
     
     const [rows] = await pool.execute(
-      `SELECT products.*, ${quantitySubquery} as quantity FROM products WHERE product_id = ?`,
-      [id]
+      `SELECT products.*, ${quantitySubquery} as quantity FROM products WHERE product_id = ? OR id = ?`,
+      [id, id]
     );
     return rows[0] || null;
   }
 
-  // ... Keep the rest of your methods (update, delete, getters) as they are ...
   static async update(id, productData) {
     const pool = getPool();
     const {
       name, brand, category, price, status, description,
-      vehicle_compatibility, image, requires_serial
+      vehicle_compatibility, image, requires_serial, unit_tag // [FIX] Added unit_tag
     } = productData;
 
     const updates = [];
@@ -106,6 +109,10 @@ export class Product {
     if (category !== undefined) { updates.push('category = ?'); params.push(category); }
     if (vehicle_compatibility !== undefined) { updates.push('vehicle_compatibility = ?'); params.push(vehicle_compatibility || null); }
     if (price !== undefined) { updates.push('price = ?'); params.push(price); }
+    
+    // [FIX] Added unit_tag update logic
+    if (unit_tag !== undefined) { updates.push('unit_tag = ?'); params.push(unit_tag); }
+    
     if (status !== undefined) { updates.push('status = ?'); params.push(status); }
     if (description !== undefined) { updates.push('description = ?'); params.push(description); }
     if (image !== undefined) { updates.push('image = ?'); params.push(image); }
@@ -114,14 +121,18 @@ export class Product {
     if (updates.length === 0) throw new Error('No fields to update');
 
     params.push(id);
-    const query = `UPDATE products SET ${updates.join(', ')}, updated_at = NOW() WHERE product_id = ?`;
+    // Supports updating by ID or product_id string
+    const query = `UPDATE products SET ${updates.join(', ')}, updated_at = NOW() WHERE product_id = ? OR id = ?`;
+    // Push ID twice for the WHERE clause
+    params.push(id); 
+    
     const [result] = await pool.execute(query, params);
     return result.affectedRows > 0;
   }
 
   static async delete(id) {
     const pool = getPool();
-    const [prodRows] = await pool.execute('SELECT product_id FROM products WHERE id = ?', [id]);
+    const [prodRows] = await pool.execute('SELECT product_id FROM products WHERE id = ? OR product_id = ?', [id, id]);
     if (prodRows.length === 0) return false;
     const productId = prodRows[0].product_id;
 
@@ -131,12 +142,13 @@ export class Product {
       err.code = 'PRODUCT_IN_USE';
       throw err;
     }
-    const [result] = await pool.execute('DELETE FROM products WHERE id = ?', [id]);
+    const [result] = await pool.execute('DELETE FROM products WHERE id = ? OR product_id = ?', [id, id]);
     return result.affectedRows > 0;
   }
   
   static async hasSerialNumbers(productId) {
     const pool = getPool();
+    // Check for any serials that imply the product was once serialized and used
     const [rows] = await pool.execute(
       'SELECT COUNT(*) as count FROM serial_numbers WHERE product_id = ? AND status IN ("sold", "defective")',
       [productId]
