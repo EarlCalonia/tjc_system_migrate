@@ -9,7 +9,9 @@ export class Sales {
       contact,
       payment,
       payment_status,
-      delivery_type, // FIX: Added this
+      delivery_type, 
+      address,
+      landmark, // [FIX] Added landmark
       total,
       items
     } = salesData;
@@ -23,10 +25,10 @@ export class Sales {
 
     try {
       // Insert sale record
-      // FIX: Added delivery_type column and value
+      // [FIX] Added landmark column and value
       const [saleResult] = await connection.execute(
-        `INSERT INTO sales (sale_number, customer_name, contact, payment, payment_status, status, address, delivery_type, total, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        `INSERT INTO sales (sale_number, customer_name, contact, payment, payment_status, status, address, landmark, delivery_type, total, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           saleNumber, 
           customer_name, 
@@ -34,7 +36,8 @@ export class Sales {
           payment, 
           payment_status || 'Unpaid', 
           salesData.status || 'Pending', 
-          salesData.address || null, 
+          address || null, 
+          landmark || null, // [FIX] Insert landmark
           delivery_type || 'In-store', // Default to In-store
           total
         ]
@@ -207,6 +210,7 @@ export class Sales {
       payment,
       payment_status,
       address,
+      landmark, // [FIX] Added landmark
       total,
       status
     } = salesData;
@@ -233,6 +237,10 @@ export class Sales {
     if (address !== undefined) {
       updates.push('address = ?');
       params.push(address);
+    }
+    if (landmark !== undefined) { // [FIX] Update landmark
+      updates.push('landmark = ?');
+      params.push(landmark);
     }
     if (total !== undefined) {
       updates.push('total = ?');

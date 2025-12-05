@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
-  CContainer, CFormInput, CFormSelect, CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter,
-  CInputGroup, CInputGroupText, CBadge, CSpinner, CFormCheck
+  CContainer, CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter,
+  CSpinner, CBadge, CFormCheck
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { 
   cilCart, cilMagnifyingGlass, cilPlus, cilMinus, cilImage, cilUser, cilCheckCircle, 
-  cilBarcode, cilReload, cilX, cilTruck, cilCreditCard, cilTrash, cilLockLocked
+  cilBarcode, cilReload, cilX, cilCreditCard, cilTrash, cilLockLocked
 } from '@coreui/icons'
 import { salesAPI, inventoryAPI, customersAPI, settingsAPI } from '../../utils/api'
 import { serialNumberAPI } from '../../utils/serialNumberApi'
@@ -26,9 +26,12 @@ const SalesPage = () => {
   const [products, setProducts] = useState([])
   const [inventory, setInventory] = useState({})
   
-  // --- 2. CUSTOMER STATE ---
+  // --- 2. CUSTOMER STATE (SERVER-SIDE SEARCH) ---
   const [customerType, setCustomerType] = useState('new') 
-  const [backendCustomers, setBackendCustomers] = useState([])
+  const [searchResults, setSearchResults] = useState([]) 
+  const [isSearching, setIsSearching] = useState(false)
+  const searchTimeout = useRef(null) 
+  
   const [customerSearch, setCustomerSearch] = useState('')
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
   const customerInputRef = useRef(null)
@@ -78,6 +81,7 @@ const SalesPage = () => {
     if (paymentOption === 'Cash' || paymentOption === 'GCash') {
         return Number(tenderedAmount) >= saleTotal && (paymentOption === 'Cash' || !!gcashRef)
     }
+    if (paymentOption === 'Cash on Delivery') return true;
     return true
   }, [saleItems, paymentOption, tenderedAmount, saleTotal, gcashRef])
 
@@ -85,16 +89,6 @@ const SalesPage = () => {
     (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (p.brand || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
-
-  const filteredSavedCustomers = useMemo(() => {
-    const searchLower = customerSearch.toLowerCase();
-    if (!searchLower) return backendCustomers;
-    return backendCustomers.filter(c =>
-      (c.lastName || '').toLowerCase().includes(searchLower) ||
-      (c.firstName || '').toLowerCase().includes(searchLower) ||
-      (c.contactNumber || '').includes(searchLower)
-    );
-  }, [customerSearch, backendCustomers]);
 
   const filteredSerials = availableSerials.filter(sn => sn.serial_number.toLowerCase().includes(serialSearchTerm.toLowerCase()))
   
@@ -104,8 +98,15 @@ const SalesPage = () => {
   useEffect(() => { 
     fetchProductsAndInventory(); 
     fetchPaymentSettings(); 
-    fetchBackendCustomers(); 
   }, [])
+
+  // [FIX] Auto-reset Payment if user switches to Pickup while COD is selected
+  useEffect(() => {
+    if (shippingOption === 'In-Store Pickup' && paymentOption === 'Cash on Delivery') {
+        setPaymentOption(''); // Reset payment
+        // Optional: showMessage('Notice', 'COD is only available for Company Delivery.', 'info');
+    }
+  }, [shippingOption, paymentOption]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -116,19 +117,6 @@ const SalesPage = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  useEffect(() => {
-    if (!isCompanyDeliveryAvailable && shippingOption === 'Company Delivery') setShippingOption('In-Store Pickup');
-    
-    if (paymentOption === 'Cash on Delivery') {
-       if (!isCompanyDeliveryAvailable) {
-          setPaymentOption('');
-          showMessage('Unavailable', "Order total is under ₱5,000. COD is unavailable.", 'warning');
-       } else if (shippingOption === 'In-Store Pickup') {
-          setShippingOption('Company Delivery'); 
-       }
-    }
-  }, [paymentOption, shippingOption, isCompanyDeliveryAvailable]);
 
   // --- API CALLS ---
   const fetchProductsAndInventory = async () => {
@@ -157,32 +145,53 @@ const SalesPage = () => {
     } catch (e) {}
   }
 
-  const fetchBackendCustomers = async () => {
+  const performCustomerSearch = async (term) => {
+    if (!term || term.length < 2) {
+        setSearchResults([]);
+        return;
+    }
+
+    setIsSearching(true);
     try {
-      const res = await customersAPI.getCustomers();
-      if (res.success) {
-          const rows = res.data || [];
-          const mappedCustomers = rows.map((row, index) => {
-             const fullName = row.customer_name || '';
-             const parts = fullName.trim().split(' ').filter(Boolean);
-             let first = fullName;
-             let last = '';
-             if (parts.length > 1) {
-                last = parts[parts.length - 1];
-                first = parts.slice(0, -1).join(' ');
-             }
-             return {
-                id: `backend-${index}`,
-                firstName: first,
-                lastName: last,
-                contactNumber: row.contact || '',
-                address: row.address || '',
-                landmark: '', 
-             };
-          });
-          setBackendCustomers(mappedCustomers);
-      }
-    } catch (e) { console.error("Customer fetch error", e); }
+        const res = await customersAPI.getCustomers(term); 
+        if (res.success) {
+            const rows = res.data || [];
+            const mapped = rows.map((row, index) => {
+                 const fullName = row.customer_name || '';
+                 const parts = fullName.trim().split(' ').filter(Boolean);
+                 let first = fullName;
+                 let last = '';
+                 if (parts.length > 1) {
+                    last = parts[parts.length - 1];
+                    first = parts.slice(0, -1).join(' ');
+                 }
+                 return {
+                    id: `search-${index}`,
+                    firstName: first,
+                    lastName: last,
+                    contactNumber: row.contact || '',
+                    address: row.address || '',
+                    landmark: row.landmark || ''
+                 };
+            });
+            setSearchResults(mapped);
+        }
+    } catch (e) {
+        console.error("Search error", e);
+        setSearchResults([]);
+    } finally {
+        setIsSearching(false);
+    }
+  }
+
+  const onCustomerSearchInput = (e) => {
+      const val = e.target.value;
+      setCustomerSearch(val);
+      setIsCustomerDropdownOpen(true);
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+      searchTimeout.current = setTimeout(() => {
+          performCustomerSearch(val);
+      }, 500);
   }
 
   // --- HANDLERS ---
@@ -193,15 +202,37 @@ const SalesPage = () => {
     setCustomerSearch(''); setFirstName(''); setLastName('');
     setContactNumber(''); setAddressDetails(''); setLandmark(''); setRegion('Manila'); 
     setIsCustomerDropdownOpen(false);
+    setSearchResults([]); 
   }
 
   const handleSelectCustomer = (customer) => {
     setLastName(customer.lastName || ''); 
     setFirstName(customer.firstName || '');
     setContactNumber(customer.contactNumber || ''); 
-    setAddressDetails(customer.address || ''); 
-    setLandmark(''); 
-    setRegion('Manila'); 
+    
+    if (customer.landmark) {
+        setAddressDetails(customer.address || '');
+        setLandmark(customer.landmark);
+        setRegion('Manila');
+    } else {
+        let rawAddr = customer.address || '';
+        let extractedLandmark = '';
+        let cleanAddr = rawAddr;
+
+        const landmarkMatch = rawAddr.match(/\(Landmark:\s*(.*?)\)/);
+        if (landmarkMatch) {
+            extractedLandmark = landmarkMatch[1];
+            cleanAddr = cleanAddr.replace(/\s*\(Landmark:.*?\)/, '');
+        }
+        
+        ['Manila', 'Pampanga', 'Bulacan', 'Laguna'].forEach(r => {
+            if (cleanAddr.includes(r)) cleanAddr = cleanAddr.replace(new RegExp(`,?\\s*${r}`), '');
+        });
+
+        setAddressDetails(cleanAddr.replace(/,\s*$/, '').trim());
+        setLandmark(extractedLandmark);
+    }
+
     setCustomerSearch(`${customer.lastName}, ${customer.firstName}`);
     setIsCustomerDropdownOpen(false);
   }
@@ -309,7 +340,6 @@ const SalesPage = () => {
     setSaleItems(prev => prev.filter(i => i.product_id !== productId));
   }
 
-  // Cart Quantity Edit
   const setCartItemQuantity = (productId, val) => {
     const item = saleItems.find(i => i.product_id === productId);
     const productInTable = products.find(p => p.product_id === productId);
@@ -340,7 +370,6 @@ const SalesPage = () => {
      setCartItemQuantity(productId, (item.quantity || 0) + change);
   }
 
-  // Catalog Quantity Controls
   const handleQuantityChange = (productId, change) => {
     const currentQty = parseInt(quantities[productId] || 1);
     const product = products.find(p => p.product_id === productId);
@@ -352,8 +381,16 @@ const SalesPage = () => {
   }
 
   const handlePaymentOptionChange = (val) => {
-    if (val === 'Cash on Delivery' && !isCompanyDeliveryAvailable) {
-        return showMessage('Unavailable', 'COD is only available for orders over ₱5,000.', 'warning');
+    // [FIX] Validate both availability and shipping option
+    if (val === 'Cash on Delivery') {
+        if (!isCompanyDeliveryAvailable) {
+            return showMessage('Unavailable', 'COD is only available for orders over ₱5,000.', 'warning');
+        }
+        if (shippingOption !== 'Company Delivery') {
+            // Force switch or warn
+            setShippingOption('Company Delivery'); 
+            // showMessage('Notice', 'Switched to Company Delivery for COD.', 'info');
+        }
     }
     setPaymentOption(val);
   }
@@ -362,8 +399,7 @@ const SalesPage = () => {
     if (saleItems.length === 0) return showMessage('Empty', 'Add items to cart first.', 'warning');
     if (!firstName || !lastName) return showMessage('Customer Info', 'Please enter Customer Name.', 'warning');
     
-    const isDelivery = shippingOption === 'Company Delivery';
-    if (isDelivery) {
+    if (shippingOption === 'Company Delivery') {
         if (!addressDetails) return showMessage('Address Missing', 'Company Delivery requires a specific address.', 'warning');
         if (!landmark) return showMessage('Landmark Missing', 'Please provide a landmark.', 'warning');
         if (!contactNumber || contactNumber.length !== 11) return showMessage('Contact Invalid', 'Delivery requires a valid 11-digit contact number.', 'warning');
@@ -379,14 +415,15 @@ const SalesPage = () => {
     setSubmitting(true);
     try {
         const fullName = `${firstName} ${lastName}`.trim();
-        const finalAddress = addressDetails ? `${addressDetails} (Landmark: ${landmark}), ${region}` : region;
+        const finalAddressForReceipt = addressDetails ? `${addressDetails} (Landmark: ${landmark}), ${region}` : region;
 
         const payload = {
             customer_name: fullName,
             customer_first_name: firstName,
             customer_last_name: lastName,
             contact: contactNumber,
-            address: finalAddress,
+            address: addressDetails, 
+            landmark: landmark,      
             items: saleItems.map(i => ({
                 product_id: i.product_id,
                 product_name: i.name,
@@ -400,7 +437,15 @@ const SalesPage = () => {
             delivery_type: shippingOption,
             tendered: (paymentOption === 'Cash on Delivery') ? null : tenderedAmount,
             reference: paymentOption === 'GCash' ? gcashRef : null,
-            status: (paymentOption === 'Cash on Delivery') ? 'Pending' : (shippingOption === 'In-Store Pickup' ? 'Completed' : 'Processing'),
+            
+            // Status Logic:
+            // COD -> Pending (Warehouse must prep)
+            // Delivery -> Pending (Warehouse must prep)
+            // In-Store Paid -> Completed (Immediate)
+            status: (paymentOption === 'Cash on Delivery' || shippingOption === 'Company Delivery') 
+                    ? 'Pending' 
+                    : 'Completed',
+
             payment_status: (paymentOption === 'Cash on Delivery') ? 'Unpaid' : 'Paid',
             save_client: saveClientChecked && customerType === 'new'
         };
@@ -417,7 +462,7 @@ const SalesPage = () => {
                  paymentMethod: paymentOption,
                  tenderedAmount: (paymentOption === 'Cash on Delivery') ? saleTotal : parseFloat(tenderedAmount),
                  changeAmount: changeDue,
-                 address: finalAddress,
+                 address: finalAddressForReceipt,
                  shippingOption,
                  createdAt: new Date()
              });
@@ -476,7 +521,7 @@ const SalesPage = () => {
 
         {/* POS PANEL */}
         <div className="right-panel shadow-sm">
-          <div className="sale-header bg-brand-navy text-white d-flex justify-content-between align-items-center px-3 py-3"><div className="d-flex align-items-center gap-2"><CIcon icon={cilCart} className="text-brand-yellow"/><span className="fw-bold text-uppercase" style={{fontFamily:'Oswald', letterSpacing:'1px'}}>MANIFEST</span></div><span className="badge bg-brand-yellow text-brand-navy fw-bold">{saleItems.length} ITEMS</span></div>
+          <div className="sale-header bg-brand-navy text-white d-flex justify-content-between align-items-center px-3 py-3"><div className="d-flex align-items-center gap-2"><CIcon icon={cilCart} className="text-brand-yellow"/><span className="fw-bold text-uppercase" style={{fontFamily:'Oswald', letterSpacing:'1px'}}>CURRENT ORDER</span></div><span className="badge bg-brand-yellow text-brand-navy fw-bold">{saleItems.length} ITEMS</span></div>
           <div className="sale-items p-0">
             {saleItems.length === 0 ? <div className="d-flex flex-column align-items-center justify-content-center h-100 text-muted p-5"><div className="mb-3 p-3 bg-light rounded-circle"><CIcon icon={cilCart} size="4xl" className="opacity-25"/></div><h6 className="fw-bold text-uppercase">Transaction Empty</h6></div> : (
               <table className="table table-hover mb-0 align-middle"><thead className="bg-light text-muted small text-uppercase"><tr><th className="ps-3 py-2">Item</th><th className="text-center py-2">Qty</th><th className="text-end py-2 pe-3">Total</th><th style={{width:'40px'}}></th></tr></thead><tbody>{saleItems.map(item => (<tr key={item.product_id}><td className="ps-3 py-3"><div className="fw-bold text-brand-navy text-truncate" style={{maxWidth:'140px'}}>{item.name}</div>{!!item.requires_serial && (<button className="btn btn-sm btn-light border d-flex align-items-center gap-1 mt-1 py-0 px-2 text-brand-blue small fw-bold" onClick={()=>setCartSerialModal({open:true, items:item.serialNumbers, productName:item.name})}><CIcon icon={cilBarcode} size="sm"/> View Serials</button>)}</td><td className="text-center">{!!item.requires_serial ? <div className="fw-bold text-muted d-flex align-items-center justify-content-center gap-1 bg-light rounded px-2 py-1 border"><CIcon icon={cilLockLocked} size="sm"/> {item.quantity}</div> : <div className="d-flex align-items-center justify-content-center border rounded overflow-hidden"><button className="btn btn-light btn-sm px-2 py-0 border-end" onClick={()=>updateCartItemQuantity(item.product_id, -1)}><CIcon icon={cilMinus} size="sm"/></button><input type="number" className="form-control form-control-sm text-center border-0 p-0 h-100 fw-bold" style={{width: '40px', backgroundColor: 'transparent'}} value={item.quantity} onChange={(e) => setCartItemQuantity(item.product_id, e.target.value)} onBlur={() => handleCartItemBlur(item.product_id)}/><button className="btn btn-light btn-sm px-2 py-0 border-start" onClick={()=>updateCartItemQuantity(item.product_id, 1)}><CIcon icon={cilPlus} size="sm"/></button></div>}</td><td className="text-end fw-bold text-dark pe-3">₱{(item.price * item.quantity).toLocaleString()}</td><td className="text-end pe-2"><button className="btn btn-ghost-danger btn-sm p-1" onClick={()=>removeFromSale(item.product_id)}><CIcon icon={cilTrash}/></button></td></tr>))}</tbody></table>
@@ -487,14 +532,48 @@ const SalesPage = () => {
           <div className="pos-bottom-anchor bg-white border-top">
             <div className="p-3 bg-light border-bottom">
                <div className="d-flex justify-content-between align-items-center mb-3"><h6 className="fw-bold text-brand-navy mb-0 d-flex align-items-center"><CIcon icon={cilUser} className="me-2 text-brand-blue"/>CLIENT INFO</h6><div className="btn-group"><button className={`btn-brand btn-brand-sm ${customerType==='new'?'btn-brand-primary':'btn-brand-secondary'}`} onClick={()=>{setCustomerType('new'); handleClearClient()}}>New</button><button className={`btn-brand btn-brand-sm ${customerType==='existing'?'btn-brand-primary':'btn-brand-secondary'}`} onClick={()=>{setCustomerType('existing'); handleClearClient()}}>Existing</button></div></div>
-               {customerType === 'existing' && (<div className="position-relative mb-3" ref={customerInputRef}><div className="brand-search-wrapper" style={{height:'35px'}}><span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass}/></span><input className="brand-search-input" placeholder="Search Client Name..." value={customerSearch} onChange={(e) => { setCustomerSearch(e.target.value); setIsCustomerDropdownOpen(true); }} onFocus={() => setIsCustomerDropdownOpen(true)} autoComplete="off"/><button className="btn btn-sm text-danger" onClick={handleClearClient} title="Clear"><CIcon icon={cilX}/></button></div>{isCustomerDropdownOpen && (<div className="list-group position-absolute w-100 shadow-lg border-0 rounded-bottom" style={{zIndex:1000, maxHeight:'200px', overflowY:'auto', top:'100%'}}>{filteredSavedCustomers.length === 0 ? <div className="list-group-item small text-muted p-3 text-center">No matches found.</div> : filteredSavedCustomers.map(c => (<button key={c.id} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-3 py-2" onClick={()=>handleSelectCustomer(c)}><div className="fw-bold text-brand-navy">{c.lastName}, {c.firstName}</div><div className="small text-muted">{c.contactNumber}</div></button>))}</div>)}</div>)}
-               <div className="row g-2 mb-2"><div className="col-6"><input className="form-control" placeholder="First Name" value={firstName} onChange={e=>setFirstName(e.target.value)} disabled={customerType==='existing'}/></div><div className="col-6"><input className="form-control" placeholder="Last Name" value={lastName} onChange={e=>setLastName(e.target.value)} disabled={customerType==='existing'}/></div></div><div className="row g-2 mb-2"><div class="col-6"><input class="form-control" placeholder={shippingOption === 'Company Delivery' ? "Contact (Required)" : "Contact (Optional)"} value={contactNumber} onChange={handleContactChange} maxLength={11} disabled={customerType==='existing'}/></div><div class="col-6"><select class="form-select" value={shippingOption} onChange={e=>setShippingOption(e.target.value)}><option value="In-Store Pickup">In-Store Pickup</option><option value="Company Delivery" disabled={!isCompanyDeliveryAvailable}>Company Delivery</option></select></div></div>{shippingOption === 'Company Delivery' && (<><div className="mb-2"><input className="form-control" placeholder="House No. / Street / Barangay" value={addressDetails} onChange={e=>setAddressDetails(e.target.value)} disabled={customerType==='existing'}/></div><div className="row g-2 mb-2"><div className="col-6"><select className="form-select" value={region} onChange={e=>setRegion(e.target.value)} disabled={customerType==='existing'}><option value="Manila">Manila</option><option value="Laguna">Laguna</option><option value="Bulacan">Bulacan</option></select></div><div className="col-6"><input className="form-control" placeholder="Landmark (Required)" value={landmark} onChange={e=>setLandmark(e.target.value)} disabled={customerType==='existing'}/></div></div></>)}{customerType === 'new' && (<div className="d-flex justify-content-between align-items-center mt-2"><div className="d-flex align-items-center"><CFormCheck id="saveClient" checked={saveClientChecked} onChange={e => setSaveClientChecked(e.target.checked)}/><label htmlFor="saveClient" className="small text-muted ms-2 cursor-pointer select-none">Save this client?</label></div><button className="btn btn-xs text-danger fw-bold text-uppercase" onClick={handleClearClient} style={{fontSize:'0.75rem'}}><CIcon icon={cilTrash} size="sm" className="me-1"/> Clear Details</button></div>)}</div>
-            <div className="p-3 bg-white"><div className="row g-3 mb-3"><div className="col-12"><label className="small fw-bold text-brand-navy mb-1 d-block text-uppercase"><CIcon icon={cilCreditCard} className="me-1"/> PAYMENT</label><select className="brand-select w-100" value={paymentOption} onChange={e=>handlePaymentOptionChange(e.target.value)}><option value="" disabled>Select Method</option>{paymentSettings.cash_enabled && <option value="Cash">Cash</option>}{paymentSettings.gcash_enabled && <option value="GCash">GCash</option>}{paymentSettings.cod_enabled && <option value="Cash on Delivery" disabled={!isCompanyDeliveryAvailable}>Cash on Delivery</option>}</select></div></div>{(paymentOption === 'Cash' || paymentOption === 'GCash') && (<div className="mb-2"><label className="small fw-bold text-muted mb-1">AMOUNT PAID</label><div className="input-group input-group-lg border rounded overflow-hidden"><span className="input-group-text bg-light border-0 text-muted fw-bold px-3">₱</span><input type="number" className="form-control border-0 fw-bold text-end fs-4 text-brand-navy" placeholder="0.00" value={tenderedAmount} onChange={e=>setTenderedAmount(e.target.value)}/></div></div>)}{paymentOption === 'GCash' && (<div className="mb-3"><label className="small fw-bold text-muted mb-1">REFERENCE NO.</label><input className="form-control border-2" placeholder="Enter GCash Ref No." value={gcashRef} onChange={e=>setGcashRef(e.target.value)}/></div>)}{(paymentOption === 'Cash' || paymentOption === 'GCash') && changeDue > 0 && (<div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2"><div className="small fw-bold text-success">CHANGE DUE</div><div className="fw-bold text-success fs-5">₱{changeDue.toLocaleString()}</div></div>)}<div className="d-flex justify-content-between align-items-end mb-3 pt-2 border-top"><div><div className="text-uppercase small fw-bold text-muted">TOTAL AMOUNT</div></div><div className="display-total text-brand-navy lh-1" style={{fontSize:'2.2rem', fontFamily:'Oswald'}}>₱{saleTotal.toLocaleString()}</div></div><button className={`btn-brand w-100 ${isPaymentValid ? 'btn-brand-success' : 'btn-brand-outline'}`} disabled={submitting || !isPaymentValid} onClick={confirmSale} style={{height:'55px', fontSize:'1.1rem'}}>{submitting ? <CSpinner size="sm"/> : isPaymentValid ? 'COMPLETE TRANSACTION' : 'ENTER PAYMENT DETAILS'}</button></div>
+               {customerType === 'existing' && (<div className="position-relative mb-3" ref={customerInputRef}><div className="brand-search-wrapper" style={{height:'35px'}}><span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass}/></span><input className="brand-search-input" placeholder="Type to search (e.g. Juan)..." value={customerSearch} onChange={onCustomerSearchInput} onFocus={() => { if(customerSearch.length >= 2) setIsCustomerDropdownOpen(true); }} autoComplete="off"/><button className="btn btn-sm text-danger" onClick={handleClearClient} title="Clear"><CIcon icon={cilX}/></button></div>{isCustomerDropdownOpen && (<div className="list-group position-absolute w-100 shadow-lg border-0 rounded-bottom" style={{zIndex:1000, maxHeight:'200px', overflowY:'auto', top:'100%'}}>{isSearching ? (<div className="list-group-item small text-muted p-3 text-center"><CSpinner size="sm"/> Searching...</div>) : searchResults.length === 0 ? (<div className="list-group-item small text-muted p-3 text-center">{customerSearch.length < 2 ? "Type at least 2 chars" : "No matches found."}</div>) : (searchResults.map(c => (<button key={c.id} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-3 py-2" onClick={()=>handleSelectCustomer(c)}><div className="fw-bold text-brand-navy">{c.lastName}, {c.firstName}</div><div className="small text-muted">{c.contactNumber}</div></button>)))}</div>)}</div>)}
+               
+               <div className="row g-2 mb-2">
+                 <div className="col-6"><input className="form-control" placeholder="First Name" value={firstName} onChange={e=>setFirstName(e.target.value)} /></div>
+                 <div className="col-6"><input className="form-control" placeholder="Last Name" value={lastName} onChange={e=>setLastName(e.target.value)} /></div>
+               </div>
+               <div className="row g-2 mb-2">
+                 <div className="col-6"><input className="form-control" placeholder={shippingOption === 'Company Delivery' ? "Contact (Required)" : "Contact (Optional)"} value={contactNumber} onChange={handleContactChange} maxLength={11} /></div>
+                 <div className="col-6"><select className="form-select" value={shippingOption} onChange={e=>setShippingOption(e.target.value)}><option value="In-Store Pickup">In-Store Pickup</option><option value="Company Delivery" disabled={!isCompanyDeliveryAvailable}>Company Delivery</option></select></div>
+               </div>
+               
+               {shippingOption === 'Company Delivery' && (
+                 <>
+                   <div className="mb-2"><input className="form-control" placeholder="House No. / Street / Barangay" value={addressDetails} onChange={e=>setAddressDetails(e.target.value)} /></div>
+                   <div className="row g-2 mb-2">
+                     <div className="col-6">
+                         {/* [FIX] Region List */}
+                         <select className="form-select" value={region} onChange={e=>setRegion(e.target.value)} >
+                             <option value="Manila">Manila</option>
+                             <option value="Pampanga">Pampanga</option>
+                             <option value="Bulacan">Bulacan</option>
+                         </select>
+                     </div>
+                     <div className="col-6"><input className="form-control" placeholder="Landmark (Required)" value={landmark} onChange={e=>setLandmark(e.target.value)} /></div>
+                   </div>
+                 </>
+               )}
+               
+               {customerType === 'new' && (<div className="d-flex justify-content-between align-items-center mt-2"><div className="d-flex align-items-center"><CFormCheck id="saveClient" checked={saveClientChecked} onChange={e => setSaveClientChecked(e.target.checked)}/><label htmlFor="saveClient" className="small text-muted ms-2 cursor-pointer select-none">Save this client?</label></div><button className="btn btn-xs text-danger fw-bold text-uppercase" onClick={handleClearClient} style={{fontSize:'0.75rem'}}><CIcon icon={cilTrash} size="sm" className="me-1"/> Clear Details</button></div>)}
+            </div>
+            <div className="p-3 bg-white"><div className="row g-3 mb-3"><div className="col-12"><label className="small fw-bold text-brand-navy mb-1 d-block text-uppercase"><CIcon icon={cilCreditCard} className="me-1"/> PAYMENT</label>
+            <select className="brand-select w-100" value={paymentOption} onChange={e=>handlePaymentOptionChange(e.target.value)}>
+                <option value="" disabled>Select Method</option>
+                <option value="Cash">Cash</option>
+                <option value="GCash">GCash</option>
+                {/* [FIX] Disable COD if In-Store is selected */}
+                <option value="Cash on Delivery" disabled={!isCompanyDeliveryAvailable || shippingOption === 'In-Store Pickup'}>Cash on Delivery</option>
+            </select></div></div>{(paymentOption === 'Cash' || paymentOption === 'GCash') && (<div className="mb-2"><label className="small fw-bold text-muted mb-1">AMOUNT PAID</label><div className="input-group input-group-lg border rounded overflow-hidden"><span className="input-group-text bg-light border-0 text-muted fw-bold px-3">₱</span><input type="number" className="form-control border-0 fw-bold text-end fs-4 text-brand-navy" placeholder="0.00" value={tenderedAmount} onChange={e=>setTenderedAmount(e.target.value)}/></div></div>)}{paymentOption === 'GCash' && (<div className="mb-3"><label className="small fw-bold text-muted mb-1">REFERENCE NO.</label><input className="form-control border-2" placeholder="Enter GCash Ref No." value={gcashRef} onChange={e=>setGcashRef(e.target.value)}/></div>)}{(paymentOption === 'Cash' || paymentOption === 'GCash') && changeDue > 0 && (<div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2"><div className="small fw-bold text-success">CHANGE DUE</div><div className="fw-bold text-success fs-5">₱{changeDue.toLocaleString()}</div></div>)}<div className="d-flex justify-content-between align-items-end mb-3 pt-2 border-top"><div><div className="text-uppercase small fw-bold text-muted">TOTAL AMOUNT</div></div><div className="display-total text-brand-navy lh-1" style={{fontSize:'2.2rem', fontFamily:'Oswald'}}>₱{saleTotal.toLocaleString()}</div></div><button className={`btn-brand w-100 ${isPaymentValid ? 'btn-brand-success' : 'btn-brand-outline'}`} disabled={submitting || !isPaymentValid} onClick={confirmSale} style={{height:'55px', fontSize:'1.1rem'}}>{submitting ? <CSpinner size="sm"/> : isPaymentValid ? 'COMPLETE TRANSACTION' : 'ENTER PAYMENT DETAILS'}</button></div>
           </div>
         </div>
       </div>
 
-      {/* MODALS */}
       <CModal visible={serialModalOpen} onClose={()=>setSerialModalOpen(false)} alignment="center" backdrop="static"><CModalHeader className="bg-brand-navy text-white"><CModalTitle className="text-white" style={{fontFamily:'Oswald'}}>SELECT SERIAL NUMBERS</CModalTitle></CModalHeader><CModalBody><div className="mb-3 position-relative"><div className="brand-search-wrapper" style={{height:'40px'}}><span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass}/></span><input className="brand-search-input" placeholder="Type to filter serials..." value={serialSearchTerm} onChange={e=>setSerialSearchTerm(e.target.value)} autoFocus/></div></div><div className="d-flex justify-content-between align-items-center mb-2 small"><span className="text-muted">Target: <strong className="text-dark">{modalTargetQty}</strong></span><span className={modalRemaining === 0 ? 'text-success fw-bold' : 'text-danger fw-bold'}>{tempSelectedSerials.length} Selected</span></div><div className="list-group border" style={{maxHeight:'250px', overflowY:'auto'}}>{filteredSerials.length === 0 ? <div className="p-4 text-center text-muted">No serials found.</div> : filteredSerials.map(sn => { const isSelected = tempSelectedSerials.includes(sn.serial_number); const isDisabled = !isSelected && tempSelectedSerials.length >= modalTargetQty; return (<button key={sn.serial_number} className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${isSelected?'serial-item-selected':'bg-white border-bottom'}`} onClick={()=>toggleSerialSelection(sn.serial_number)} disabled={isDisabled}><span className="font-monospace fw-bold">{sn.serial_number}</span>{isSelected && <CIcon icon={cilCheckCircle}/>}</button>)})}</div></CModalBody><CModalFooter><button className="btn-brand btn-brand-outline btn-brand-sm" onClick={()=>setSerialModalOpen(false)}>Cancel</button><button className="btn-brand btn-brand-primary btn-brand-sm" disabled={modalRemaining !== 0} onClick={confirmSerialAddition}>CONFIRM SELECTION</button></CModalFooter></CModal>
       <CModal visible={cartSerialModal.open} onClose={()=>setCartSerialModal({...cartSerialModal, open:false})} alignment="center" size="sm"><CModalHeader className="bg-brand-navy"><CModalTitle className="fs-6 fw-bold text-white">Allocated Serials</CModalTitle></CModalHeader><CModalBody className="p-0"><ul className="list-group list-group-flush">{cartSerialModal.items.map((sn,i)=><li key={i} className="list-group-item py-2 px-3 small font-monospace text-muted"><CIcon icon={cilBarcode} className="me-2 text-brand-blue"/>{sn}</li>)}</ul></CModalBody><CModalFooter><button className="btn-brand btn-brand-outline btn-brand-sm" onClick={()=>setCartSerialModal({...cartSerialModal, open:false})}>Close</button></CModalFooter></CModal>
       <CModal visible={msgModal.visible} onClose={closeMsgModal} alignment="center"><CModalHeader className={`bg-${msgModal.color === 'danger' ? 'danger' : 'brand-navy'} text-white`}><CModalTitle className="text-white" style={{fontFamily:'Oswald'}}>{msgModal.title}</CModalTitle></CModalHeader><CModalBody className="p-4 fs-6">{msgModal.message}</CModalBody><CModalFooter><button className="btn-brand btn-brand-outline" onClick={closeMsgModal}>Close</button>{msgModal.onConfirm && <button className="btn-brand btn-brand-primary" onClick={msgModal.onConfirm}>Confirm</button>}</CModalFooter></CModal>

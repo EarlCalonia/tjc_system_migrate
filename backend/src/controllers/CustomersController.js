@@ -6,8 +6,10 @@ export class CustomersController {
       const { search } = req.query;
       const pool = getPool();
 
+      // [FIX] Select landmark so it auto-fills in Sales Page
+      // [FIX] added LIMIT 20 for performance (Server-Side Filtering)
       let query = `
-        SELECT DISTINCT customer_name, contact, address
+        SELECT DISTINCT customer_name, contact, address, landmark
         FROM sales
         WHERE customer_name IS NOT NULL AND customer_name <> ''
       `;
@@ -19,7 +21,8 @@ export class CustomersController {
         params.push(like, like);
       }
 
-      query += ' ORDER BY customer_name ASC';
+      // Industrial Standard: Always limit results to prevent browser lag
+      query += ' ORDER BY customer_name ASC LIMIT 20';
 
       const [rows] = await pool.execute(query, params);
 

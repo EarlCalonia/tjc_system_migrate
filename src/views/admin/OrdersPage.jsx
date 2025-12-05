@@ -7,7 +7,8 @@ import {
 import CIcon from '@coreui/icons-react'
 import {
   cilMagnifyingGlass, cilDescription, cilMoney, cilWarning, cilCheckCircle, cilArrowLeft,
-  cilSettings, cilTruck, cilXCircle, cilCloudUpload, cilTrash, cilChevronLeft, cilChevronRight, cilBan
+  cilSettings, cilTruck, cilXCircle, cilCloudUpload, cilTrash, cilChevronLeft, cilChevronRight, cilBan,
+  cilCalendar, cilLocationPin, cilNotes, cilHome, cilCog
 } from '@coreui/icons'
 import { salesAPI, returnsAPI } from '../../utils/api'
 
@@ -46,18 +47,27 @@ const OrdersPage = () => {
   // Messaging
   const [msgModal, setMsgModal] = useState({ visible: false, title: '', message: '', color: 'info' });
 
-  // --- LIFECYCLE ---
-  useEffect(() => { fetchOrdersWithItems(); fetchOrderStats(); }, []);
+  // --- LIFECYCLE (POLLING) ---
+  useEffect(() => {
+    fetchOrdersWithItems();
+    fetchOrderStats();
+    
+    // Auto-refresh admin page to see status updates from Driver Portal
+    const interval = setInterval(() => {
+        fetchOrdersWithItems(true); // Silent update
+        fetchOrderStats();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // --- API CALLS ---
-  const fetchOrdersWithItems = async () => {
-    setLoading(true);
+  const fetchOrdersWithItems = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
-      // In a real app, you would pass page/limit here. For now we fetch all and paginate client-side or logic-side.
       const response = await salesAPI.getSales({ limit: 1000 });
       if (!Array.isArray(response)) { setOrders([]); return; }
       
-      // Enrich orders with items (if not already included)
       const ordersWithItems = await Promise.all(response.map(async (order) => {
           try { 
             const itemsResponse = order.items || await salesAPI.getSaleItems(order.id) || []; 
@@ -67,8 +77,11 @@ const OrdersPage = () => {
       
       setOrders(ordersWithItems.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
       setTotalItems(ordersWithItems.length);
-    } catch (err) { setOrders([]); } 
-    finally { setLoading(false); }
+    } catch (err) { 
+        if(!isBackground) setOrders([]); 
+    } finally { 
+        if(!isBackground) setLoading(false); 
+    }
   }
 
   const fetchOrderStats = async () => {
@@ -83,6 +96,23 @@ const OrdersPage = () => {
         });
       }
     } catch (e) {}
+  }
+
+  // --- ACTION: MANUAL COMPLETE (Fixing Stuck Orders) ---
+  const handleManualCompletion = async (orderId) => {
+      if(!window.confirm('Are you sure you want to mark this order as PAID and COMPLETED?')) return;
+
+      // [FIX] Manually advance state for walk-in pickups
+      try {
+          await salesAPI.updateSale(orderId, { payment_status: 'Paid' });
+          await salesAPI.updateSale(orderId, { status: 'Completed' });
+          
+          setIsModalOpen(false);
+          fetchOrdersWithItems(); 
+          setMsgModal({ visible: true, title: 'Success', message: 'Order finalized successfully.', color: 'success' });
+      } catch (e) {
+          setMsgModal({ visible: true, title: 'Error', message: 'Failed to update order.', color: 'danger' });
+      }
   }
 
   // --- RETURN HANDLERS ---
@@ -172,7 +202,6 @@ const OrdersPage = () => {
       else if(['Cancelled', 'Refunded', 'Returned'].includes(status)) { color = 'danger'; icon = cilBan; }
       else if(status === 'Partially Returned') { color = 'dark'; icon = cilArrowLeft; }
 
-      // WCAG: Use text-dark for warning/info if needed, usually CoreUI handles this but we force white on success/danger
       const textColor = ['warning', 'info', 'light'].includes(color) ? 'text-dark' : 'text-white';
       
       return (
@@ -182,19 +211,44 @@ const OrdersPage = () => {
       );
   }
 
-  const getTimelineStepClass = (stepName, currentStatus) => {
-    const steps = ['Pending', 'Processing', 'Completed'];
-    if (['Cancelled', 'Refunded', 'Returned'].includes(currentStatus)) return 'step';
-    const currentIndex = steps.indexOf(currentStatus);
-    const stepIndex = steps.indexOf(stepName);
-    if (currentIndex > stepIndex) return 'step completed';
-    if (currentIndex === stepIndex) return 'step active';
-    return 'step';
-  }
+  // --- TIMELINE LOGIC ---
+  const getTimelineStep = (status) => {
+    const s = (status || '').toLowerCase();
+    if (['cancelled', 'refunded', 'returned'].some(x => s.includes(x))) return -1;
+    if (s === 'completed') return 3;
+    if (s === 'processing') return 2;
+    return 1; 
+  };
+
+  const getTimelineStepsConfig = (order) => {
+      const type = order?.delivery_type || order?.sale_type || '';
+      const isDelivery = type.includes('Delivery');
+      const isCompleted = order?.status === 'Completed';
+
+      return [
+        { label: 'Order Placed', icon: cilDescription },
+        { label: 'Processing', icon: cilCog },
+        { 
+          // [FIX] Updated Labels
+          label: isDelivery 
+            ? (isCompleted ? 'Delivered' : 'Out for Delivery') 
+            : (isCompleted ? 'Picked Up' : 'Ready for Pickup'),
+            
+          icon: isDelivery ? cilTruck : (isCompleted ? cilCheckCircle : cilHome)
+        }
+      ];
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+  };
 
   const brandHeaderStyle = { fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' };
 
-  // --- PAGINATION COMPONENT ---
+  // --- PAGINATION ---
   const renderPaginationItems = () => {
     const items = [];
     const maxVisible = 5; 
@@ -311,7 +365,6 @@ const OrdersPage = () => {
             </table>
           </div>
           
-          {/* PAGINATION */}
           <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white">
              <span className="small text-muted fw-semibold">Showing {currentOrders.length} of {filteredOrders.length} orders</span>
              <CPagination className="mb-0 justify-content-end" aria-label="Orders navigation">{renderPaginationItems()}</CPagination>
@@ -325,47 +378,117 @@ const OrdersPage = () => {
          <CModalBody className="p-0">
             {selectedOrder && (
               <>
-                {/* Timeline */}
-                <div className="timeline-section bg-light border-bottom pt-4 pb-4">
-                   {['Cancelled', 'Refunded', 'Returned'].includes(selectedOrder.status) ? (
-                      <div className="cancelled-message"><CIcon icon={cilXCircle} height={32} className="mb-2 text-danger"/><div>Order {selectedOrder.status}</div></div>
+                <div className="timeline-section">
+                   {getTimelineStep(selectedOrder.status) === -1 ? (
+                      <div className="cancelled-message">
+                         <CIcon icon={cilBan} size="3xl" />
+                         <div>Order {selectedOrder.status}</div>
+                      </div>
                    ) : (
-                      <div className="progress-track">
-                        <div className={getTimelineStepClass('Pending', selectedOrder.status)}><div className="step-icon"><CIcon icon={cilDescription} /></div><div className="step-label">Pending</div></div>
-                        <div className={getTimelineStepClass('Processing', selectedOrder.status)}><div className="step-icon"><CIcon icon={cilSettings} /></div><div className="step-label">Processing</div></div>
-                        <div className={getTimelineStepClass('Completed', selectedOrder.status)}><div className="step-icon"><CIcon icon={cilCheckCircle} /></div><div className="step-label">Completed</div></div>
+                      <div className="stepper-wrapper">
+                        {getTimelineStepsConfig(selectedOrder).map((step, i) => {
+                           const currentStep = getTimelineStep(selectedOrder.status);
+                           const stepNum = i + 1;
+                           let cls = 'stepper-item';
+                           
+                           if (currentStep > stepNum) cls += ' completed';
+                           else if (currentStep === stepNum) cls += ' active';
+
+                           return (
+                             <div key={i} className={cls}>
+                               <div className="step-counter">
+                                  <CIcon icon={step.icon} size="lg"/>
+                               </div>
+                               <div className="step-name">{step.label}</div>
+                             </div>
+                           )
+                        })}
                       </div>
                    )}
                 </div>
-                {/* Info */}
-                <div className="p-4 bg-white border-bottom">
-                   <div className="d-flex justify-content-between align-items-start">
-                      <div><div className="text-muted small text-uppercase fw-bold ls-1">Order Number</div><div className="fs-4 fw-bold text-brand-navy">{selectedOrder.sale_number}</div></div>
-                      <div className="text-end"><div className="text-muted small text-uppercase fw-bold ls-1">Customer</div><div className="fs-5 fw-bold text-dark">{selectedOrder.customer_name}</div><div className="text-muted small">{selectedOrder.contact || 'No Contact'}</div></div>
+
+                <div className="details-grid">
+                   <div className="detail-item">
+                      <label>Customer</label>
+                      <div>{selectedOrder.customer_name}</div>
+                      <div className="small text-muted fw-normal">{selectedOrder.contact}</div>
                    </div>
+
+                   <div className="detail-item">
+                      <label><CIcon icon={cilCalendar} size="sm" className="me-1"/> Date Placed</label>
+                      <div className="text-dark small fw-bold">{formatDate(selectedOrder.created_at)}</div>
+                   </div>
+
+                   <div className="detail-item">
+                      <label><CIcon icon={(selectedOrder.delivery_type || '').includes('Delivery') ? cilTruck : cilHome} size="sm" className="me-1"/> Fulfillment</label>
+                      <div className="text-brand-navy">
+                          {selectedOrder.sale_type || selectedOrder.delivery_type || 'In-store'}
+                      </div>
+                   </div>
+
+                   <div className="detail-item">
+                      <label>Payment Status</label>
+                      <div className={selectedOrder.payment_status === 'Paid' ? 'text-success' : 'text-warning'}>
+                          {selectedOrder.payment_status || 'Unpaid'}
+                      </div>
+                   </div>
+
+                   {(selectedOrder.delivery_type || '').includes('Delivery') && selectedOrder.address && (
+                      <div className="detail-item" style={{gridColumn: '1 / -1'}}>
+                        <label><CIcon icon={cilLocationPin} size="sm" className="me-1"/> Destination</label>
+                        <div className="text-dark small">{selectedOrder.address}</div>
+                      </div>
+                   )}
                 </div>
-                {/* Items */}
-                <div className="p-4 bg-white">
-                  <h5 className="text-brand-navy mb-3" style={brandHeaderStyle}>ITEMS</h5>
-                  <div className="border rounded overflow-hidden">
-                    <table className="table table-striped align-middle mb-0">
-                      <thead className="bg-light"><tr><th className="ps-3">Product</th><th className="text-center">Qty</th><th className="text-end">Price</th><th className="text-end pe-3">Total</th></tr></thead>
-                      <tbody>
-                        {selectedOrder.items?.map((item, i) => (
-                          <tr key={i}>
-                            <td className="ps-3">
-                                <div className="fw-bold text-dark">{item.product_name}</div>
-                                <div className="small text-muted">{item.product_id}</div>
-                            </td>
-                            <td className="text-center">{item.quantity}</td>
-                            <td className="text-end">₱{Number(item.price).toLocaleString()}</td>
-                            <td className="text-end fw-bold pe-3">₱{Number(item.price * item.quantity).toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-light border-top"><tr><td colSpan="3" className="text-end fw-bold text-uppercase">Grand Total</td><td className="text-end fw-bold fs-5 text-brand-blue pe-3">₱{selectedOrder.items?.reduce((acc, item) => acc + (item.price * item.quantity), 0).toLocaleString()}</td></tr></tfoot>
-                    </table>
-                  </div>
+
+                <div className="table-wrapper">
+                  <table className="order-table">
+                    <thead><tr><th className="ps-4">Item</th><th className="text-center">Qty</th><th className="text-end">Price</th><th className="text-end pe-4">Total</th></tr></thead>
+                    <tbody>
+                      {selectedOrder.items?.map((item, i) => (
+                        <tr key={i}>
+                          <td className="ps-4">
+                              <div className="fw-bold text-dark">{item.product_name}</div>
+                              <div className="small text-muted">{item.brand}</div>
+                              {item.product_id && <div className="text-muted small" style={{fontSize:'0.7rem'}}>PN: {item.product_id}</div>}
+                          </td>
+                          <td className="text-center">{item.quantity}</td>
+                          <td className="text-end">₱{Number(item.price).toLocaleString()}</td>
+                          <td className="text-end fw-bold pe-4">₱{Number(item.price * item.quantity).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* [FIX] ACTION BAR for Pending Orders */}
+                {selectedOrder.status === 'Pending' && (
+                    <div className="p-3 bg-warning bg-opacity-10 border-top d-flex justify-content-between align-items-center">
+                        <div className="text-warning-emphasis small fw-bold">
+                            <CIcon icon={cilWarning} className="me-2"/> 
+                            ACTION REQUIRED
+                        </div>
+                        
+                        {/* If In-Store + Pending, allow manual completion */}
+                        {(!selectedOrder.delivery_type?.includes('Delivery')) ? (
+                            <CButton color="success" className="text-white fw-bold btn-sm" onClick={() => handleManualCompletion(selectedOrder.id)}>
+                                <CIcon icon={cilCheckCircle} className="me-2"/>
+                                MARK AS PAID & COMPLETED
+                            </CButton>
+                        ) : (
+                            <div className="small text-muted fst-italic">Waiting for Rider Pickup...</div>
+                        )}
+                    </div>
+                )}
+
+                <div className="table-footer">
+                   {selectedOrder.notes && (
+                       <div className="text-start mb-3 p-2 bg-light border rounded">
+                           <small className="fw-bold text-muted"><CIcon icon={cilNotes} className="me-1"/> Notes:</small>
+                           <div className="small text-dark fst-italic">{selectedOrder.notes}</div>
+                       </div>
+                   )}
+                   <div className="grand-total">Total: <span>₱{selectedOrder.items?.reduce((acc, item) => acc + (item.price * item.quantity), 0).toLocaleString()}</span></div>
                 </div>
               </>
             )}
@@ -380,8 +503,6 @@ const OrdersPage = () => {
           </CModalHeader>
           <CModalBody className="p-4 bg-light">
               <div className="d-flex flex-column gap-3">
-                  
-                  {/* STEP 1: SELECT ITEMS */}
                   <div className="bg-white p-3 rounded shadow-sm border">
                       <h6 className="fw-bold text-danger mb-3 border-bottom pb-2">1. Select Items to Return</h6>
                       <div className="table-responsive">
@@ -412,7 +533,6 @@ const OrdersPage = () => {
                       </div>
                   </div>
 
-                  {/* STEP 2: RETURN DETAILS */}
                   <div className="bg-white p-3 rounded shadow-sm border">
                        <h6 className="fw-bold text-danger mb-3 border-bottom pb-2">2. Return Details</h6>
                        <CRow className="g-3">
@@ -445,7 +565,6 @@ const OrdersPage = () => {
                        </CRow>
                   </div>
 
-                  {/* STEP 3: INVENTORY ACTION */}
                   <div className="bg-white p-3 rounded shadow-sm border d-flex justify-content-between align-items-center">
                        <div>
                            <div className="fw-bold text-dark">Restock Items?</div>
@@ -463,7 +582,6 @@ const OrdersPage = () => {
           </CModalFooter>
       </CModal>
       
-      {/* Message Modal */}
       <CModal visible={msgModal.visible} onClose={() => setMsgModal({...msgModal, visible: false})}>
         <CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle style={brandHeaderStyle}>{msgModal.title}</CModalTitle></CModalHeader>
         <CModalBody>{msgModal.message}</CModalBody>

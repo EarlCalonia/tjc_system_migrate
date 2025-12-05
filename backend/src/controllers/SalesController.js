@@ -1,13 +1,14 @@
 import { Sales } from '../models/Sales.js';
 import { SaleItem } from '../models/SaleItem.js';
 import { Product } from '../models/Product.js';
-import { getPool } from '../config/database.js'; // Added import for getPool
+import { getPool } from '../config/database.js'; 
 
 export class SalesController {
   // Create a new sale
   static async createSale(req, res) {
     try {
-      const { customer_name, contact, payment, payment_status, status, address, delivery_type, items } = req.body;
+      // [FIX] Added 'landmark' to destructuring
+      const { customer_name, contact, payment, payment_status, status, address, landmark, delivery_type, items } = req.body;
 
       if (!customer_name || !payment || !items || items.length === 0) {
         return res.status(400).json({
@@ -57,6 +58,7 @@ export class SalesController {
         payment_status,
         status,
         address,
+        landmark, // [FIX] Pass landmark explicitly
         delivery_type,
         total,
         items: enrichedItems
@@ -186,7 +188,8 @@ export class SalesController {
   static async updateSale(req, res) {
     try {
       const { id } = req.params;
-      const { customer_name, contact, payment, payment_status, total, status } = req.body;
+      // [FIX] Added landmark
+      const { customer_name, contact, payment, payment_status, total, status, address, landmark } = req.body;
 
       const currentSale = await Sales.findById(id);
       if (!currentSale) {
@@ -210,6 +213,8 @@ export class SalesController {
       if (payment_status !== undefined) updateData.payment_status = payment_status;
       if (total !== undefined) updateData.total = total;
       if (status !== undefined) updateData.status = status;
+      if (address !== undefined) updateData.address = address;
+      if (landmark !== undefined) updateData.landmark = landmark; // [FIX] Update landmark
 
       const nextPaymentStatus = (payment_status !== undefined ? payment_status : (currentSale.payment_status || 'Unpaid'));
       const nextOrderStatus = (status !== undefined ? status : currentSale.status);
@@ -271,7 +276,6 @@ export class SalesController {
       const { date_from, date_to } = req.query;
       const pool = getPool();
       
-      // UPDATED QUERY: Includes pending_orders and paid_orders count
       let query = `
         SELECT
           COUNT(*) as total_sales,
