@@ -1,162 +1,77 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Oswald:wght@500;700&display=swap');
-
-:root {
-  --brand-navy: #17334e;
-  --brand-navy-light: #2c5275;
-  --brand-yellow: #f1ce44;
-  --brand-blue: #2478bd;
-  --bg-light: #f8f9fa;
-  --text-main: #17334e;
-  --border-color: #e2e8f0;
-}
-
-.delivery-portal-wrapper {
+/* Delivery Portal Styles */
+.delivery-portal {
   min-height: 100vh;
-  background-color: var(--bg-light);
-  font-family: 'Inter', sans-serif;
+  background-color: #f5f5f5;
 }
 
+/* Navbar */
 .delivery-navbar {
-  background-color: var(--brand-navy) !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  padding: 12px 0;
-  border-top: 4px solid var(--brand-yellow);
+  background-color: var(--brand-navy, #17334e); /* Industrial Navy */
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  border-bottom: 3px solid #f1ce44; /* Industrial Accent */
 }
 
-.rider-badge {
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.2s ease;
-}
+/* ... (Existing Navbar styles) ... */
 
-.rider-badge:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-/* Widescreen Override */
-@media (min-width: 1400px) {
-    .container-xxl, .container-xl, .container-lg, .container-md, .container-sm, .container {
-        max-width: 2000px;
-    }
-}
-
-/* MODAL HEADER FIXES (Force White) */
-.delivery-modal-header .modal-title {
-    color: #ffffff !important;
-    font-family: 'Oswald', sans-serif;
-    letter-spacing: 1px;
-}
-
-.btn-close-white {
-    filter: invert(1) grayscale(100%) brightness(200%);
-}
-
-/* WCAG Colors */
-.bg-success-dark { background-color: #157347 !important; }
-.bg-info-dark { background-color: #0dcaf0 !important; }
-.text-warning-dark { color: #bfa100 !important; }
-
-/* TABLE STYLING */
-.admin-table-container {
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--border-color);
-  background: white;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.admin-table thead th {
-  background-color: var(--brand-navy);
-  color: white;
-  font-family: 'Oswald', sans-serif;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: 0.85rem;
-  padding: 16px 12px;
-  border: none;
-  white-space: nowrap;
-}
-
-.admin-table tbody td {
-  padding: 16px 12px;
-  vertical-align: middle;
-  border-bottom: 1px solid #edf2f7;
-  color: #4a5568;
-  font-size: 0.95rem;
-}
-
-.admin-table tbody tr:hover { background-color: #f8fafc; }
-.admin-table tbody tr:last-child td { border-bottom: none; }
-
-/* ==========================================================================
-   MOBILE CARD TRANSFORMATION
-   ========================================================================== */
-@media (max-width: 992px) {
-  /* Scroll & Overflow Fixes */
-  .delivery-portal-wrapper { padding-bottom: 80px; height: auto; overflow-y: auto; }
-  .mobile-scroll-fix { overflow: visible !important; }
-  
-  /* [FIX] Allow dropdown to overflow container */
-  .admin-table-container { overflow: visible !important; }
-
-  /* Block Layout */
-  .admin-table, .admin-table tbody, .admin-table tr, .admin-table td { display: block; width: 100%; }
-  .admin-table thead { display: none; }
-  
-  /* Card Style */
-  .admin-table tr {
-    margin-bottom: 25px;
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.06);
-    padding: 20px;
-    position: relative;
+/* Mobile Card View Transformation */
+@media (max-width: 768px) {
+  .delivery-table thead {
+    display: none;
   }
 
-  /* Cell Style */
-  .admin-table td {
-    padding: 12px 0;
-    border-bottom: 1px dashed #edf2f7;
-    text-align: left;
+  .delivery-table tbody tr {
+    display: block;
+    background: #fff;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid #e1e8ed;
+    padding: 16px;
+  }
+
+  .delivery-table tbody td {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    /* [FIX] Allow dropdown to overflow cell */
-    overflow: visible;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: right;
   }
 
-  .admin-table td:last-child {
+  .delivery-table tbody td:last-child {
     border-bottom: none;
-    padding-top: 20px;
-    flex-direction: row; 
-    gap: 15px;
+    padding-top: 12px;
+    justify-content: flex-end;
+    gap: 8px;
   }
 
-  /* Labels */
-  .admin-table td::before {
+  /* Add Labels via CSS */
+  .delivery-table tbody td::before {
     content: attr(data-label);
-    font-family: 'Oswald', sans-serif;
-    font-size: 0.75rem;
-    color: #9ca3af;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 700;
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 0.85rem;
+    text-align: left;
+    margin-right: 12px;
   }
 
-  .admin-table td[data-label="Actions"]::before { display: none; }
-  
-  /* [FIX] Dropdown Width Fixes */
-  .status-wrapper { width: 100%; }
-  .status-wrapper select { width: 100% !important; height: 45px; }
-
-  .admin-table td[data-label="Order ID"] div:first-child {
-    font-size: 1.4rem !important;
-    color: var(--brand-navy);
+  /* FIX: Status Dropdown for Mobile */
+  .delivery-table .form-select {
+    width: auto;
+    max-width: 160px; /* Constrain width */
+    font-size: 0.85rem;
+    padding: 0.25rem 2rem 0.25rem 0.75rem; /* Compact padding */
+    background-position: right 0.5rem center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
   }
 }
