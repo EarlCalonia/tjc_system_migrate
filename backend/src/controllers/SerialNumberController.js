@@ -21,6 +21,25 @@ export const SerialNumberController = {
     }
   },
 
+  // [NEW] Get returnable serial numbers (Available + Defective)
+  getReturnableSerials: async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const serials = await SerialNumber.getReturnableByProductId(productId);
+      
+      res.json({
+        success: true,
+        data: serials
+      });
+    } catch (error) {
+      console.error('Error fetching returnable serials:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  },
+
   // Get all serial numbers for a product
   getAllSerials: async (req, res) => {
     try {
@@ -161,24 +180,6 @@ export const SerialNumberController = {
       });
     } catch (error) {
       console.error('Error deleting serials:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
-    }
-  },
-
-  // [NEW] Get serial numbers returnable to supplier
-  getReturnableSerials: async (req, res) => {
-    try {
-      const { productId } = req.params;
-      const serials = await SerialNumber.getReturnableByProductId(productId);
-      res.json({
-        success: true,
-        data: serials
-      });
-    } catch (error) {
-      console.error('Error fetching returnable serials:', error);
       res.status(500).json({
         success: false,
         message: error.message

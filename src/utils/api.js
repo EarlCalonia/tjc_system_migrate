@@ -221,16 +221,11 @@ export const inventoryAPI = {
     const response = await fetch(`${API_BASE_URL}/inventory/stats`, { credentials: 'include' });
     return handleResponse(response);
   },
-  // [FIX] Updated to support Pagination & Filters
   getProducts: async (filters = {}) => {
     const params = new URLSearchParams();
     if (filters.search) params.append('search', filters.search);
-    
-    // Only append filters if they are not the default "All" value
     if (filters.category && filters.category !== 'All') params.append('category', filters.category);
     if (filters.status && filters.status !== 'All') params.append('status', filters.status);
-
-    // Pagination Params
     if (filters.page) params.append('page', filters.page);
     if (filters.limit) params.append('limit', filters.limit);
 
@@ -391,6 +386,11 @@ export const serialNumberAPI = {
     const response = await fetch(`${API_BASE_URL}/serial-numbers/product/${productId}/available`, { credentials: 'include' });
     return handleResponse(response);
   },
+  // [NEW] Added for Return to Supplier Logic (includes defective items)
+  getReturnableSerials: async (productId) => {
+    const response = await fetch(`${API_BASE_URL}/serial-numbers/product/${productId}/returnable`, { credentials: 'include' });
+    return handleResponse(response);
+  },
   getAllSerials: async (productId) => {
     const response = await fetch(`${API_BASE_URL}/serial-numbers/product/${productId}`, { credentials: 'include' });
     return handleResponse(response);
@@ -424,10 +424,6 @@ export const serialNumberAPI = {
       body: JSON.stringify({ serialNumbers, notes }),
       credentials: 'include'
     });
-    return handleResponse(response);
-  },
-  getReturnableSerials: async (productId) => {
-    const response = await fetch(`${API_BASE_URL}/serial-numbers/product/${productId}/returnable`, { credentials: 'include' });
     return handleResponse(response);
   },
   deleteSerials: async (serialNumbers) => {

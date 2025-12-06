@@ -2,11 +2,12 @@ import express from 'express';
 import { SerialNumberController } from '../../controllers/SerialNumberController.js';
 
 const router = express.Router();
-// [NEW] Get returnable serials (Available + Defective)
-router.get('/product/:productId/returnable', SerialNumberController.getReturnableSerials);
 
 // GET /api/serial-numbers/product/:productId/available - Get available serial numbers for a product
 router.get('/product/:productId/available', SerialNumberController.getAvailableSerials);
+
+// [NEW] GET /api/serial-numbers/product/:productId/returnable - Get returnable serials (Available + Defective)
+router.get('/product/:productId/returnable', SerialNumberController.getReturnableSerials);
 
 // GET /api/serial-numbers/product/:productId - Get all serial numbers for a product
 router.get('/product/:productId', SerialNumberController.getAllSerials);

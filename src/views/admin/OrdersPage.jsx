@@ -2,16 +2,15 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormSelect, CModal, CModalHeader,
   CModalTitle, CModalBody, CModalFooter, CWidgetStatsF, CSpinner, CBadge, CFormLabel, 
-  CFormInput, CFormTextarea, CFormSwitch, CTooltip
+  CFormInput, CFormTextarea, CFormSwitch, CTooltip, CPagination, CPaginationItem, CFormCheck
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
   cilMagnifyingGlass, cilDescription, cilMoney, cilWarning, cilCheckCircle, cilArrowLeft,
-  cilSettings, cilTruck, cilBan,
-  cilCalendar, cilLocationPin, cilNotes, cilHome, cilCog
+  cilSettings, cilTruck, cilXCircle, cilCloudUpload, cilTrash, cilChevronLeft, cilChevronRight, cilBan,
+  cilCalendar, cilLocationPin, cilNotes, cilHome, cilCog, cilBarcode
 } from '@coreui/icons'
-import { salesAPI, returnsAPI } from '../../utils/api'
-import AppPagination from '../../components/AppPagination'
+import { salesAPI, returnsAPI, serialNumberAPI } from '../../utils/api'
 
 // Import Global Styles
 import '../../styles/Admin.css'
@@ -53,9 +52,8 @@ const OrdersPage = () => {
     fetchOrdersWithItems();
     fetchOrderStats();
     
-    // Auto-refresh admin page to see status updates from Driver Portal
     const interval = setInterval(() => {
-        fetchOrdersWithItems(true); // Silent update
+        fetchOrdersWithItems(true); 
         fetchOrderStats();
     }, 15000);
 
@@ -66,18 +64,20 @@ const OrdersPage = () => {
   const fetchOrdersWithItems = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
+      // [FIX] REMOVED THE N+1 LOOP
+      // We now rely on SalesController.getAllSales to return items attached to the sales.
+      // This prevents the 429 Too Many Requests error.
       const response = await salesAPI.getSales({ limit: 1000 });
-      if (!Array.isArray(response)) { setOrders([]); return; }
       
-      const ordersWithItems = await Promise.all(response.map(async (order) => {
-          try { 
-            const itemsResponse = order.items || await salesAPI.getSaleItems(order.id) || []; 
-            return { ...order, items: itemsResponse };
-          } catch (e) { return { ...order, items: [] }; }
-      }));
+      if (!Array.isArray(response)) { 
+        setOrders([]); 
+        return; 
+      }
       
-      setOrders(ordersWithItems.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
-      setTotalItems(ordersWithItems.length);
+      const sortedOrders = response.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
+      setOrders(sortedOrders);
+      setTotalItems(sortedOrders.length);
     } catch (err) { 
         if(!isBackground) setOrders([]); 
     } finally { 
@@ -99,14 +99,11 @@ const OrdersPage = () => {
     } catch (e) {}
   }
 
-  // --- ACTION: MANUAL COMPLETE (Fixing Stuck Orders) ---
   const handleManualCompletion = async (orderId) => {
       if(!window.confirm('Are you sure you want to mark this order as PAID and COMPLETED?')) return;
-
       try {
           await salesAPI.updateSale(orderId, { payment_status: 'Paid' });
           await salesAPI.updateSale(orderId, { status: 'Completed' });
-          
           setIsModalOpen(false);
           fetchOrdersWithItems(); 
           setMsgModal({ visible: true, title: 'Success', message: 'Order finalized successfully.', color: 'success' });
@@ -115,28 +112,29 @@ const OrdersPage = () => {
       }
   }
 
-  // --- RETURN HANDLERS ---
-  const handleOpenReturnModal = (order) => { 
+  // --- RETURN LOGIC ---
+  const handleOpenReturnModal = async (order) => { 
       setOrderToReturn(order); 
       
-      const items = order.items.map(item => {
-          // Parse serials if they are a string (JSON), otherwise use as is
-          let itemSerials = [];
-          try {
-              if (Array.isArray(item.serial_numbers)) itemSerials = item.serial_numbers;
-              else if (typeof item.serial_numbers === 'string') itemSerials = JSON.parse(item.serial_numbers);
-          } catch(e) { console.error("Serial parse error", e); }
+      // 1. Fetch serial numbers sold in this order
+      let soldSerials = [];
+      try {
+        const serialRes = await serialNumberAPI.getBySaleId(order.id);
+        if(serialRes.success) soldSerials = serialRes.data;
+      } catch(e) { console.error("Failed to fetch serials", e); }
 
-          // Determine if this item handles serials (either explicitly saved or flag is true)
-          const hasSerials = (itemSerials && itemSerials.length > 0) || !!item.requires_serial;
+      // 2. Map items and attach relevant serials
+      const items = order.items.map(item => {
+          const itemSerials = soldSerials.filter(s => s.product_id === item.product_id);
+          const isSerialized = itemSerials.length > 0; 
 
           return {
-              ...item,
-              return_qty: 0,
-              max_qty: item.quantity,
-              sold_serials: itemSerials || [], // The list of serials sold
-              selected_return_serials: [],     // The ones selected for return
-              has_serials: hasSerials
+            ...item,
+            return_qty: 0,
+            max_qty: item.quantity,
+            is_serialized: isSerialized,
+            available_serials: itemSerials, // All serials sold
+            selected_serials: [] // Serials selected for return
           };
       });
 
@@ -155,65 +153,48 @@ const OrdersPage = () => {
       setReturnItems(newItems);
   }
 
-  const toggleReturnSerial = (index, serial) => {
-      setReturnItems(prev => {
-          const newItems = [...prev];
-          const item = newItems[index];
-          const isSelected = item.selected_return_serials.includes(serial);
-          
-          if (isSelected) {
-              item.selected_return_serials = item.selected_return_serials.filter(s => s !== serial);
-          } else {
-              item.selected_return_serials = [...item.selected_return_serials, serial];
-          }
-          
-          // Auto-update quantity based on selected serials
-          item.return_qty = item.selected_return_serials.length;
-          return newItems;
-      });
-  }
-
-  // Helper to determine available Refund Methods
-  const getRefundMethods = () => {
-      // Check if ANY item being returned (qty > 0) is serialized
-      const hasSerializedReturn = returnItems.some(i => i.return_qty > 0 && i.has_serials);
+  // Handle checking/unchecking specific serial numbers
+  const handleSerialSelection = (itemIndex, serialNumber, isChecked) => {
+      const newItems = [...returnItems];
+      const item = newItems[itemIndex];
       
-      if (hasSerializedReturn) {
-          return [
-              { value: 'Cash', label: 'Cash Refund' },
-              { value: 'GCash', label: 'GCash' }
-          ];
+      if (isChecked) {
+          item.selected_serials = [...item.selected_serials, serialNumber];
+      } else {
+          item.selected_serials = item.selected_serials.filter(s => s !== serialNumber);
       }
       
-      return [
-          { value: 'Cash', label: 'Cash Refund' },
-          { value: 'GCash', label: 'GCash' },
-          { value: 'Store Credit', label: 'Store Credit' },
-          { value: 'Original Payment Method', label: 'Original Payment Method' }
-      ];
-  };
+      // Sync quantity with selected serials count
+      item.return_qty = item.selected_serials.length;
+      setReturnItems(newItems);
+  }
 
   const handleProcessReturn = async () => {
-      const itemsToProcess = returnItems
-          .filter(i => i.return_qty > 0)
-          .map(i => ({
-              saleItemId: i.id, 
-              productId: i.product_id,
-              productName: i.product_name || i.name,
-              quantity: i.return_qty,
-              price: i.price,
-              serialNumbers: i.has_serials ? i.selected_return_serials : []
-          }));
-
-      if (itemsToProcess.length === 0) {
-          setMsgModal({ visible: true, title: 'Validation Error', message: 'Please select at least one item to return (Qty > 0).', color: 'warning' });
+      // Validation
+      const invalidSerialItem = returnItems.find(i => i.is_serialized && i.return_qty > 0 && i.selected_serials.length !== i.return_qty);
+      if (invalidSerialItem) {
+          setMsgModal({ visible: true, title: 'Validation Error', message: `Please select exactly ${invalidSerialItem.return_qty} serial numbers for ${invalidSerialItem.product_name}.`, color: 'warning' });
           return;
       }
 
-      // Validate method against restriction
-      const allowedMethods = getRefundMethods().map(m => m.value);
-      if (!allowedMethods.includes(returnForm.method)) {
-          setReturnForm(prev => ({ ...prev, method: 'Cash' })); 
+      const itemsToProcess = returnItems
+          .filter(i => i.return_qty > 0)
+          .map(i => ({
+              // [FIX] Use camelCase 'saleItemId' to match Backend
+              saleItemId: i.id, 
+              productId: i.product_id,
+              // [FIX] Include productName which is required by backend INSERT
+              productName: i.product_name,
+              sku: i.sku || null,
+              quantity: i.return_qty,
+              price: i.price,
+              // [FIX] Send the selected serials array
+              serialNumbers: i.selected_serials 
+          }));
+
+      if (itemsToProcess.length === 0) {
+          setMsgModal({ visible: true, title: 'Validation Error', message: 'Please select at least one item to return.', color: 'warning' });
+          return;
       }
 
       setIsSubmittingReturn(true);
@@ -226,7 +207,7 @@ const OrdersPage = () => {
           formData.append('refundMethod', returnForm.method);
           formData.append('restocked', returnForm.restock);
           formData.append('additionalNotes', returnForm.notes);
-          formData.append('returnItems', JSON.stringify(itemsToProcess));
+          formData.append('returnItems', JSON.stringify(itemsToProcess)); // Serial numbers are inside this JSON
           if (returnForm.file) formData.append('photoProof', returnForm.file);
 
           const res = await returnsAPI.processReturn(formData);
@@ -274,7 +255,6 @@ const OrdersPage = () => {
       );
   }
 
-  // --- TIMELINE LOGIC ---
   const getTimelineStep = (status) => {
     const s = (status || '').toLowerCase();
     if (['cancelled', 'refunded', 'returned'].some(x => s.includes(x))) return -1;
@@ -292,10 +272,7 @@ const OrdersPage = () => {
         { label: 'Order Placed', icon: cilDescription },
         { label: 'Processing', icon: cilCog },
         { 
-          label: isDelivery 
-            ? (isCompleted ? 'Delivered' : 'Out for Delivery') 
-            : (isCompleted ? 'Picked Up' : 'Ready for Pickup'),
-            
+          label: isDelivery ? (isCompleted ? 'Delivered' : 'Out for Delivery') : (isCompleted ? 'Picked Up' : 'Ready for Pickup'), 
           icon: isDelivery ? cilTruck : (isCompleted ? cilCheckCircle : cilHome)
         }
       ];
@@ -303,12 +280,26 @@ const OrdersPage = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'long', day: 'numeric'
-    });
+    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   const brandHeaderStyle = { fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' };
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisible = 5; 
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+
+    if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
+
+    items.push(<CPaginationItem key="prev" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} style={{cursor: 'pointer'}}><CIcon icon={cilChevronLeft} size="sm"/></CPaginationItem>);
+    if (start > 1) { items.push(<CPaginationItem key={1} onClick={() => setCurrentPage(1)} style={{cursor: 'pointer'}}>1</CPaginationItem>); if (start > 2) items.push(<CPaginationItem key="e1" disabled>...</CPaginationItem>); }
+    for (let i = start; i <= end; i++) items.push(<CPaginationItem key={i} active={i === currentPage} onClick={() => setCurrentPage(i)} style={{cursor: 'pointer', backgroundColor: i===currentPage ? 'var(--brand-navy)' : '', borderColor: i===currentPage ? 'var(--brand-navy)' : ''}}>{i}</CPaginationItem>);
+    if (end < totalPages) { if (end < totalPages - 1) items.push(<CPaginationItem key="e2" disabled>...</CPaginationItem>); items.push(<CPaginationItem key={totalPages} onClick={() => setCurrentPage(totalPages)} style={{cursor: 'pointer'}}>{totalPages}</CPaginationItem>); }
+    items.push(<CPaginationItem key="next" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} style={{cursor: 'pointer'}}><CIcon icon={cilChevronRight} size="sm"/></CPaginationItem>);
+    return items;
+  };
 
   return (
     <CContainer fluid className="px-4 py-4 order-status-wrapper">
@@ -326,7 +317,6 @@ const OrdersPage = () => {
 
       <CCard className="mb-4 border-0 shadow-sm overflow-hidden">
         <CCardBody className="p-0">
-          {/* FILTERS */}
           <div className="p-4 bg-white border-bottom d-flex flex-wrap gap-3 align-items-center">
              <div className="brand-search-wrapper">
                 <span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass} /></span>
@@ -340,7 +330,6 @@ const OrdersPage = () => {
              </CFormSelect>
           </div>
 
-          {/* TABLE */}
           <div className="admin-table-container">
             <table className="admin-table">
               <thead>
@@ -388,11 +377,7 @@ const OrdersPage = () => {
           
           <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white">
              <span className="small text-muted fw-semibold">Showing {currentOrders.length} of {filteredOrders.length} orders</span>
-             <AppPagination 
-               currentPage={currentPage} 
-               totalPages={totalPages} 
-               onPageChange={(page) => setCurrentPage(page)} 
-             />
+             <CPagination className="mb-0 justify-content-end" aria-label="Orders navigation">{renderPaginationItems()}</CPagination>
           </div>
         </CCardBody>
       </CCard>
@@ -415,15 +400,11 @@ const OrdersPage = () => {
                            const currentStep = getTimelineStep(selectedOrder.status);
                            const stepNum = i + 1;
                            let cls = 'stepper-item';
-                           
                            if (currentStep > stepNum) cls += ' completed';
                            else if (currentStep === stepNum) cls += ' active';
-
                            return (
                              <div key={i} className={cls}>
-                               <div className="step-counter">
-                                  <CIcon icon={step.icon} size="lg"/>
-                               </div>
+                               <div className="step-counter"><CIcon icon={step.icon} size="lg"/></div>
                                <div className="step-name">{step.label}</div>
                              </div>
                            )
@@ -433,37 +414,11 @@ const OrdersPage = () => {
                 </div>
 
                 <div className="details-grid">
-                   <div className="detail-item">
-                      <label>Customer</label>
-                      <div>{selectedOrder.customer_name}</div>
-                      <div className="small text-muted fw-normal">{selectedOrder.contact}</div>
-                   </div>
-
-                   <div className="detail-item">
-                      <label><CIcon icon={cilCalendar} size="sm" className="me-1"/> Date Placed</label>
-                      <div className="text-dark small fw-bold">{formatDate(selectedOrder.created_at)}</div>
-                   </div>
-
-                   <div className="detail-item">
-                      <label><CIcon icon={(selectedOrder.delivery_type || '').includes('Delivery') ? cilTruck : cilHome} size="sm" className="me-1"/> Fulfillment</label>
-                      <div className="text-brand-navy">
-                          {selectedOrder.sale_type || selectedOrder.delivery_type || 'In-store'}
-                      </div>
-                   </div>
-
-                   <div className="detail-item">
-                      <label>Payment Status</label>
-                      <div className={selectedOrder.payment_status === 'Paid' ? 'text-success' : 'text-warning'}>
-                          {selectedOrder.payment_status || 'Unpaid'}
-                      </div>
-                   </div>
-
-                   {(selectedOrder.delivery_type || '').includes('Delivery') && selectedOrder.address && (
-                      <div className="detail-item" style={{gridColumn: '1 / -1'}}>
-                        <label><CIcon icon={cilLocationPin} size="sm" className="me-1"/> Destination</label>
-                        <div className="text-dark small">{selectedOrder.address}</div>
-                      </div>
-                   )}
+                   <div className="detail-item"><label>Customer</label><div>{selectedOrder.customer_name}</div><div className="small text-muted fw-normal">{selectedOrder.contact}</div></div>
+                   <div className="detail-item"><label><CIcon icon={cilCalendar} size="sm" className="me-1"/> Date Placed</label><div className="text-dark small fw-bold">{formatDate(selectedOrder.created_at)}</div></div>
+                   <div className="detail-item"><label><CIcon icon={(selectedOrder.delivery_type || '').includes('Delivery') ? cilTruck : cilHome} size="sm" className="me-1"/> Fulfillment</label><div className="text-brand-navy">{selectedOrder.sale_type || selectedOrder.delivery_type || 'In-store'}</div></div>
+                   <div className="detail-item"><label>Payment Status</label><div className={selectedOrder.payment_status === 'Paid' ? 'text-success' : 'text-warning'}>{selectedOrder.payment_status || 'Unpaid'}</div></div>
+                   {(selectedOrder.delivery_type || '').includes('Delivery') && selectedOrder.address && (<div className="detail-item" style={{gridColumn: '1 / -1'}}><label><CIcon icon={cilLocationPin} size="sm" className="me-1"/> Destination</label><div className="text-dark small">{selectedOrder.address}</div></div>)}
                 </div>
 
                 <div className="table-wrapper">
@@ -472,11 +427,7 @@ const OrdersPage = () => {
                     <tbody>
                       {selectedOrder.items?.map((item, i) => (
                         <tr key={i}>
-                          <td className="ps-4">
-                              <div className="fw-bold text-dark">{item.product_name}</div>
-                              <div className="small text-muted">{item.brand}</div>
-                              {item.product_id && <div className="text-muted small" style={{fontSize:'0.7rem'}}>PN: {item.product_id}</div>}
-                          </td>
+                          <td className="ps-4"><div className="fw-bold text-dark">{item.product_name}</div><div className="small text-muted">{item.brand}</div></td>
                           <td className="text-center">{item.quantity}</td>
                           <td className="text-end">₱{Number(item.price).toLocaleString()}</td>
                           <td className="text-end fw-bold pe-4">₱{Number(item.price * item.quantity).toLocaleString()}</td>
@@ -486,33 +437,17 @@ const OrdersPage = () => {
                   </table>
                 </div>
                 
-                {/* [FIX] ACTION BAR for Pending Orders */}
                 {selectedOrder.status === 'Pending' && (
                     <div className="p-3 bg-warning bg-opacity-10 border-top d-flex justify-content-between align-items-center">
-                        <div className="text-warning-emphasis small fw-bold">
-                            <CIcon icon={cilWarning} className="me-2"/> 
-                            ACTION REQUIRED
-                        </div>
-                        
-                        {/* If In-Store + Pending, allow manual completion */}
+                        <div className="text-warning-emphasis small fw-bold"><CIcon icon={cilWarning} className="me-2"/> ACTION REQUIRED</div>
                         {(!selectedOrder.delivery_type?.includes('Delivery')) ? (
-                            <CButton color="success" className="text-white fw-bold btn-sm" onClick={() => handleManualCompletion(selectedOrder.id)}>
-                                <CIcon icon={cilCheckCircle} className="me-2"/>
-                                MARK AS PAID & COMPLETED
-                            </CButton>
-                        ) : (
-                            <div className="small text-muted fst-italic">Waiting for Rider Pickup...</div>
-                        )}
+                            <CButton color="success" className="text-white fw-bold btn-sm" onClick={() => handleManualCompletion(selectedOrder.id)}><CIcon icon={cilCheckCircle} className="me-2"/>MARK AS PAID & COMPLETED</CButton>
+                        ) : (<div className="small text-muted fst-italic">Waiting for Rider Pickup...</div>)}
                     </div>
                 )}
 
                 <div className="table-footer">
-                   {selectedOrder.notes && (
-                       <div className="text-start mb-3 p-2 bg-light border rounded">
-                           <small className="fw-bold text-muted"><CIcon icon={cilNotes} className="me-1"/> Notes:</small>
-                           <div className="small text-dark fst-italic">{selectedOrder.notes}</div>
-                       </div>
-                   )}
+                   {selectedOrder.notes && (<div className="text-start mb-3 p-2 bg-light border rounded"><small className="fw-bold text-muted"><CIcon icon={cilNotes} className="me-1"/> Notes:</small><div className="small text-dark fst-italic">{selectedOrder.notes}</div></div>)}
                    <div className="grand-total">Total: <span>₱{selectedOrder.items?.reduce((acc, item) => acc + (item.price * item.quantity), 0).toLocaleString()}</span></div>
                 </div>
               </>
@@ -532,42 +467,35 @@ const OrdersPage = () => {
                       <h6 className="fw-bold text-danger mb-3 border-bottom pb-2">1. Select Items to Return</h6>
                       <div className="table-responsive">
                         <table className="table table-sm align-middle mb-0">
-                            <thead className="table-light"><tr><th>Product</th><th className="text-center">Sold</th><th className="text-center" style={{width:'120px'}}>Return Qty</th><th className="text-end">Refund Amt</th></tr></thead>
+                            <thead className="table-light"><tr><th>Product</th><th className="text-center">Sold</th><th className="text-center" style={{width:'200px'}}>Return Selection</th><th className="text-end">Refund Amt</th></tr></thead>
                             <tbody>
                                 {returnItems.map((item, idx) => (
                                     <tr key={idx} className={item.return_qty > 0 ? 'table-warning' : ''}>
                                         <td>
                                             <div className="fw-bold small">{item.product_name}</div>
                                             <div className="text-muted" style={{fontSize:'0.75rem'}}>{item.product_id}</div>
-                                            
-                                            {/* [FIX] Show Serial Selection if item has serials */}
-                                            {item.has_serials && (
-                                                <div className="mt-2 p-2 bg-white border rounded">
-                                                    <div className="small fw-bold mb-1 text-muted">Select Serials to Return:</div>
-                                                    {item.sold_serials.length === 0 ? (
-                                                        <span className="text-muted small fst-italic">No serials recorded.</span>
-                                                    ) : (
-                                                        <div className="d-flex flex-wrap gap-2">
-                                                            {item.sold_serials.map(sn => (
-                                                                <div 
-                                                                    key={sn} 
-                                                                    onClick={() => toggleReturnSerial(idx, sn)}
-                                                                    className={`badge border cursor-pointer ${item.selected_return_serials.includes(sn) ? 'bg-danger text-white border-danger' : 'bg-light text-dark'}`}
-                                                                    style={{cursor:'pointer', padding: '6px 10px'}}
-                                                                >
-                                                                    {sn} {item.selected_return_serials.includes(sn) && <CIcon icon={cilCheckCircle} size="sm" className="ms-1"/>}
-                                                                </div>
+                                            {item.is_serialized && <div className="badge bg-dark text-white mt-1"><CIcon icon={cilBarcode} size="sm" className="me-1"/> Serialized</div>}
+                                        </td>
+                                        <td className="text-center">{item.max_qty}</td>
+                                        <td className="text-center">
+                                            {item.is_serialized ? (
+                                                <div className="text-start">
+                                                    {item.available_serials && item.available_serials.length > 0 ? (
+                                                        <div className="d-flex flex-column gap-1" style={{maxHeight:'100px', overflowY:'auto'}}>
+                                                            {item.available_serials.map(sn => (
+                                                                <CFormCheck 
+                                                                    key={sn.id} 
+                                                                    id={`sn-${sn.id}`} 
+                                                                    label={sn.serial_number}
+                                                                    checked={item.selected_serials.includes(sn.serial_number)}
+                                                                    onChange={(e) => handleSerialSelection(idx, sn.serial_number, e.target.checked)}
+                                                                />
                                                             ))}
                                                         </div>
+                                                    ) : (
+                                                        <span className="text-muted small fst-italic">No serials found.</span>
                                                     )}
                                                 </div>
-                                            )}
-                                        </td>
-                                        <td className="text-center align-top pt-3">{item.max_qty}</td>
-                                        <td className="align-top pt-3">
-                                            {/* Hide manual input if serials exist to prevent mismatch */}
-                                            {item.has_serials ? (
-                                                <div className="text-center fw-bold fs-5">{item.return_qty}</div>
                                             ) : (
                                                 <CFormInput 
                                                     type="number" 
@@ -579,7 +507,7 @@ const OrdersPage = () => {
                                                 />
                                             )}
                                         </td>
-                                        <td className="text-end fw-bold text-danger align-top pt-3">
+                                        <td className="text-end fw-bold text-danger">
                                             {item.return_qty > 0 ? `₱${(item.price * item.return_qty).toLocaleString()}` : '-'}
                                         </td>
                                     </tr>
@@ -605,15 +533,10 @@ const OrdersPage = () => {
                            <CCol md={6}>
                                <CFormLabel className="small fw-bold">Refund Method</CFormLabel>
                                <CFormSelect value={returnForm.method} onChange={e => setReturnForm({...returnForm, method: e.target.value})}>
-                                   {getRefundMethods().map(method => (
-                                       <option key={method.value} value={method.value}>{method.label}</option>
-                                   ))}
+                                   <option value="Cash">Cash Refund</option>
+                                   <option value="Store Credit">Store Credit</option>
+                                   <option value="Original Payment Method">Original Payment Method</option>
                                </CFormSelect>
-                               {getRefundMethods().length < 4 && (
-                                   <div className="form-text text-danger small mt-1">
-                                       * Serialized items must be refunded via Cash/GCash for tracking.
-                                   </div>
-                               )}
                            </CCol>
                            <CCol md={12}>
                                <CFormLabel className="small fw-bold">Photo Proof (Optional)</CFormLabel>

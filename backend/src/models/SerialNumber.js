@@ -70,6 +70,19 @@ export class SerialNumber {
     return rows;
   }
 
+  // [NEW] Get all returnable serial numbers (Available + Defective + Returned)
+  static async getReturnableByProductId(productId) {
+    const pool = getPool();
+    const [rows] = await pool.execute(
+      `SELECT * FROM serial_numbers 
+       WHERE product_id = ? 
+       AND status IN ('available', 'defective', 'returned')
+       ORDER BY FIELD(status, 'defective', 'returned', 'available'), created_at DESC`,
+      [productId]
+    );
+    return rows;
+  }
+
   // Get all serial numbers for a product (any status)
   static async getAllByProductId(productId) {
     const pool = getPool();
@@ -218,17 +231,6 @@ export class SerialNumber {
     } finally {
       connection.release();
     }
-  }
-  // [NEW] Get serial numbers returnable to supplier (available + defective)
-  static async getReturnableByProductId(productId) {
-    const pool = getPool();
-    const [rows] = await pool.execute(
-      `SELECT * FROM serial_numbers 
-       WHERE product_id = ? AND status IN ('available', 'defective')
-       ORDER BY created_at DESC`,
-      [productId]
-    );
-    return rows;
   }
 
   // Get serial numbers by sale ID

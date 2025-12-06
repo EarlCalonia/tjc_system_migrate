@@ -7,7 +7,6 @@ export class SalesController {
   // Create a new sale
   static async createSale(req, res) {
     try {
-      // [FIX] Added 'landmark' to destructuring
       const { customer_name, contact, payment, payment_status, status, address, landmark, delivery_type, items } = req.body;
 
       if (!customer_name || !payment || !items || items.length === 0) {
@@ -58,7 +57,7 @@ export class SalesController {
         payment_status,
         status,
         address,
-        landmark, // [FIX] Pass landmark explicitly
+        landmark,
         delivery_type,
         total,
         items: enrichedItems
@@ -84,7 +83,7 @@ export class SalesController {
     }
   }
 
-  // Get all sales with optional filters
+  // [FIXED] Optimized getAllSales with Eager Loading
   static async getAllSales(req, res) {
     try {
       const { search, date_from, date_to, delivery_type, page = 1, limit = 10 } = req.query;
@@ -135,6 +134,35 @@ export class SalesController {
       params.push(parseInt(limit), parseInt(offset));
 
       const [sales] = await pool.execute(query, params);
+
+      // --- EAGER LOADING FIX START ---
+      if (sales.length > 0) {
+        const saleIds = sales.map(s => s.id);
+        
+        // 1. Fetch all items for these sales in ONE single query
+        // We construct a placeholder string like "?, ?, ?" based on how many sales we found
+        const placeholders = saleIds.map(() => '?').join(',');
+        
+        const [allSaleItems] = await pool.execute(
+          `SELECT * FROM sale_items WHERE sale_id IN (${placeholders})`, 
+          saleIds
+        );
+
+        // 2. Map items to their sale IDs for instant lookup
+        const itemsMap = {};
+        allSaleItems.forEach(item => {
+            if (!itemsMap[item.sale_id]) {
+                itemsMap[item.sale_id] = [];
+            }
+            itemsMap[item.sale_id].push(item);
+        });
+
+        // 3. Attach the items to the sales objects
+        sales.forEach(sale => {
+            sale.items = itemsMap[sale.id] || [];
+        });
+      }
+      // --- EAGER LOADING FIX END ---
 
       res.json({
         success: true,
@@ -188,7 +216,6 @@ export class SalesController {
   static async updateSale(req, res) {
     try {
       const { id } = req.params;
-      // [FIX] Added landmark
       const { customer_name, contact, payment, payment_status, total, status, address, landmark } = req.body;
 
       const currentSale = await Sales.findById(id);
@@ -214,7 +241,7 @@ export class SalesController {
       if (total !== undefined) updateData.total = total;
       if (status !== undefined) updateData.status = status;
       if (address !== undefined) updateData.address = address;
-      if (landmark !== undefined) updateData.landmark = landmark; // [FIX] Update landmark
+      if (landmark !== undefined) updateData.landmark = landmark;
 
       const nextPaymentStatus = (payment_status !== undefined ? payment_status : (currentSale.payment_status || 'Unpaid'));
       const nextOrderStatus = (status !== undefined ? status : currentSale.status);
@@ -270,7 +297,7 @@ export class SalesController {
     }
   }
 
-  // Get sales statistics (UPDATED)
+  // Get sales statistics
   static async getSalesStats(req, res) {
     try {
       const { date_from, date_to } = req.query;
