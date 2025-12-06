@@ -19,6 +19,7 @@ export class SaleItem {
     return rows[0] || null;
   }
 
+  // [UPDATED] Now saves serial_numbers
   static async create(saleItemData) {
     const pool = getPool();
     const {
@@ -28,13 +29,19 @@ export class SaleItem {
       brand,
       price,
       quantity,
-      subtotal
+      subtotal,
+      serialNumbers // Extract serial numbers
     } = saleItemData;
 
+    // Prepare serial numbers as JSON string (or null if empty)
+    const serialsJson = (serialNumbers && serialNumbers.length > 0) 
+      ? JSON.stringify(serialNumbers) 
+      : null;
+
     const [result] = await pool.execute(
-      `INSERT INTO sale_items (sale_id, product_id, product_name, brand, price, quantity, subtotal)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [sale_id, product_id, product_name, brand, price, quantity, subtotal]
+      `INSERT INTO sale_items (sale_id, product_id, product_name, brand, price, quantity, subtotal, serial_numbers)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [sale_id, product_id, product_name, brand, price, quantity, subtotal, serialsJson]
     );
 
     return result.insertId;

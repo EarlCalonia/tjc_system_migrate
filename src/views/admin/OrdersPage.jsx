@@ -2,15 +2,16 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormSelect, CModal, CModalHeader,
   CModalTitle, CModalBody, CModalFooter, CWidgetStatsF, CSpinner, CBadge, CFormLabel, 
-  CFormInput, CFormTextarea, CFormSwitch, CTooltip, CPagination, CPaginationItem
+  CFormInput, CFormTextarea, CFormSwitch, CTooltip
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
   cilMagnifyingGlass, cilDescription, cilMoney, cilWarning, cilCheckCircle, cilArrowLeft,
-  cilSettings, cilTruck, cilXCircle, cilCloudUpload, cilTrash, cilChevronLeft, cilChevronRight, cilBan,
+  cilSettings, cilTruck, cilBan,
   cilCalendar, cilLocationPin, cilNotes, cilHome, cilCog
 } from '@coreui/icons'
 import { salesAPI, returnsAPI } from '../../utils/api'
+import AppPagination from '../../components/AppPagination'
 
 // Import Global Styles
 import '../../styles/Admin.css'
@@ -102,7 +103,6 @@ const OrdersPage = () => {
   const handleManualCompletion = async (orderId) => {
       if(!window.confirm('Are you sure you want to mark this order as PAID and COMPLETED?')) return;
 
-      // [FIX] Manually advance state for walk-in pickups
       try {
           await salesAPI.updateSale(orderId, { payment_status: 'Paid' });
           await salesAPI.updateSale(orderId, { status: 'Completed' });
@@ -118,11 +118,28 @@ const OrdersPage = () => {
   // --- RETURN HANDLERS ---
   const handleOpenReturnModal = (order) => { 
       setOrderToReturn(order); 
-      const items = order.items.map(item => ({
-          ...item,
-          return_qty: 0,
-          max_qty: item.quantity 
-      }));
+      
+      const items = order.items.map(item => {
+          // Parse serials if they are a string (JSON), otherwise use as is
+          let itemSerials = [];
+          try {
+              if (Array.isArray(item.serial_numbers)) itemSerials = item.serial_numbers;
+              else if (typeof item.serial_numbers === 'string') itemSerials = JSON.parse(item.serial_numbers);
+          } catch(e) { console.error("Serial parse error", e); }
+
+          // Determine if this item handles serials (either explicitly saved or flag is true)
+          const hasSerials = (itemSerials && itemSerials.length > 0) || !!item.requires_serial;
+
+          return {
+              ...item,
+              return_qty: 0,
+              max_qty: item.quantity,
+              sold_serials: itemSerials || [], // The list of serials sold
+              selected_return_serials: [],     // The ones selected for return
+              has_serials: hasSerials
+          };
+      });
+
       setReturnItems(items);
       setReturnForm({ reason: 'Defective/Damaged', method: 'Cash', restock: true, notes: '', file: null });
       if(fileInputRef.current) fileInputRef.current.value = '';
@@ -138,19 +155,65 @@ const OrdersPage = () => {
       setReturnItems(newItems);
   }
 
+  const toggleReturnSerial = (index, serial) => {
+      setReturnItems(prev => {
+          const newItems = [...prev];
+          const item = newItems[index];
+          const isSelected = item.selected_return_serials.includes(serial);
+          
+          if (isSelected) {
+              item.selected_return_serials = item.selected_return_serials.filter(s => s !== serial);
+          } else {
+              item.selected_return_serials = [...item.selected_return_serials, serial];
+          }
+          
+          // Auto-update quantity based on selected serials
+          item.return_qty = item.selected_return_serials.length;
+          return newItems;
+      });
+  }
+
+  // Helper to determine available Refund Methods
+  const getRefundMethods = () => {
+      // Check if ANY item being returned (qty > 0) is serialized
+      const hasSerializedReturn = returnItems.some(i => i.return_qty > 0 && i.has_serials);
+      
+      if (hasSerializedReturn) {
+          return [
+              { value: 'Cash', label: 'Cash Refund' },
+              { value: 'GCash', label: 'GCash' }
+          ];
+      }
+      
+      return [
+          { value: 'Cash', label: 'Cash Refund' },
+          { value: 'GCash', label: 'GCash' },
+          { value: 'Store Credit', label: 'Store Credit' },
+          { value: 'Original Payment Method', label: 'Original Payment Method' }
+      ];
+  };
+
   const handleProcessReturn = async () => {
       const itemsToProcess = returnItems
           .filter(i => i.return_qty > 0)
           .map(i => ({
-              sale_item_id: i.id, 
-              product_id: i.product_id,
+              saleItemId: i.id, 
+              productId: i.product_id,
+              productName: i.product_name || i.name,
               quantity: i.return_qty,
-              price: i.price
+              price: i.price,
+              serialNumbers: i.has_serials ? i.selected_return_serials : []
           }));
 
       if (itemsToProcess.length === 0) {
           setMsgModal({ visible: true, title: 'Validation Error', message: 'Please select at least one item to return (Qty > 0).', color: 'warning' });
           return;
+      }
+
+      // Validate method against restriction
+      const allowedMethods = getRefundMethods().map(m => m.value);
+      if (!allowedMethods.includes(returnForm.method)) {
+          setReturnForm(prev => ({ ...prev, method: 'Cash' })); 
       }
 
       setIsSubmittingReturn(true);
@@ -229,7 +292,6 @@ const OrdersPage = () => {
         { label: 'Order Placed', icon: cilDescription },
         { label: 'Processing', icon: cilCog },
         { 
-          // [FIX] Updated Labels
           label: isDelivery 
             ? (isCompleted ? 'Delivered' : 'Out for Delivery') 
             : (isCompleted ? 'Picked Up' : 'Ready for Pickup'),
@@ -247,47 +309,6 @@ const OrdersPage = () => {
   };
 
   const brandHeaderStyle = { fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' };
-
-  // --- PAGINATION ---
-  const renderPaginationItems = () => {
-    const items = [];
-    const maxVisible = 5; 
-    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages, start + maxVisible - 1);
-
-    if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
-
-    items.push(
-      <CPaginationItem key="prev" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} style={{cursor: 'pointer'}}>
-        <CIcon icon={cilChevronLeft} size="sm"/>
-      </CPaginationItem>
-    );
-
-    if (start > 1) {
-      items.push(<CPaginationItem key={1} onClick={() => setCurrentPage(1)} style={{cursor: 'pointer'}}>1</CPaginationItem>);
-      if (start > 2) items.push(<CPaginationItem key="e1" disabled>...</CPaginationItem>);
-    }
-
-    for (let i = start; i <= end; i++) {
-      items.push(
-        <CPaginationItem key={i} active={i === currentPage} onClick={() => setCurrentPage(i)} style={{cursor: 'pointer', backgroundColor: i===currentPage ? 'var(--brand-navy)' : '', borderColor: i===currentPage ? 'var(--brand-navy)' : ''}}>
-          {i}
-        </CPaginationItem>
-      );
-    }
-
-    if (end < totalPages) {
-      if (end < totalPages - 1) items.push(<CPaginationItem key="e2" disabled>...</CPaginationItem>);
-      items.push(<CPaginationItem key={totalPages} onClick={() => setCurrentPage(totalPages)} style={{cursor: 'pointer'}}>{totalPages}</CPaginationItem>);
-    }
-
-    items.push(
-      <CPaginationItem key="next" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} style={{cursor: 'pointer'}}>
-        <CIcon icon={cilChevronRight} size="sm"/>
-      </CPaginationItem>
-    );
-    return items;
-  };
 
   return (
     <CContainer fluid className="px-4 py-4 order-status-wrapper">
@@ -367,7 +388,11 @@ const OrdersPage = () => {
           
           <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white">
              <span className="small text-muted fw-semibold">Showing {currentOrders.length} of {filteredOrders.length} orders</span>
-             <CPagination className="mb-0 justify-content-end" aria-label="Orders navigation">{renderPaginationItems()}</CPagination>
+             <AppPagination 
+               currentPage={currentPage} 
+               totalPages={totalPages} 
+               onPageChange={(page) => setCurrentPage(page)} 
+             />
           </div>
         </CCardBody>
       </CCard>
@@ -511,19 +536,50 @@ const OrdersPage = () => {
                             <tbody>
                                 {returnItems.map((item, idx) => (
                                     <tr key={idx} className={item.return_qty > 0 ? 'table-warning' : ''}>
-                                        <td><div className="fw-bold small">{item.product_name}</div><div className="text-muted" style={{fontSize:'0.75rem'}}>{item.product_id}</div></td>
-                                        <td className="text-center">{item.max_qty}</td>
                                         <td>
-                                            <CFormInput 
-                                                type="number" 
-                                                min="0" 
-                                                max={item.max_qty} 
-                                                value={item.return_qty} 
-                                                onChange={(e) => handleReturnQtyChange(idx, e.target.value)}
-                                                className="text-center form-control-sm"
-                                            />
+                                            <div className="fw-bold small">{item.product_name}</div>
+                                            <div className="text-muted" style={{fontSize:'0.75rem'}}>{item.product_id}</div>
+                                            
+                                            {/* [FIX] Show Serial Selection if item has serials */}
+                                            {item.has_serials && (
+                                                <div className="mt-2 p-2 bg-white border rounded">
+                                                    <div className="small fw-bold mb-1 text-muted">Select Serials to Return:</div>
+                                                    {item.sold_serials.length === 0 ? (
+                                                        <span className="text-muted small fst-italic">No serials recorded.</span>
+                                                    ) : (
+                                                        <div className="d-flex flex-wrap gap-2">
+                                                            {item.sold_serials.map(sn => (
+                                                                <div 
+                                                                    key={sn} 
+                                                                    onClick={() => toggleReturnSerial(idx, sn)}
+                                                                    className={`badge border cursor-pointer ${item.selected_return_serials.includes(sn) ? 'bg-danger text-white border-danger' : 'bg-light text-dark'}`}
+                                                                    style={{cursor:'pointer', padding: '6px 10px'}}
+                                                                >
+                                                                    {sn} {item.selected_return_serials.includes(sn) && <CIcon icon={cilCheckCircle} size="sm" className="ms-1"/>}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
-                                        <td className="text-end fw-bold text-danger">
+                                        <td className="text-center align-top pt-3">{item.max_qty}</td>
+                                        <td className="align-top pt-3">
+                                            {/* Hide manual input if serials exist to prevent mismatch */}
+                                            {item.has_serials ? (
+                                                <div className="text-center fw-bold fs-5">{item.return_qty}</div>
+                                            ) : (
+                                                <CFormInput 
+                                                    type="number" 
+                                                    min="0" 
+                                                    max={item.max_qty} 
+                                                    value={item.return_qty} 
+                                                    onChange={(e) => handleReturnQtyChange(idx, e.target.value)}
+                                                    className="text-center form-control-sm"
+                                                />
+                                            )}
+                                        </td>
+                                        <td className="text-end fw-bold text-danger align-top pt-3">
                                             {item.return_qty > 0 ? `₱${(item.price * item.return_qty).toLocaleString()}` : '-'}
                                         </td>
                                     </tr>
@@ -549,10 +605,15 @@ const OrdersPage = () => {
                            <CCol md={6}>
                                <CFormLabel className="small fw-bold">Refund Method</CFormLabel>
                                <CFormSelect value={returnForm.method} onChange={e => setReturnForm({...returnForm, method: e.target.value})}>
-                                   <option value="Cash">Cash Refund</option>
-                                   <option value="Store Credit">Store Credit</option>
-                                   <option value="Original Payment Method">Original Payment Method</option>
+                                   {getRefundMethods().map(method => (
+                                       <option key={method.value} value={method.value}>{method.label}</option>
+                                   ))}
                                </CFormSelect>
+                               {getRefundMethods().length < 4 && (
+                                   <div className="form-text text-danger small mt-1">
+                                       * Serialized items must be refunded via Cash/GCash for tracking.
+                                   </div>
+                               )}
                            </CCol>
                            <CCol md={12}>
                                <CFormLabel className="small fw-bold">Photo Proof (Optional)</CFormLabel>

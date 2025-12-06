@@ -197,16 +197,17 @@ a { text-decoration: none; }
 
 /* The Container (Scrollable & Zoom Proof) */
 .admin-table-container {
-  height: 75vh;             
-  min-height: 400px;        
-  overflow-y: auto;         
-  overflow-x: auto;         
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  height: fit-content !important;  /* Let content dictate height */
+  min-height: auto !important;     /* Remove minimum restriction */
+  overflow-y: visible !important;  /* Disable vertical scrollbar */
+  overflow-x: auto;                /* Keep horizontal scroll for mobile */
+  
+  /* Visuals */
   border: 1px solid var(--color-border);
   border-radius: 8px;       
   background-color: white;
   box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  margin-bottom: 1rem;
 }
 
 /* The Table Structure */
@@ -220,7 +221,7 @@ a { text-decoration: none; }
 /* Sticky Navy Header */
 .admin-table thead th {
   position: sticky;
-  top: 0;
+  top: 70px;
   z-index: 10; 
   background-color: var(--brand-navy) !important;
   color: #ffffff !important;

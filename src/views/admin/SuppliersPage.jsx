@@ -9,11 +9,14 @@ import {
   cilEnvelopeClosed, cilLocationPin, cilReload, cilAddressBook
 } from '@coreui/icons'
 import { suppliersAPI } from '../../utils/api'
+import AppPagination from '../../components/AppPagination' // 1. Import Shared Component
 
 // Import Global Brand Styles
 import '../../styles/Admin.css'
 import '../../styles/App.css' 
 import '../../styles/SuppliersPage.css'
+
+const ITEMS_PER_PAGE = 10; // 2. Define Limit
 
 const SuppliersPage = () => {
   // --- STATE ---
@@ -21,6 +24,9 @@ const SuppliersPage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1) // 3. Add Page State
 
   // Modal State
   const [modalVisible, setModalVisible] = useState(false)
@@ -40,16 +46,28 @@ const SuppliersPage = () => {
 
   const brandHeaderStyle = { fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' };
 
-  // Client-side filtering
+  // 4. Update Filter Logic to include Pagination
   const filteredSuppliers = useMemo(() => {
-    if (!searchQuery) return suppliers
-    const lowerQ = searchQuery.toLowerCase()
-    return suppliers.filter(s => 
-      (s.supplier_name || '').toLowerCase().includes(lowerQ) ||
-      (s.contact_person || '').toLowerCase().includes(lowerQ) ||
-      (s.email || '').toLowerCase().includes(lowerQ)
-    )
-  }, [suppliers, searchQuery])
+    if (!suppliers) return [];
+    
+    // First, filter by search
+    const filtered = suppliers.filter(s => {
+      const lowerQ = searchQuery.toLowerCase();
+      return (
+        (s.supplier_name || '').toLowerCase().includes(lowerQ) ||
+        (s.contact_person || '').toLowerCase().includes(lowerQ) ||
+        (s.email || '').toLowerCase().includes(lowerQ)
+      );
+    });
+
+    return filtered;
+  }, [suppliers, searchQuery]);
+
+  // Calculate Pagination Slices
+  const totalItems = filteredSuppliers.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const currentSuppliers = filteredSuppliers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   // --- API ---
   const fetchSuppliers = async () => {
@@ -70,6 +88,11 @@ const SuppliersPage = () => {
   useEffect(() => {
     fetchSuppliers()
   }, [])
+
+  // Reset to page 1 when searching
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   // --- HANDLERS ---
   const handleAdd = () => {
@@ -108,7 +131,6 @@ const SuppliersPage = () => {
   }
 
   const handleContactChange = (e) => {
-    // [FIX] Restrict to numbers only and max 11 digits
     const value = e.target.value.replace(/\D/g, '').slice(0, 11);
     setSelectedSupplier({ ...selectedSupplier, contact_number: value });
   }
@@ -116,7 +138,6 @@ const SuppliersPage = () => {
   const handleSubmit = async () => {
     if (!selectedSupplier.name) return showMessage('Validation', 'Supplier Name is required.', 'warning')
     
-    // [FIX] Add validation for contact length if entered
     if (selectedSupplier.contact_number && selectedSupplier.contact_number.length !== 11) {
         return showMessage('Validation', 'Contact number must be exactly 11 digits (e.g., 09123456789).', 'warning');
     }
@@ -193,7 +214,7 @@ const SuppliersPage = () => {
              </button>
 
              <span className="ms-auto text-muted small fw-bold">
-                {filteredSuppliers.length} Partners Active
+                {totalItems} Partners Active
              </span>
           </div>
         </CCardBody>
@@ -216,13 +237,13 @@ const SuppliersPage = () => {
               <tbody>
                 {loading ? (
                    <tr><td colSpan="5" className="text-center py-5"><CSpinner color="primary" variant="grow"/><div className="mt-2 text-muted small">Loading partners...</div></td></tr>
-                ) : filteredSuppliers.length === 0 ? (
+                ) : currentSuppliers.length === 0 ? (
                    <tr><td colSpan="5" className="text-center py-5">
                       <div className="opacity-25 mb-3"><CIcon icon={cilTruck} size="4xl"/></div>
                       <div className="text-muted">No suppliers found matching your search.</div>
                    </td></tr>
                 ) : (
-                   filteredSuppliers.map((supplier) => (
+                   currentSuppliers.map((supplier) => (
                      <tr key={supplier.id || supplier.supplier_id}>
                        <td className="ps-4">
                           <div className="fw-bold text-brand-navy fs-6">{supplier.supplier_name}</div>
@@ -270,10 +291,22 @@ const SuppliersPage = () => {
               </tbody>
             </table>
           </div>
+
+          {/* 5. Add Pagination Footer */}
+          <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white">
+             <span className="small text-muted fw-semibold">
+                Showing {currentSuppliers.length} of {totalItems} partners
+             </span>
+             <AppPagination 
+               currentPage={currentPage} 
+               totalPages={totalPages} 
+               onPageChange={(page) => setCurrentPage(page)} 
+             />
+          </div>
         </CCardBody>
       </CCard>
 
-      {/* ADD/EDIT MODAL */}
+      {/* ... Modals (Add/Edit, Message) remain strictly unchanged ... */}
       <CModal visible={modalVisible} onClose={() => setModalVisible(false)} alignment="center" backdrop="static">
         <CModalHeader className="bg-brand-navy">
             <CModalTitle component="span" className="text-white" style={{...brandHeaderStyle, fontSize: '1.25rem'}}>
@@ -293,7 +326,6 @@ const SuppliersPage = () => {
                   </CCol>
                   <CCol md={6}>
                       <CFormLabel className="small fw-bold text-muted">Phone Number</CFormLabel>
-                      {/* [FIX] Applied numeric restriction and length limit */}
                       <CFormInput 
                         value={selectedSupplier.contact_number} 
                         onChange={handleContactChange} 
@@ -320,7 +352,6 @@ const SuppliersPage = () => {
         </CModalFooter>
       </CModal>
 
-      {/* MESSAGE MODAL */}
       <CModal visible={msgModal.visible} onClose={closeMsgModal} alignment="center">
         <CModalHeader className={`bg-${msgModal.color} text-white`}>
             <CModalTitle component="span" style={brandHeaderStyle}>{msgModal.title}</CModalTitle>

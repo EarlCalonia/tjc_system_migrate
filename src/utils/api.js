@@ -426,6 +426,10 @@ export const serialNumberAPI = {
     });
     return handleResponse(response);
   },
+  getReturnableSerials: async (productId) => {
+    const response = await fetch(`${API_BASE_URL}/serial-numbers/product/${productId}/returnable`, { credentials: 'include' });
+    return handleResponse(response);
+  },
   deleteSerials: async (serialNumbers) => {
     const response = await fetch(`${API_BASE_URL}/serial-numbers`, {
       method: 'DELETE',

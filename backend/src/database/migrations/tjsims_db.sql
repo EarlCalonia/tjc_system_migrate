@@ -588,15 +588,26 @@ INSERT INTO `sale_items` (`id`, `sale_id`, `product_id`, `product_name`, `brand`
 --
 
 CREATE TABLE `serial_numbers` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `serial_number` varchar(100) NOT NULL,
   `product_id` varchar(20) NOT NULL,
   `status` enum('available','sold','returned','defective') NOT NULL DEFAULT 'available',
   `sale_id` int(11) DEFAULT NULL,
   `sale_item_id` int(11) DEFAULT NULL,
+  `supplier_id` int(11) DEFAULT NULL, -- [NEW COLUMN]
   `notes` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_serial_per_product` (`serial_number`,`product_id`),
+  KEY `idx_product_id` (`product_id`),
+  KEY `idx_serial_number` (`serial_number`),
+  KEY `idx_status` (`status`),
+  KEY `idx_sale_id` (`sale_id`),
+  KEY `fk_serial_supplier` (`supplier_id`), -- [NEW INDEX]
+  CONSTRAINT `fk_serial_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`product_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_serial_sale` FOREIGN KEY (`sale_id`) REFERENCES `sales` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_serial_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`) ON DELETE SET NULL -- [NEW FK]
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --

@@ -168,6 +168,24 @@ export const SerialNumberController = {
     }
   },
 
+  // [NEW] Get serial numbers returnable to supplier
+  getReturnableSerials: async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const serials = await SerialNumber.getReturnableByProductId(productId);
+      res.json({
+        success: true,
+        data: serials
+      });
+    } catch (error) {
+      console.error('Error fetching returnable serials:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  },
+
   // Get serial numbers by sale ID
   getBySaleId: async (req, res) => {
     try {

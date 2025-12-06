@@ -2,16 +2,17 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormInput, CFormSelect, CFormLabel,
   CFormTextarea, CFormSwitch, CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter,
-  CBadge, CSpinner, CPagination, CPaginationItem, CTooltip
+  CBadge, CSpinner, CTooltip
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { 
   cilMagnifyingGlass, cilPlus, cilPencil, cilTrash, cilImage, 
-  cilCloudUpload, cilChevronLeft, cilChevronRight, cilBarcode,
+  cilCloudUpload, cilBarcode,
   cilCrop, cilInbox
 } from '@coreui/icons'
 import { productAPI } from '../../utils/api'
 import { serialNumberAPI } from '../../utils/serialNumberApi'
+import AppPagination from '../../components/AppPagination' //
 
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
@@ -336,21 +337,22 @@ const ProductPage = () => {
   const getImageUrl = (path) => path ? (path.startsWith('http') ? path : `${ASSET_URL}${path.startsWith('/') ? path : `/${path}`}`) : null;
   const totalPages = Math.ceil(total/ITEMS_PER_PAGE);
 
-  const renderPagination = () => {
-      // Simplified pagination for brevity
-      return (
-          <>
-            <CPaginationItem disabled={page===1} onClick={()=>setPage(p=>p-1)}><CIcon icon={cilChevronLeft} size="sm"/></CPaginationItem>
-            <span className="px-3 d-flex align-items-center small fw-bold">{page} / {totalPages || 1}</span>
-            <CPaginationItem disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}><CIcon icon={cilChevronRight} size="sm"/></CPaginationItem>
-          </>
-      )
-  }
+  const brandHeaderStyle = {
+    fontFamily: 'Oswald, sans-serif', 
+    textTransform: 'uppercase', 
+    letterSpacing: '1px', 
+    fontSize: '1.5rem', // Matched somewhat with h2
+    fontWeight: 700
+  };
 
   return (
     <CContainer fluid className="px-4 py-4">
       <div className="mb-4 d-flex justify-content-between align-items-end">
-        <div><h2 className="fw-bold text-brand-navy mb-1 font-oswald">PRODUCT CATALOG</h2><div className="text-muted fw-semibold">Inventory items and pricing</div></div>
+        <div>
+            {/* Standardized header style */}
+            <h2 className="fw-bold text-brand-navy mb-1" style={{fontFamily: 'Oswald, sans-serif', letterSpacing: '1px'}}>PRODUCT CATALOG</h2>
+            <div className="text-muted fw-semibold">Inventory items and pricing</div>
+        </div>
         <button className="btn-brand btn-brand-primary" onClick={handleAdd}><CIcon icon={cilPlus} className="me-2"/> Add New Part</button>
       </div>
 
@@ -387,7 +389,14 @@ const ProductPage = () => {
            })}
         </tbody>
       </table></div>
-      <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white"><span className="small text-muted fw-semibold">Showing {products.length} of {total} items</span><CPagination className="mb-0 justify-content-end">{renderPagination()}</CPagination></div></CCardBody></CCard>
+      <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white"><span className="small text-muted fw-semibold">Showing {products.length} of {total} items</span>
+        {/* Refactored to use Shared Component */}
+        <AppPagination 
+            currentPage={page} 
+            totalPages={totalPages} 
+            onPageChange={(p) => setPage(p)} 
+        />
+      </div></CCardBody></CCard>
 
       <ProductFormModal visible={formVisible} productToEdit={editingProduct} categories={categories} brands={brands} onClose={()=>setFormVisible(false)} onSuccess={(m)=>{ loadData(); setFormVisible(false); }} />
       
