@@ -9,9 +9,10 @@ const Orders = React.lazy(() => import('./views/admin/OrdersPage'))
 const Reports = React.lazy(() => import('./views/admin/ReportsPage'))
 const Settings = React.lazy(() => import('./views/admin/SettingsPage'))
 const ProductMgmt = React.lazy(() => import('./views/admin/ProductPage'))
-
-// --- NEW: Profile Import ---
 const Profile = React.lazy(() => import('./views/admin/ProfilePage'))
+
+// [NEW] Activity Logs Import
+const ActivityLogs = React.lazy(() => import('./views/admin/ActivityLogsPage'))
 
 const routes = [
   { path: '/', exact: true, name: 'Home' },
@@ -23,9 +24,10 @@ const routes = [
   { path: '/orders', name: 'Orders', element: Orders },
   { path: '/reports', name: 'Reports', element: Reports },
   { path: '/settings', name: 'Settings', element: Settings },
-  
-  // --- UPDATED: Now points to the dedicated Profile page ---
   { path: '/profile', name: 'My Profile', element: Profile },
+  
+  // [NEW] Register the Route
+  { path: '/activity-logs', name: 'Activity Logs', element: ActivityLogs },
 ]
 
 export default routes

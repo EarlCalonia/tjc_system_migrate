@@ -9,35 +9,31 @@ import {
   cilEnvelopeClosed, cilLocationPin, cilReload, cilAddressBook
 } from '@coreui/icons'
 import { suppliersAPI } from '../../utils/api'
-import AppPagination from '../../components/AppPagination' // 1. Import Shared Component
+import AppPagination from '../../components/AppPagination'
 
 // Import Global Brand Styles
 import '../../styles/Admin.css'
 import '../../styles/App.css' 
 import '../../styles/SuppliersPage.css'
 
-const ITEMS_PER_PAGE = 10; // 2. Define Limit
+const ITEMS_PER_PAGE = 10;
 
 const SuppliersPage = () => {
-  // --- STATE ---
   const [suppliers, setSuppliers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1) // 3. Add Page State
+  const [currentPage, setCurrentPage] = useState(1)
 
-  // Modal State
   const [modalVisible, setModalVisible] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
+  
   const [selectedSupplier, setSelectedSupplier] = useState({
-    id: null, name: '', contact_person: '', email: '', contact_number: '', address: ''
+    id: null, name: '', contact_person: '', email: '', phone: '', address: ''
   })
   
   const [msgModal, setMsgModal] = useState({ visible: false, title: '', message: '', color: 'info', onConfirm: null })
 
-  // --- HELPERS ---
   const showMessage = (title, message, color = 'info', onConfirm = null) => {
     setMsgModal({ visible: true, title, message, color, onConfirm })
   }
@@ -46,11 +42,8 @@ const SuppliersPage = () => {
 
   const brandHeaderStyle = { fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' };
 
-  // 4. Update Filter Logic to include Pagination
   const filteredSuppliers = useMemo(() => {
     if (!suppliers) return [];
-    
-    // First, filter by search
     const filtered = suppliers.filter(s => {
       const lowerQ = searchQuery.toLowerCase();
       return (
@@ -59,17 +52,14 @@ const SuppliersPage = () => {
         (s.email || '').toLowerCase().includes(lowerQ)
       );
     });
-
     return filtered;
   }, [suppliers, searchQuery]);
 
-  // Calculate Pagination Slices
   const totalItems = filteredSuppliers.length;
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const currentSuppliers = filteredSuppliers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-  // --- API ---
   const fetchSuppliers = async () => {
     setLoading(true)
     try {
@@ -85,19 +75,12 @@ const SuppliersPage = () => {
     }
   }
 
-  useEffect(() => {
-    fetchSuppliers()
-  }, [])
+  useEffect(() => { fetchSuppliers() }, [])
+  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
 
-  // Reset to page 1 when searching
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
-
-  // --- HANDLERS ---
   const handleAdd = () => {
     setIsEditMode(false)
-    setSelectedSupplier({ id: null, name: '', contact_person: '', email: '', contact_number: '', address: '' })
+    setSelectedSupplier({ id: null, name: '', contact_person: '', email: '', phone: '', address: '' })
     setModalVisible(true)
   }
 
@@ -108,7 +91,7 @@ const SuppliersPage = () => {
         name: supplier.supplier_name, 
         contact_person: supplier.contact_person, 
         email: supplier.email,
-        contact_number: supplier.contact_number,
+        phone: supplier.phone || supplier.contact_number || '', 
         address: supplier.address 
     })
     setModalVisible(true)
@@ -132,23 +115,23 @@ const SuppliersPage = () => {
 
   const handleContactChange = (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 11);
-    setSelectedSupplier({ ...selectedSupplier, contact_number: value });
+    setSelectedSupplier({ ...selectedSupplier, phone: value });
   }
 
   const handleSubmit = async () => {
     if (!selectedSupplier.name) return showMessage('Validation', 'Supplier Name is required.', 'warning')
     
-    if (selectedSupplier.contact_number && selectedSupplier.contact_number.length !== 11) {
+    if (selectedSupplier.phone && selectedSupplier.phone.length !== 11) {
         return showMessage('Validation', 'Contact number must be exactly 11 digits (e.g., 09123456789).', 'warning');
     }
     
     setSubmitting(true)
     try {
       const payload = {
-        supplier_name: selectedSupplier.name,
+        name: selectedSupplier.name, // [FIX] This was incorrectly "supplier_name"
         contact_person: selectedSupplier.contact_person,
         email: selectedSupplier.email,
-        contact_number: selectedSupplier.contact_number,
+        phone: selectedSupplier.phone, 
         address: selectedSupplier.address
       }
 
@@ -192,30 +175,16 @@ const SuppliersPage = () => {
           <div className="d-flex gap-2 align-items-center">
              <div className="brand-search-wrapper" style={{maxWidth: '350px'}}>
                 <span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass}/></span>
-                <input 
-                  type="text" 
-                  className="brand-search-input" 
-                  placeholder="Search suppliers..." 
-                  value={searchQuery} 
-                  onChange={e => setSearchQuery(e.target.value)} 
-                />
+                <input type="text" className="brand-search-input" placeholder="Search suppliers..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
              </div>
-
              <div className="vr mx-2"></div>
              
-             <button 
-                className="btn-brand btn-brand-outline" 
-                onClick={fetchSuppliers} 
-                disabled={loading}
-                style={{width: '45px', padding: 0}} 
-                title="Reload"
-             >
-               <CIcon icon={cilReload} spin={loading || undefined} />
+             {/* [FIX] Cleaned up 'spin' prop warning */}
+             <button className="btn-brand btn-brand-outline" onClick={fetchSuppliers} disabled={loading} style={{width: '45px', padding: 0}} title="Reload">
+               <CIcon icon={cilReload} className={loading ? "fa-spin" : ""} />
              </button>
 
-             <span className="ms-auto text-muted small fw-bold">
-                {totalItems} Partners Active
-             </span>
+             <span className="ms-auto text-muted small fw-bold">{totalItems} Partners Active</span>
           </div>
         </CCardBody>
       </CCard>
@@ -261,7 +230,7 @@ const SuppliersPage = () => {
                          <div className="d-flex flex-column gap-1">
                            <div className="d-flex align-items-center text-muted small">
                              <CIcon icon={cilPhone} className="me-2 text-info" size="sm"/>
-                             {supplier.contact_number || '--'}
+                             {supplier.phone || supplier.contact_number || '--'}
                            </div>
                            <div className="d-flex align-items-center text-muted small">
                              <CIcon icon={cilEnvelopeClosed} className="me-2 text-warning" size="sm"/>
@@ -291,22 +260,14 @@ const SuppliersPage = () => {
               </tbody>
             </table>
           </div>
-
-          {/* 5. Add Pagination Footer */}
           <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white">
-             <span className="small text-muted fw-semibold">
-                Showing {currentSuppliers.length} of {totalItems} partners
-             </span>
-             <AppPagination 
-               currentPage={currentPage} 
-               totalPages={totalPages} 
-               onPageChange={(page) => setCurrentPage(page)} 
-             />
+             <span className="small text-muted fw-semibold">Showing {currentSuppliers.length} of {totalItems} partners</span>
+             <AppPagination currentPage={currentPage} totalPages={totalPages} onPageChange={(page) => setCurrentPage(page)} />
           </div>
         </CCardBody>
       </CCard>
 
-      {/* ... Modals (Add/Edit, Message) remain strictly unchanged ... */}
+      {/* MODALS */}
       <CModal visible={modalVisible} onClose={() => setModalVisible(false)} alignment="center" backdrop="static">
         <CModalHeader className="bg-brand-navy">
             <CModalTitle component="span" className="text-white" style={{...brandHeaderStyle, fontSize: '1.25rem'}}>
@@ -326,12 +287,7 @@ const SuppliersPage = () => {
                   </CCol>
                   <CCol md={6}>
                       <CFormLabel className="small fw-bold text-muted">Phone Number</CFormLabel>
-                      <CFormInput 
-                        value={selectedSupplier.contact_number} 
-                        onChange={handleContactChange} 
-                        placeholder="e.g. 09123456789"
-                        maxLength={11}
-                      />
+                      <CFormInput value={selectedSupplier.phone} onChange={handleContactChange} placeholder="e.g. 09123456789" maxLength={11} />
                   </CCol>
                </CRow>
                <div className="mb-3">

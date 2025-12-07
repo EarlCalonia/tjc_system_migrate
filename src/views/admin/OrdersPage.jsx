@@ -8,7 +8,7 @@ import CIcon from '@coreui/icons-react'
 import {
   cilMagnifyingGlass, cilDescription, cilMoney, cilWarning, cilCheckCircle, cilArrowLeft,
   cilSettings, cilTruck, cilXCircle, cilCloudUpload, cilTrash, cilChevronLeft, cilChevronRight, cilBan,
-  cilCalendar, cilLocationPin, cilNotes, cilHome, cilCog, cilBarcode
+  cilCalendar, cilLocationPin, cilNotes, cilHome, cilCog, cilBarcode, cilHistory
 } from '@coreui/icons'
 import { salesAPI, returnsAPI, serialNumberAPI } from '../../utils/api'
 
@@ -37,6 +37,10 @@ const OrdersPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false); 
   
+  // Return History State
+  const [orderReturnHistory, setOrderReturnHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  
   // Return Logic
   const [orderToReturn, setOrderToReturn] = useState(null); 
   const [returnItems, setReturnItems] = useState([]);
@@ -64,25 +68,13 @@ const OrdersPage = () => {
   const fetchOrdersWithItems = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      // [FIX] REMOVED THE N+1 LOOP
-      // We now rely on SalesController.getAllSales to return items attached to the sales.
-      // This prevents the 429 Too Many Requests error.
       const response = await salesAPI.getSales({ limit: 1000 });
-      
-      if (!Array.isArray(response)) { 
-        setOrders([]); 
-        return; 
-      }
-      
+      if (!Array.isArray(response)) { setOrders([]); return; }
       const sortedOrders = response.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      
       setOrders(sortedOrders);
       setTotalItems(sortedOrders.length);
-    } catch (err) { 
-        if(!isBackground) setOrders([]); 
-    } finally { 
-        if(!isBackground) setLoading(false); 
-    }
+    } catch (err) { if(!isBackground) setOrders([]); } 
+    finally { if(!isBackground) setLoading(false); }
   }
 
   const fetchOrderStats = async () => {
@@ -112,29 +104,65 @@ const OrdersPage = () => {
       }
   }
 
+  // [FIX] Enhanced Detail View: Fetches Serials and History
+  const handleViewDetails = async (order) => {
+      // 1. Set Initial Data
+      setSelectedOrder(order);
+      setOrderReturnHistory([]);
+      setIsModalOpen(true);
+
+      // 2. Fetch specific Serial Numbers for this order
+      // We do this here to avoid fetching serials for ALL orders in the main list
+      try {
+          const serialRes = await serialNumberAPI.getBySaleId(order.id);
+          if (serialRes.success && serialRes.data.length > 0) {
+              const serialsMap = {};
+              serialRes.data.forEach(sn => {
+                  // Map serials by sale_item_id
+                  if(!serialsMap[sn.sale_item_id]) serialsMap[sn.sale_item_id] = [];
+                  serialsMap[sn.sale_item_id].push(sn.serial_number);
+              });
+
+              // Enrich the items with serial numbers
+              const enrichedItems = order.items.map(item => ({
+                  ...item,
+                  serial_numbers: serialsMap[item.id] || []
+              }));
+
+              setSelectedOrder({ ...order, items: enrichedItems });
+          }
+      } catch (e) { console.error("Failed to load serial numbers for order"); }
+
+      // 3. Fetch Return History if needed
+      if (['Returned', 'Partially Returned'].includes(order.status) || order.status === 'Completed') {
+          setLoadingHistory(true);
+          try {
+              const res = await returnsAPI.getReturnsByOrder(order.id);
+              if (res.success) setOrderReturnHistory(res.data || []);
+          } catch (e) { console.error("Failed to fetch return history", e); } 
+          finally { setLoadingHistory(false); }
+      }
+  }
+
   // --- RETURN LOGIC ---
   const handleOpenReturnModal = async (order) => { 
       setOrderToReturn(order); 
-      
-      // 1. Fetch serial numbers sold in this order
       let soldSerials = [];
       try {
         const serialRes = await serialNumberAPI.getBySaleId(order.id);
         if(serialRes.success) soldSerials = serialRes.data;
       } catch(e) { console.error("Failed to fetch serials", e); }
 
-      // 2. Map items and attach relevant serials
       const items = order.items.map(item => {
           const itemSerials = soldSerials.filter(s => s.product_id === item.product_id);
           const isSerialized = itemSerials.length > 0; 
-
           return {
             ...item,
             return_qty: 0,
-            max_qty: item.quantity,
+            max_qty: item.quantity, 
             is_serialized: isSerialized,
-            available_serials: itemSerials, // All serials sold
-            selected_serials: [] // Serials selected for return
+            available_serials: itemSerials, 
+            selected_serials: [] 
           };
       });
 
@@ -153,24 +181,16 @@ const OrdersPage = () => {
       setReturnItems(newItems);
   }
 
-  // Handle checking/unchecking specific serial numbers
   const handleSerialSelection = (itemIndex, serialNumber, isChecked) => {
       const newItems = [...returnItems];
       const item = newItems[itemIndex];
-      
-      if (isChecked) {
-          item.selected_serials = [...item.selected_serials, serialNumber];
-      } else {
-          item.selected_serials = item.selected_serials.filter(s => s !== serialNumber);
-      }
-      
-      // Sync quantity with selected serials count
+      if (isChecked) item.selected_serials = [...item.selected_serials, serialNumber];
+      else item.selected_serials = item.selected_serials.filter(s => s !== serialNumber);
       item.return_qty = item.selected_serials.length;
       setReturnItems(newItems);
   }
 
   const handleProcessReturn = async () => {
-      // Validation
       const invalidSerialItem = returnItems.find(i => i.is_serialized && i.return_qty > 0 && i.selected_serials.length !== i.return_qty);
       if (invalidSerialItem) {
           setMsgModal({ visible: true, title: 'Validation Error', message: `Please select exactly ${invalidSerialItem.return_qty} serial numbers for ${invalidSerialItem.product_name}.`, color: 'warning' });
@@ -180,15 +200,12 @@ const OrdersPage = () => {
       const itemsToProcess = returnItems
           .filter(i => i.return_qty > 0)
           .map(i => ({
-              // [FIX] Use camelCase 'saleItemId' to match Backend
               saleItemId: i.id, 
               productId: i.product_id,
-              // [FIX] Include productName which is required by backend INSERT
               productName: i.product_name,
               sku: i.sku || null,
               quantity: i.return_qty,
               price: i.price,
-              // [FIX] Send the selected serials array
               serialNumbers: i.selected_serials 
           }));
 
@@ -207,7 +224,7 @@ const OrdersPage = () => {
           formData.append('refundMethod', returnForm.method);
           formData.append('restocked', returnForm.restock);
           formData.append('additionalNotes', returnForm.notes);
-          formData.append('returnItems', JSON.stringify(itemsToProcess)); // Serial numbers are inside this JSON
+          formData.append('returnItems', JSON.stringify(itemsToProcess)); 
           if (returnForm.file) formData.append('photoProof', returnForm.file);
 
           const res = await returnsAPI.processReturn(formData);
@@ -239,20 +256,13 @@ const OrdersPage = () => {
   const renderStatusBadge = (status) => {
       let color = 'secondary';
       let icon = cilCheckCircle;
-      
       if(['Paid', 'Completed'].includes(status)) { color = 'success'; icon = cilCheckCircle; }
       else if(['Pending', 'Unpaid'].includes(status)) { color = 'warning'; icon = cilWarning; }
       else if(status === 'Processing') { color = 'info'; icon = cilSettings; }
       else if(['Cancelled', 'Refunded', 'Returned'].includes(status)) { color = 'danger'; icon = cilBan; }
       else if(status === 'Partially Returned') { color = 'dark'; icon = cilArrowLeft; }
-
       const textColor = ['warning', 'info', 'light'].includes(color) ? 'text-dark' : 'text-white';
-      
-      return (
-        <CBadge color={color} shape="rounded-pill" className={`px-2 py-1 ${textColor} border`}>
-            <CIcon icon={icon} size="sm" className="me-1"/> {status}
-        </CBadge>
-      );
+      return <CBadge color={color} shape="rounded-pill" className={`px-2 py-1 ${textColor} border`}><CIcon icon={icon} size="sm" className="me-1"/> {status}</CBadge>;
   }
 
   const getTimelineStep = (status) => {
@@ -267,14 +277,10 @@ const OrdersPage = () => {
       const type = order?.delivery_type || order?.sale_type || '';
       const isDelivery = type.includes('Delivery');
       const isCompleted = order?.status === 'Completed';
-
       return [
         { label: 'Order Placed', icon: cilDescription },
         { label: 'Processing', icon: cilCog },
-        { 
-          label: isDelivery ? (isCompleted ? 'Delivered' : 'Out for Delivery') : (isCompleted ? 'Picked Up' : 'Ready for Pickup'), 
-          icon: isDelivery ? cilTruck : (isCompleted ? cilCheckCircle : cilHome)
-        }
+        { label: isDelivery ? (isCompleted ? 'Delivered' : 'Out for Delivery') : (isCompleted ? 'Picked Up' : 'Ready for Pickup'), icon: isDelivery ? cilTruck : (isCompleted ? cilCheckCircle : cilHome) }
       ];
   };
 
@@ -290,9 +296,7 @@ const OrdersPage = () => {
     const maxVisible = 5; 
     let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
     let end = Math.min(totalPages, start + maxVisible - 1);
-
     if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
-
     items.push(<CPaginationItem key="prev" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} style={{cursor: 'pointer'}}><CIcon icon={cilChevronLeft} size="sm"/></CPaginationItem>);
     if (start > 1) { items.push(<CPaginationItem key={1} onClick={() => setCurrentPage(1)} style={{cursor: 'pointer'}}>1</CPaginationItem>); if (start > 2) items.push(<CPaginationItem key="e1" disabled>...</CPaginationItem>); }
     for (let i = start; i <= end; i++) items.push(<CPaginationItem key={i} active={i === currentPage} onClick={() => setCurrentPage(i)} style={{cursor: 'pointer', backgroundColor: i===currentPage ? 'var(--brand-navy)' : '', borderColor: i===currentPage ? 'var(--brand-navy)' : ''}}>{i}</CPaginationItem>);
@@ -360,7 +364,8 @@ const OrdersPage = () => {
                     <td className="text-end pe-4">
                       <div className="d-flex justify-content-end gap-2">
                         <CTooltip content="View Details">
-                            <CButton size="sm" color="primary" variant="outline" onClick={() => { setSelectedOrder(order); setIsModalOpen(true); }}><CIcon icon={cilDescription} /></CButton>
+                            {/* [FIX] Call handleViewDetails to load serials */}
+                            <CButton size="sm" color="primary" variant="outline" onClick={() => handleViewDetails(order)}><CIcon icon={cilDescription} /></CButton>
                         </CTooltip>
                         {['Completed', 'Partially Returned'].includes(order.status) && (
                            <CTooltip content="Process Return">
@@ -427,7 +432,17 @@ const OrdersPage = () => {
                     <tbody>
                       {selectedOrder.items?.map((item, i) => (
                         <tr key={i}>
-                          <td className="ps-4"><div className="fw-bold text-dark">{item.product_name}</div><div className="small text-muted">{item.brand}</div></td>
+                          <td className="ps-4">
+                              <div className="fw-bold text-dark">{item.product_name}</div>
+                              <div className="small text-muted">{item.brand}</div>
+                              {/* [FIX] Display Serial Numbers */}
+                              {item.serial_numbers && item.serial_numbers.length > 0 && (
+                                  <div className="text-primary small mt-1">
+                                      <CIcon icon={cilBarcode} size="sm" className="me-1"/>
+                                      {item.serial_numbers.join(', ')}
+                                  </div>
+                              )}
+                          </td>
                           <td className="text-center">{item.quantity}</td>
                           <td className="text-end">₱{Number(item.price).toLocaleString()}</td>
                           <td className="text-end fw-bold pe-4">₱{Number(item.price * item.quantity).toLocaleString()}</td>
@@ -436,6 +451,45 @@ const OrdersPage = () => {
                     </tbody>
                   </table>
                 </div>
+
+                {/* RETURN HISTORY SECTION */}
+                {loadingHistory && <div className="text-center py-3"><CSpinner size="sm"/> Loading Return History...</div>}
+                {!loadingHistory && orderReturnHistory.length > 0 && (
+                    <div className="p-3 bg-light border-top">
+                        <h6 className="fw-bold text-danger border-bottom pb-2 mb-3"><CIcon icon={cilHistory} className="me-2"/> RETURN HISTORY</h6>
+                        {orderReturnHistory.map((ret) => (
+                            <div key={ret.return_id} className="bg-white p-3 rounded shadow-sm border mb-2">
+                                <div className="d-flex justify-content-between mb-2">
+                                    <span className="fw-bold text-danger small">{ret.return_id}</span>
+                                    <span className="text-muted small">{new Date(ret.return_date).toLocaleDateString()}</span>
+                                </div>
+                                <div className="small text-dark mb-2"><strong>Reason:</strong> {ret.return_reason}</div>
+                                <div className="table-responsive">
+                                    <table className="table table-sm table-borderless mb-0 small">
+                                        <thead className="text-muted"><tr><th>Item</th><th>Qty</th><th>Refund</th></tr></thead>
+                                        <tbody>
+                                            {ret.items?.map((item, idx) => (
+                                                <tr key={idx}>
+                                                    <td>
+                                                        <div>{item.product_name}</div>
+                                                        {/* [FIX] Show Specific Serial Numbers */}
+                                                        {item.serial_numbers && (
+                                                            <div className="text-danger fst-italic" style={{fontSize: '0.75rem'}}>
+                                                                SN: {item.serial_numbers}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td>{item.quantity}</td>
+                                                    <td>₱{Number(item.subtotal).toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
                 
                 {selectedOrder.status === 'Pending' && (
                     <div className="p-3 bg-warning bg-opacity-10 border-top d-flex justify-content-between align-items-center">

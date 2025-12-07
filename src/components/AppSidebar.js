@@ -1,16 +1,61 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { CSidebar, CSidebarBrand, CSidebarToggler } from '@coreui/react'
+import { CSidebar, CSidebarBrand, CSidebarToggler, CAvatar } from '@coreui/react'
 import { AppSidebarNav } from './AppSidebarNav'
 import navigation from '../_nav'
+import { useNavigate } from 'react-router-dom'
+import { authAPI } from '../utils/api'
+
+// Icons
+import CIcon from '@coreui/icons-react'
+import { cilAccountLogout, cilSettings, cilUser } from '@coreui/icons'
 
 // Branding Assets
 import sidebarIcon from '../assets/sidebar-icon.png' 
 
+const ASSET_URL = 'http://localhost:5000'
+
 const AppSidebar = () => {
   const dispatch = useDispatch()
+  const navigate = useNavigate()
   const unfoldable = useSelector((state) => state.sidebarUnfoldable)
   const sidebarShow = useSelector((state) => state.sidebarShow)
+
+  // User State
+  const [avatar, setAvatar] = useState(null)
+  const [username, setUsername] = useState('User')
+  const [role, setRole] = useState('Staff')
+
+  useEffect(() => {
+    const loadUser = () => {
+       const storedAvatar = localStorage.getItem('userAvatar')
+       const storedName = localStorage.getItem('username')
+       const storedRole = localStorage.getItem('role')
+
+       if (storedAvatar) {
+           setAvatar(storedAvatar.startsWith('http') ? storedAvatar : `${ASSET_URL}${storedAvatar}`)
+       }
+       if (storedName) setUsername(storedName)
+       if (storedRole) setRole(storedRole)
+    }
+    loadUser()
+    window.addEventListener('userUpdated', loadUser)
+    return () => window.removeEventListener('userUpdated', loadUser)
+  }, [])
+
+  const handleLogout = async () => {
+    // 1. Visual feedback (optional) or confirm dialog
+    if(!window.confirm("Are you sure you want to log out?")) return;
+
+    try {
+      await authAPI.logout()
+    } catch (e) {
+      console.error("Logout failed", e)
+    } finally {
+      localStorage.clear()
+      window.location.href = '/login'
+    }
+  }
 
   return (
     <CSidebar
@@ -20,7 +65,7 @@ const AppSidebar = () => {
       onVisibleChange={(visible) => {
         dispatch({ type: 'set', sidebarShow: visible })
       }}
-      className="sidebar-brand-navy border-end" 
+      className="sidebar-brand-navy border-end d-flex flex-column" 
     >
       <CSidebarBrand className="d-none d-md-flex flex-column align-items-center justify-content-center" to="/">
         {/* --- FULL LOGO --- */}
@@ -56,19 +101,56 @@ const AppSidebar = () => {
             </div>
         </div>
         
-        {/* --- NARROW LOGO --- */}
+        {/* --- NARROW LOGO (When minimized) --- */}
         <img 
           className="sidebar-brand-narrow" 
           src={sidebarIcon} 
           alt="Icon" 
-          style={{ height: '35px', objectFit: 'contain' }} 
+          style={{ height: '35px', objectFit: 'contain', margin: '10px 0' }} 
         />
       </CSidebarBrand>
       
-      {/* Navigation - Will grow to fill space and scroll if needed */}
+      {/* Navigation (Flex-grow ensures it takes available space) */}
       <AppSidebarNav items={navigation} />
 
-      {/* Footer Toggler */}
+      {/* --- NEW USER FOOTER SECTION --- */}
+      <div className="mt-auto border-top border-white border-opacity-10 p-3">
+          <div className={`d-flex align-items-center ${unfoldable ? 'justify-content-center' : 'justify-content-between'}`}>
+              
+              {/* Profile Info (Hide if narrow) */}
+              {!unfoldable && (
+                  <div className="d-flex align-items-center overflow-hidden" style={{cursor: 'pointer'}} onClick={() => navigate('/profile')}>
+                      <CAvatar src={avatar || undefined} color={!avatar ? "secondary" : undefined} size="md" status="success">
+                          {!avatar && <CIcon icon={cilUser} />}
+                      </CAvatar>
+                      <div className="ms-2 d-flex flex-column" style={{lineHeight: '1.2'}}>
+                          <span className="fw-bold text-white small text-truncate" style={{maxWidth: '120px'}}>{username}</span>
+                          <span className="text-white-50" style={{fontSize: '10px'}}>{role}</span>
+                      </div>
+                  </div>
+              )}
+
+              {/* Actions */}
+              <div className="d-flex gap-2">
+                  {/* Settings (Only show if wide) */}
+                  {!unfoldable && (
+                    <button className="btn btn-sm btn-ghost-light text-white-50" onClick={() => navigate('/settings')} title="Settings">
+                        <CIcon icon={cilSettings} />
+                    </button>
+                  )}
+                  
+                  {/* LOGOUT BUTTON */}
+                  <button 
+                    className="btn btn-sm btn-ghost-danger text-danger" 
+                    onClick={handleLogout} 
+                    title="Logout"
+                  >
+                    <CIcon icon={cilAccountLogout} />
+                  </button>
+              </div>
+          </div>
+      </div>
+
       <CSidebarToggler
         className="d-none d-lg-flex"
         onClick={() => dispatch({ type: 'set', sidebarUnfoldable: !unfoldable })}

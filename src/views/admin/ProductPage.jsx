@@ -7,12 +7,11 @@ import {
 import CIcon from '@coreui/icons-react'
 import { 
   cilMagnifyingGlass, cilPlus, cilPencil, cilTrash, cilImage, 
-  cilCloudUpload, cilBarcode,
-  cilCrop, cilInbox
+  cilCloudUpload, cilCrop
 } from '@coreui/icons'
 import { productAPI } from '../../utils/api'
 import { serialNumberAPI } from '../../utils/serialNumberApi'
-import AppPagination from '../../components/AppPagination' //
+import AppPagination from '../../components/AppPagination'
 
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
@@ -22,7 +21,18 @@ import '../../styles/App.css'
 import '../../styles/ProductPage.css' 
 
 const ASSET_URL = 'http://localhost:5000'
-const UOM_OPTIONS = ['EA', 'SET', 'KIT', 'PR', 'ASY', 'PK']
+
+// [FIX] Map acronyms to user-friendly names
+const UOM_MAP = {
+    'EA': 'Each',
+    'SET': 'Set',
+    'KIT': 'Kit',
+    'PR': 'Pair',
+    'ASY': 'Assembly',
+    'PK': 'Pack'
+};
+const UOM_OPTIONS = Object.keys(UOM_MAP);
+
 const CROP_ASPECT = 4 / 3; 
 const ITEMS_PER_PAGE = 10;
 
@@ -34,7 +44,6 @@ const ImageCropModal = ({ visible, imageSrc, onClose, onApply, loading }) => {
     const [completedCrop, setCompletedCrop] = useState(null);
     const imgRef = useRef(null);
 
-    // Reset on open
     useEffect(() => { 
         if(visible) { setCrop(undefined); setCompletedCrop(null); }
     }, [visible]);
@@ -49,8 +58,6 @@ const ImageCropModal = ({ visible, imageSrc, onClose, onApply, loading }) => {
 
     const handleApply = async () => {
         if (!imgRef.current || !completedCrop) return;
-        
-        // Canvas Draw Logic
         const canvas = document.createElement('canvas');
         const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
         const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
@@ -84,25 +91,21 @@ const ImageCropModal = ({ visible, imageSrc, onClose, onApply, loading }) => {
 }
 
 // ==================================================================================
-// SUB-COMPONENT: PRODUCT FORM MODAL (Handles its own state)
+// SUB-COMPONENT: PRODUCT FORM MODAL
 // ==================================================================================
 const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose, onSuccess }) => {
     const fileInputRef = useRef(null);
     const [form, setForm] = useState({});
     const [imageFile, setImageFile] = useState(null);
     const [preview, setPreview] = useState(null);
-    
-    // Crop State
     const [cropVisible, setCropVisible] = useState(false);
     const [cropSrc, setCropSrc] = useState(null);
-    
     const [loading, setLoading] = useState(false);
     const [hasUnremovableSerials, setHasUnremovableSerials] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
 
     const isAddMode = !productToEdit;
 
-    // Initialize Form on Open
     useEffect(() => {
         if (visible) {
             if (productToEdit) {
@@ -130,7 +133,6 @@ const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose,
         } else { setHasUnremovableSerials(false); }
     };
 
-    // Handlers
     const handleFileSelect = (e) => {
         const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
         if (!file) return;
@@ -139,10 +141,9 @@ const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose,
         const reader = new FileReader();
         reader.onloadend = () => {
             setCropSrc(reader.result);
-            setCropVisible(true); // Auto open crop
+            setCropVisible(true);
         }
         reader.readAsDataURL(file);
-        // Reset input so same file can be selected again if needed
         if(fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -184,7 +185,6 @@ const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose,
                 </CModalHeader>
                 <CModalBody className="bg-light p-4">
                     <div className="vertical-product-form">
-                        {/* Section 1 */}
                         <div className="bg-white p-3 rounded shadow-sm border mb-3">
                             <h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">1. IDENTIFICATION</h6>
                             <CRow className="g-3">
@@ -209,7 +209,6 @@ const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose,
                             </CRow>
                         </div>
 
-                        {/* Section 2 */}
                         <div className="bg-white p-3 rounded shadow-sm border mb-3">
                             <h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">2. PRICING & PACKAGING</h6>
                             <CRow className="g-3">
@@ -221,8 +220,9 @@ const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose,
                                 </CCol>
                                 <CCol md={4}>
                                     <CFormLabel className="small fw-bold text-muted">Unit of Measure</CFormLabel>
+                                    {/* [FIX] Enhanced dropdown to show Full Name */}
                                     <CFormSelect value={form.unit_tag || 'EA'} onChange={e => setForm({...form, unit_tag: e.target.value})} className="brand-select">
-                                        {UOM_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                                        {UOM_OPTIONS.map(u => <option key={u} value={u}>{u} - {UOM_MAP[u]}</option>)}
                                     </CFormSelect>
                                 </CCol>
                                 <CCol md={4}>
@@ -232,7 +232,6 @@ const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose,
                             </CRow>
                         </div>
 
-                        {/* Section 3 */}
                         <div className="bg-white p-3 rounded shadow-sm border">
                             <h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">3. VISUALS & SETTINGS</h6>
                             <CRow className="g-3 align-items-start">
@@ -293,15 +292,11 @@ const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose,
 const ProductPage = () => {
   const [products, setProducts] = useState([]); const [total, setTotal] = useState(0); const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState(''); const [page, setPage] = useState(1)
-  
-  // Filters
   const [cat, setCat] = useState('All Categories'); const [brd, setBrd] = useState('All Brand'); 
   const [stat, setStat] = useState('All Status'); const [unit, setUnit] = useState('All Units')
   const [categories, setCategories] = useState([]); const [brands, setBrands] = useState([])
-
-  // Modal Controls
   const [formVisible, setFormVisible] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null); // Null = Add Mode
+  const [editingProduct, setEditingProduct] = useState(null); 
   const [msg, setMsg] = useState({ show: false, title: '', text: '', color: 'info', confirm: null })
 
   const loadData = useCallback(async () => {
@@ -324,7 +319,6 @@ const ProductPage = () => {
 
   useEffect(() => { loadMeta(); const t = setTimeout(loadData, 300); return ()=>clearTimeout(t); }, [loadData])
 
-  // Actions
   const handleAdd = () => { setEditingProduct(null); setFormVisible(true); }
   const handleEdit = (p) => { setEditingProduct(p); setFormVisible(true); }
   const handleDelete = (p) => {
@@ -337,19 +331,10 @@ const ProductPage = () => {
   const getImageUrl = (path) => path ? (path.startsWith('http') ? path : `${ASSET_URL}${path.startsWith('/') ? path : `/${path}`}`) : null;
   const totalPages = Math.ceil(total/ITEMS_PER_PAGE);
 
-  const brandHeaderStyle = {
-    fontFamily: 'Oswald, sans-serif', 
-    textTransform: 'uppercase', 
-    letterSpacing: '1px', 
-    fontSize: '1.5rem', // Matched somewhat with h2
-    fontWeight: 700
-  };
-
   return (
     <CContainer fluid className="px-4 py-4">
       <div className="mb-4 d-flex justify-content-between align-items-end">
         <div>
-            {/* Standardized header style */}
             <h2 className="fw-bold text-brand-navy mb-1" style={{fontFamily: 'Oswald, sans-serif', letterSpacing: '1px'}}>PRODUCT CATALOG</h2>
             <div className="text-muted fw-semibold">Inventory items and pricing</div>
         </div>
@@ -367,10 +352,21 @@ const ProductPage = () => {
       </CCardBody></CCard>
       
       <CCard className="mb-4 border-0 shadow-sm overflow-hidden"><CCardBody className="p-0"><div className="admin-table-container"><table className="admin-table">
-        <thead><tr><th className="ps-4">Part No.</th><th>Product Details</th><th>Category</th><th>Brand</th><th>Price</th><th className="text-center">Status</th><th className="text-end pe-4">Actions</th></tr></thead>
+        <thead>
+            <tr>
+                <th className="ps-4">Part No.</th>
+                <th>Product Details</th>
+                <th>Category</th>
+                <th>Brand</th>
+                <th>Price</th>
+                <th className="text-center">Unit</th>
+                <th className="text-center">Status</th>
+                <th className="text-end pe-4">Actions</th>
+            </tr>
+        </thead>
         <tbody>
-          {loading ? <tr><td colSpan="7" className="text-center py-5"><CSpinner color="primary"/></td></tr> : 
-           products.length===0 ? <tr><td colSpan="7" className="text-center py-5 text-muted">No results.</td></tr> :
+          {loading ? <tr><td colSpan="8" className="text-center py-5"><CSpinner color="primary"/></td></tr> : 
+           products.length===0 ? <tr><td colSpan="8" className="text-center py-5 text-muted">No results.</td></tr> :
            products.map(p => {
              const img = getImageUrl(p.image);
              return (
@@ -381,7 +377,13 @@ const ProductPage = () => {
                   </td>
                   <td><div className="d-flex align-items-center gap-3"><div className="product-thumbnail-container">{img ? <img src={img} alt=""/> : <div className="placeholder-icon"><CIcon icon={cilImage} className="text-secondary opacity-50"/></div>}</div><div className="fw-bold text-dark text-wrap" style={{maxWidth:'250px'}}>{p.name}</div></div></td>
                   <td><span className="badge bg-light text-dark border fw-normal">{p.category}</span></td><td>{p.brand}</td>
-                  <td><div className="fw-bold text-brand-blue">₱{p.price?.toLocaleString()} <span className="text-muted small fw-normal">/ {p.unit_tag||'EA'}</span></div></td>
+                  <td><div className="fw-bold text-brand-blue">₱{p.price?.toLocaleString()}</div></td>
+                  <td className="text-center">
+                      {/* [FIX] Tooltip explains the acronym */}
+                      <CTooltip content={UOM_MAP[p.unit_tag] || p.unit_tag}>
+                          <CBadge color="info" shape="rounded-pill" className="px-3" style={{cursor: 'help'}}>{p.unit_tag || 'EA'}</CBadge>
+                      </CTooltip>
+                  </td>
                   <td className="text-center"><span className={`status-badge ${p.status==='Active'?'active':'cancelled'}`}>{p.status}</span></td>
                   <td className="text-end pe-4"><div className="d-flex justify-content-end gap-2"><CTooltip content="Edit"><button className="btn-brand btn-brand-outline btn-brand-sm" onClick={()=>handleEdit(p)}><CIcon icon={cilPencil}/></button></CTooltip><CTooltip content="Delete"><button className="btn-brand btn-brand-danger btn-brand-sm" onClick={()=>handleDelete(p)}><CIcon icon={cilTrash}/></button></CTooltip></div></td>
                </tr>
@@ -390,12 +392,7 @@ const ProductPage = () => {
         </tbody>
       </table></div>
       <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white"><span className="small text-muted fw-semibold">Showing {products.length} of {total} items</span>
-        {/* Refactored to use Shared Component */}
-        <AppPagination 
-            currentPage={page} 
-            totalPages={totalPages} 
-            onPageChange={(p) => setPage(p)} 
-        />
+        <AppPagination currentPage={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
       </div></CCardBody></CCard>
 
       <ProductFormModal visible={formVisible} productToEdit={editingProduct} categories={categories} brands={brands} onClose={()=>setFormVisible(false)} onSuccess={(m)=>{ loadData(); setFormVisible(false); }} />

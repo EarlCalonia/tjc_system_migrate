@@ -109,53 +109,52 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
   const doc = new jsPDF();
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
   
-  // 1. Header
   let yPos = drawReportHeader(doc, 'Sales Report', `Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, logoDataUrl);
 
-  // 2. Process Data
   const filteredOrders = salesData || [];
-  const allowedStatuses = ['Completed', 'Partially Returned', 'Pending', null];
-  const flattenedData = filteredOrders.flatMap(order =>
-    order.items.filter(item => allowedStatuses.includes(order.status)).map(item => ({
+  
+  // Flatten for table display
+  const flattenedData = filteredOrders.map(order => ({
       date: formatDate(order.orderDate),
-      name: item.productName,
-      qty: Number(item.quantity) || 0,
-      price: Number(item.unitPrice) || 0,
-      total: Number(item.totalPrice) || 0
-    }))
-  );
+      name: order.productName, 
+      qty: Number(order.quantity) || 0,
+      price: Number(order.unitPrice) || 0,
+      total: Number(order.totalPrice) || 0,
+      payment: order.paymentMethod || 'Cash',
+      status: order.paymentStatus || 'Paid'
+  }));
 
-  // 3. Table Config (Note the ALIGN property)
   const cols = {
-    date: { x: 15, w: 30, align: 'left' },
-    name: { x: 45, w: 80, align: 'left' },
-    qty: { x: 135, w: 15, align: 'right' },
-    price: { x: 165, w: 25, align: 'right' },
-    total: { x: 195, w: 0, align: 'right' } // x is the right anchor
+    date: { x: 15, w: 25 },
+    name: { x: 40, w: 60 },
+    qty: { x: 105, w: 10 },
+    price: { x: 125, w: 20 },
+    total: { x: 150, w: 20 },
+    pay: { x: 175, w: 15 },
+    stat: { x: 195, w: 15 }
   };
 
-  // 4. Draw Table Header
   const drawHeader = (y) => {
     doc.setFillColor(THEME.primary);
-    doc.rect(15, y, 180, 8, 'F'); // Header Background
+    doc.rect(15, y, 180, 8, 'F'); 
     doc.setTextColor(THEME.white);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     
-    // Add some padding to Y (y + 5) for vertical centering
     doc.text('Date', cols.date.x + 2, y + 5.5);
     doc.text('Product Name', cols.name.x, y + 5.5);
-    doc.text('Qty', cols.qty.x, y + 5.5, { align: 'right' });
-    doc.text('Unit Price', cols.price.x, y + 5.5, { align: 'right' });
+    doc.text('Qty', cols.qty.x, y + 5.5, { align: 'center' });
+    doc.text('Price', cols.price.x, y + 5.5, { align: 'right' });
     doc.text('Total', cols.total.x, y + 5.5, { align: 'right' });
+    doc.text('Method', cols.pay.x, y + 5.5, { align: 'left' });
+    doc.text('Status', cols.stat.x, y + 5.5, { align: 'right' });
   };
 
   drawHeader(yPos);
   yPos += 8;
 
-  // 5. Draw Rows
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   
   let grandTotal = 0;
 
@@ -166,89 +165,44 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
       drawHeader(yPos);
       yPos += 8;
       doc.setFont('helvetica', 'normal'); 
-      doc.setFontSize(9); 
+      doc.setFontSize(8); 
     }
 
-    // Zebra Striping
     if (index % 2 === 0) {
       doc.setFillColor(THEME.accent);
       doc.rect(15, yPos, 180, 7, 'F');
     }
 
     doc.setTextColor(THEME.text);
-    
-    // Truncate Name
-    const name = item.name.length > 40 ? item.name.substring(0, 37) + '...' : item.name;
+    const name = item.name.length > 35 ? item.name.substring(0, 32) + '...' : item.name;
 
     doc.text(item.date, cols.date.x + 2, yPos + 5);
     doc.text(name, cols.name.x, yPos + 5);
-    doc.text(item.qty.toString(), cols.qty.x, yPos + 5, { align: 'right' });
-    doc.text(formatCurrency(item.price), cols.price.x, yPos + 5, { align: 'right' });
-    doc.text(formatCurrency(item.total), cols.total.x, yPos + 5, { align: 'right' });
+    doc.text(item.qty.toString(), cols.qty.x, yPos + 5, { align: 'center' });
+    doc.text(formatCurrency(item.price).replace('PHP ',''), cols.price.x, yPos + 5, { align: 'right' });
+    doc.text(formatCurrency(item.total).replace('PHP ',''), cols.total.x, yPos + 5, { align: 'right' });
+    
+    doc.text(item.payment.substring(0,8), cols.pay.x, yPos + 5, { align: 'left' });
+    
+    if(item.status !== 'Paid') doc.setTextColor('#e74c3c'); 
+    else doc.setTextColor('#27ae60'); 
+    doc.text(item.status, cols.stat.x, yPos + 5, { align: 'right' });
 
     grandTotal += item.total;
     yPos += 7;
   });
 
-  // 6. Grand Total Line
-  yPos += 2;
+  yPos += 5;
   doc.setDrawColor(THEME.primary);
   doc.setLineWidth(0.5);
-  doc.line(130, yPos, 195, yPos); // Short line above total
+  doc.line(130, yPos, 195, yPos); 
   yPos += 6;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(THEME.primary);
-  doc.text('Grand Total:', 160, yPos, { align: 'right' });
+  doc.text('Grand Total:', 145, yPos, { align: 'right' });
   doc.text(formatCurrency(grandTotal), 195, yPos, { align: 'right' });
-
-  // 7. Summary Section
-  yPos += 15;
-  if (yPos > 250) { doc.addPage(); yPos = 20; }
-
-  // Summary Box
-  doc.setFillColor(THEME.accent);
-  doc.setDrawColor(THEME.line);
-  doc.roundedRect(15, yPos, 180, 35, 2, 2, 'FD');
-  
-  doc.setFontSize(12);
-  doc.setTextColor(THEME.primary);
-  doc.text('Performance Summary', 20, yPos + 8);
-  
-  doc.setFontSize(9);
-  doc.setTextColor(THEME.text);
-  doc.setFont('helvetica', 'normal');
-
-  // Calculations
-  const totalTransactions = filteredOrders.length;
-  const totalItems = flattenedData.reduce((acc, i) => acc + i.qty, 0);
-  const avgValue = totalTransactions ? grandTotal / totalTransactions : 0;
-  
-  // Left Column
-  let sumY = yPos + 16;
-  doc.text(`Total Revenue:`, 20, sumY);
-  doc.setFont('helvetica', 'bold');
-  doc.text(formatCurrency(grandTotal), 60, sumY);
-  
-  sumY += 6;
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Total Transactions:`, 20, sumY);
-  doc.setFont('helvetica', 'bold');
-  doc.text(totalTransactions.toString(), 60, sumY);
-
-  // Right Column
-  sumY = yPos + 16;
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Items Sold:`, 110, sumY);
-  doc.setFont('helvetica', 'bold');
-  doc.text(totalItems.toString(), 150, sumY);
-
-  sumY += 6;
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Avg Ticket Value:`, 110, sumY);
-  doc.setFont('helvetica', 'bold');
-  doc.text(formatCurrency(avgValue), 150, sumY);
 
   drawFooter(doc, adminName);
   return doc;
@@ -263,11 +217,11 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
   let yPos = drawReportHeader(doc, 'Inventory Report', `Status as of: ${formatDate(endDate)}`, logoDataUrl);
 
   const cols = {
-    name: { x: 15, align: 'left' },
-    category: { x: 80, align: 'left' },
-    brand: { x: 115, align: 'left' },
-    qty: { x: 155, align: 'right' },
-    status: { x: 195, align: 'right' }
+    name: { x: 15 },
+    brand: { x: 80 },
+    qty: { x: 120 },
+    price: { x: 150 },
+    val: { x: 195 }
   };
 
   const drawHeader = (y) => {
@@ -278,10 +232,10 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
     doc.setFontSize(9);
     
     doc.text('Product Name', cols.name.x + 2, y + 5.5);
-    doc.text('Category', cols.category.x, y + 5.5);
     doc.text('Brand', cols.brand.x, y + 5.5);
-    doc.text('Stock', cols.qty.x, y + 5.5, { align: 'right' });
-    doc.text('Status', cols.status.x, y + 5.5, { align: 'right' });
+    doc.text('Stock', cols.qty.x, y + 5.5, { align: 'center' });
+    doc.text('Unit Price', cols.price.x, y + 5.5, { align: 'right' });
+    doc.text('Total Value', cols.val.x, y + 5.5, { align: 'right' });
   };
 
   drawHeader(yPos);
@@ -289,6 +243,8 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
+
+  let totalInventoryValue = 0;
 
   inventoryData.forEach((item, index) => {
     if (yPos > 270) {
@@ -303,65 +259,55 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
       doc.rect(15, yPos, 180, 7, 'F');
     }
 
-    const name = item.productName.length > 30 ? item.productName.substring(0, 27) + '...' : item.productName;
+    const name = item.productName.length > 35 ? item.productName.substring(0, 32) + '...' : item.productName;
+    const value = item.currentStock * item.price;
+    totalInventoryValue += value;
 
     doc.setTextColor(THEME.text);
     doc.setFont('helvetica', 'normal');
     
     doc.text(name, cols.name.x + 2, yPos + 5);
-    doc.text(item.category || '-', cols.category.x, yPos + 5);
     doc.text(item.brand || '-', cols.brand.x, yPos + 5);
-    doc.text(item.currentStock.toString(), cols.qty.x, yPos + 5, { align: 'right' });
-
-    // Conditional Formatting for Status
-    if (item.stockStatus === 'Low Stock' || item.stockStatus === 'Out of Stock') {
-      doc.setTextColor('#e74c3c'); // Red
-      doc.setFont('helvetica', 'bold');
-    } else {
-      doc.setTextColor('#27ae60'); // Green
-    }
-    doc.text(item.stockStatus, cols.status.x, yPos + 5, { align: 'right' });
+    
+    if (item.stockStatus !== 'In Stock') doc.setTextColor('#e74c3c');
+    doc.text(item.currentStock.toString(), cols.qty.x, yPos + 5, { align: 'center' });
+    
+    doc.setTextColor(THEME.text);
+    doc.text(formatCurrency(item.price).replace('PHP ',''), cols.price.x, yPos + 5, { align: 'right' });
+    doc.text(formatCurrency(value).replace('PHP ',''), cols.val.x, yPos + 5, { align: 'right' });
 
     yPos += 7;
   });
 
-  // Summary
-  yPos += 10;
-  if (yPos > 250) { doc.addPage(); yPos = 20; }
+  yPos += 5;
+  doc.setDrawColor(THEME.primary);
+  doc.line(130, yPos, 195, yPos);
+  yPos += 6;
 
-  const totalStock = inventoryData.reduce((a, b) => a + b.currentStock, 0);
-  const lowStock = inventoryData.filter(i => i.stockStatus === 'Low Stock').length;
-
-  doc.setFillColor(THEME.primary);
-  doc.rect(15, yPos, 180, 1, 'F'); // Thin separator line
-  yPos += 10;
-
-  doc.setFontSize(11);
-  doc.setTextColor(THEME.text);
-  doc.text(`Total SKU Count: ${inventoryData.length}`, 15, yPos);
-  doc.text(`Total Units in Stock: ${totalStock}`, 80, yPos);
-  
-  doc.setTextColor('#e74c3c');
-  doc.text(`Low Stock Alerts: ${lowStock}`, 150, yPos);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(THEME.primary);
+  doc.text('Total Inventory Asset Value:', 140, yPos, { align: 'right' });
+  doc.text(formatCurrency(totalInventoryValue), 195, yPos, { align: 'right' });
 
   drawFooter(doc, adminName);
   return doc;
 };
 
 
-// --- RETURNS REPORT ---
-export const generateReturnsReportPDF = async (returnsData, startDate, endDate, adminName) => {
+// --- SMART DEAD STOCK REPORT ---
+export const generateDeadStockReportPDF = async (deadStockData, adminName) => {
   const doc = new jsPDF();
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
 
-  let yPos = drawReportHeader(doc, 'Returns Report', `${formatDate(startDate)} - ${formatDate(endDate)}`, logoDataUrl);
+  let yPos = drawReportHeader(doc, 'Dead Stock Report', `As of: ${formatDate(new Date())}`, logoDataUrl);
 
   const cols = {
-    id: { x: 15, align: 'left' },
-    order: { x: 40, align: 'left' },
-    customer: { x: 70, align: 'left' },
-    reason: { x: 120, align: 'left' },
-    amount: { x: 195, align: 'right' }
+    name: { x: 15 },
+    category: { x: 95 },
+    qty: { x: 135 },
+    capital: { x: 165 },
+    dormancy: { x: 195 }
   };
 
   const drawHeader = (y) => {
@@ -369,22 +315,24 @@ export const generateReturnsReportPDF = async (returnsData, startDate, endDate, 
     doc.rect(15, y, 180, 8, 'F');
     doc.setTextColor(THEME.white);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text('Return ID', cols.id.x + 2, y + 5.5);
-    doc.text('Order Ref', cols.order.x, y + 5.5);
-    doc.text('Customer', cols.customer.x, y + 5.5);
-    doc.text('Reason', cols.reason.x, y + 5.5);
-    doc.text('Refund Amt', cols.amount.x, y + 5.5, { align: 'right' });
+    doc.setFontSize(8);
+    
+    doc.text('Product / Serial Unit', cols.name.x + 2, y + 5.5);
+    doc.text('Category', cols.category.x, y + 5.5);
+    doc.text('Stock', cols.qty.x, y + 5.5, { align: 'center' });
+    doc.text('Tied Capital', cols.capital.x, y + 5.5, { align: 'right' });
+    doc.text('Dormancy', cols.dormancy.x, y + 5.5, { align: 'right' });
   };
 
   drawHeader(yPos);
   yPos += 8;
+
+  let totalTiedCapital = 0;
+
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8);
 
-  let totalRefund = 0;
-
-  returnsData.forEach((item, index) => {
+  deadStockData.forEach((item, index) => {
     if (yPos > 270) {
       doc.addPage();
       yPos = 20;
@@ -398,19 +346,134 @@ export const generateReturnsReportPDF = async (returnsData, startDate, endDate, 
     }
 
     doc.setTextColor(THEME.text);
-    const customer = item.customer_name?.length > 20 ? item.customer_name.substring(0, 18) + '..' : item.customer_name;
-    const reason = item.return_reason || 'N/A';
 
-    doc.text(String(item.return_id), cols.id.x + 2, yPos + 5);
-    doc.text(String(item.sale_number), cols.order.x, yPos + 5);
-    doc.text(customer, cols.customer.x, yPos + 5);
-    doc.text(reason, cols.reason.x, yPos + 5);
+    let displayName = item.name;
+    if(item.type === 'Serial') {
+        displayName += ` (SN: ${item.serialNumber})`;
+    }
+    if (displayName.length > 45) displayName = displayName.substring(0, 42) + '...';
+
+    doc.text(displayName, cols.name.x + 2, yPos + 5);
+    doc.text(item.category || '-', cols.category.x, yPos + 5);
+    doc.text(String(item.currentStock), cols.qty.x, yPos + 5, { align: 'center' });
     
+    const cap = Number(item.tiedUpValue) || 0;
+    totalTiedCapital += cap;
+    doc.text(formatCurrency(cap).replace('PHP ',''), cols.capital.x, yPos + 5, { align: 'right' });
+    
+    const days = String(item.daysDormant).replace(' days', '');
+    doc.text(`${days} d`, cols.dormancy.x, yPos + 5, { align: 'right' });
+
+    yPos += 7;
+  });
+
+  yPos += 5;
+  doc.setDrawColor(THEME.primary);
+  doc.line(130, yPos, 195, yPos);
+  yPos += 6;
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(THEME.primary);
+  doc.text('Total Tied Capital:', 155, yPos, { align: 'right' });
+  doc.text(formatCurrency(totalTiedCapital), 195, yPos, { align: 'right' });
+
+  drawFooter(doc, adminName);
+  return doc;
+};
+
+
+// --- [UPDATED] RETURNS REPORT ---
+export const generateReturnsReportPDF = async (returnsData, startDate, endDate, adminName) => {
+  const doc = new jsPDF();
+  const logoDataUrl = await loadImageAsDataURL(logoUrl);
+
+  let yPos = drawReportHeader(doc, 'Returns Report', `${formatDate(startDate)} - ${formatDate(endDate)}`, logoDataUrl);
+
+  const cols = {
+    id: { x: 15 },
+    items: { x: 45 },      // [NEW] Items Column
+    customer: { x: 95 },
+    reason: { x: 135 },
+    amount: { x: 195 }
+  };
+
+  const drawHeader = (y) => {
+    doc.setFillColor(THEME.primary);
+    doc.rect(15, y, 180, 8, 'F');
+    doc.setTextColor(THEME.white);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    
+    doc.text('Return ID', cols.id.x + 2, y + 5.5);
+    doc.text('Items Returned', cols.items.x, y + 5.5);
+    doc.text('Customer', cols.customer.x, y + 5.5);
+    doc.text('Reason', cols.reason.x, y + 5.5);
+    doc.text('Refund', cols.amount.x, y + 5.5, { align: 'right' });
+  };
+
+  drawHeader(yPos);
+  yPos += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+
+  let totalRefund = 0;
+
+  returnsData.forEach((item, index) => {
+    // 1. Calculate height needed for this row (based on items)
+    const itemsList = item.items || [];
+    const rowHeight = Math.max(7, (itemsList.length * 4) + 4); 
+
+    // 2. Check Page Break
+    if (yPos + rowHeight > 280) {
+      doc.addPage();
+      yPos = 20;
+      drawHeader(yPos);
+      yPos += 8;
+      doc.setFont('helvetica', 'normal'); 
+      doc.setFontSize(8);
+    }
+
+    if (index % 2 === 0) {
+      doc.setFillColor(THEME.accent);
+      doc.rect(15, yPos, 180, rowHeight, 'F');
+    }
+
+    doc.setTextColor(THEME.text);
+    
+    // 3. Print Data
+    doc.text(`#${item.return_id}`, cols.id.x + 2, yPos + 5);
+    
+    // Customer
+    const customer = item.customer_name?.length > 18 ? item.customer_name.substring(0, 15) + '..' : item.customer_name;
+    doc.text(customer, cols.customer.x, yPos + 5);
+
+    // Reason
+    doc.text(item.return_reason.substring(0, 20) || 'N/A', cols.reason.x, yPos + 5);
+    
+    // Amount
     const amt = Number(item.refund_amount) || 0;
     totalRefund += amt;
     doc.text(formatCurrency(amt), cols.amount.x, yPos + 5, { align: 'right' });
 
-    yPos += 7;
+    // 4. Print Items Loop
+    let itemY = yPos + 5;
+    if (itemsList.length > 0) {
+        itemsList.forEach(prod => {
+            let line = `• ${prod.product_name}`;
+            if(prod.serial_numbers) line += ` (SN: ${prod.serial_numbers})`;
+            
+            // Truncate if too long
+            if(line.length > 35) line = line.substring(0, 32) + '...';
+            
+            doc.text(line, cols.items.x, itemY);
+            itemY += 4; // Spacing for next item
+        });
+    } else {
+        doc.text('-', cols.items.x, itemY);
+    }
+
+    yPos += rowHeight;
   });
 
   yPos += 5;
@@ -422,8 +485,7 @@ export const generateReturnsReportPDF = async (returnsData, startDate, endDate, 
   return doc;
 };
 
-
-// --- RECEIPT (Modern Invoice Style) ---
+// Sale Receipt (Unchanged)
 export const generateSaleReceipt = async ({
   saleNumber,
   customerName,
@@ -436,13 +498,13 @@ export const generateSaleReceipt = async ({
   shippingOption = 'In-Store Pickup',
   createdAt = new Date()
 }) => {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' }); // Switched to mm for consistency
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = 210;
   let y = 15;
   
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
 
-  // 1. Header Section (Logo + Company Info)
+  // 1. Header Section
   if (logoDataUrl) {
     doc.addImage(logoDataUrl, 'PNG', 15, y, 25, 18);
   }
@@ -469,7 +531,6 @@ export const generateSaleReceipt = async ({
   doc.setTextColor(THEME.text);
   doc.setFontSize(10);
   
-  // Left Side (Bill To)
   doc.setFont('helvetica', 'bold');
   doc.text('Bill To:', 20, y + 6);
   doc.setFont('helvetica', 'normal');
@@ -479,7 +540,6 @@ export const generateSaleReceipt = async ({
   doc.setTextColor(THEME.lightText);
   doc.text(addr, 20, y + 17);
 
-  // Right Side (Invoice Info)
   doc.setTextColor(THEME.text);
   doc.setFontSize(10);
   
@@ -503,7 +563,6 @@ export const generateSaleReceipt = async ({
     total: { x: 195, w: 25 }
   };
 
-  // Table Header
   doc.setFillColor(THEME.primary);
   doc.rect(15, y, 180, 8, 'F');
   doc.setTextColor(THEME.white);
@@ -516,13 +575,11 @@ export const generateSaleReceipt = async ({
 
   y += 8;
 
-  // Items
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(THEME.text);
 
   items.forEach((it, index) => {
-    // Page Break
     if (y > 260) { doc.addPage(); y = 20; }
 
     if (index % 2 === 0) {
@@ -534,8 +591,6 @@ export const generateSaleReceipt = async ({
     const qty = Number(it.quantity);
     const price = Number(it.price || it.unitPrice);
     const total = qty * price;
-
-    // Name might be long, handle basic truncation
     const displayName = name.length > 45 ? name.substring(0, 42) + '...' : name;
 
     doc.text(displayName, cols.desc.x + 2, y + 5.5);
@@ -543,7 +598,6 @@ export const generateSaleReceipt = async ({
     doc.text(formatCurrency(price).replace('PHP', ''), cols.price.x, y + 5.5, { align: 'right' });
     doc.text(formatCurrency(total).replace('PHP', ''), cols.total.x, y + 5.5, { align: 'right' });
 
-    // If serials exist, print below in small italic
     const serials = it.serialNumbers || it.serial_numbers || [];
     if (serials.length > 0) {
       y += 5;
@@ -554,7 +608,7 @@ export const generateSaleReceipt = async ({
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(THEME.text);
-      y += 3; // extra spacing
+      y += 3;
     }
 
     y += 8;
@@ -562,15 +616,14 @@ export const generateSaleReceipt = async ({
 
   y += 5;
 
-  // 4. Totals Section
+  // 4. Totals
   const totalBoxX = 120;
   const totalBoxW = 75;
   
   doc.setDrawColor(THEME.line);
-  doc.line(15, y, 195, y); // Separator line
+  doc.line(15, y, 195, y); 
   y += 5;
 
-  // Subtotal / Totals
   const drawTotalLine = (label, value, isBold = false, isGrand = false) => {
     doc.setFont('helvetica', isBold ? 'bold' : 'normal');
     doc.setFontSize(isGrand ? 12 : 10);
@@ -589,7 +642,6 @@ export const generateSaleReceipt = async ({
   }
 
   y += 2;
-  // Grand Total Bar
   doc.setFillColor(THEME.primary);
   doc.rect(totalBoxX - 5, y, totalBoxW + 5, 10, 'F');
   doc.setTextColor(THEME.white);
@@ -598,7 +650,6 @@ export const generateSaleReceipt = async ({
   doc.text('TOTAL', totalBoxX, y + 7);
   doc.text(formatCurrency(totalAmount), 195, y + 7, { align: 'right' });
 
-  // 5. Footer
   const footerY = 280;
   doc.setFontSize(8);
   doc.setTextColor(THEME.lightText);

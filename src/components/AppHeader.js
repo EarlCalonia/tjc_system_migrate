@@ -4,52 +4,31 @@ import {
   CContainer,
   CHeader,
   CHeaderBrand,
-  CHeaderNav,
   CHeaderToggler,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilMenu } from '@coreui/icons'
-
-import { AppHeaderDropdown } from './header/index'
 import { logo } from 'src/assets/brand/logo'
 
 const AppHeader = () => {
   const dispatch = useDispatch()
   const sidebarShow = useSelector((state) => state.sidebarShow)
-  
-  // [FIX] Read from sessionStorage
-  const username = sessionStorage.getItem('username') || 'Administrator'
-  
-  const today = new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-  })
 
   return (
-    <CHeader position="sticky" className="mb-4 p-0 app-header-brand border-0">
+    // [CRITICAL UPDATE] 'd-md-none' hides this entire header on Desktop
+    // It will ONLY appear on mobile devices to let you open the sidebar
+    <CHeader position="sticky" className="mb-4 d-md-none border-0 shadow-sm">
       <CContainer fluid>
-        <div className="d-flex align-items-center">
-          <CHeaderToggler
-            className="ps-1 border-0 header-toggler-brand"
-            onClick={() => dispatch({ type: 'set', sidebarShow: !sidebarShow })}
-          >
-            <CIcon icon={cilMenu} size="lg" />
-          </CHeaderToggler>
-          <CHeaderBrand className="mx-auto d-md-none" to="/">
-            <CIcon icon={logo} height={48} alt="Logo" />
-          </CHeaderBrand>
-        </div>
-
-        <div className="d-none d-md-flex flex-column ms-3 header-context">
-           <span className="welcome-text">
-             Welcome back, <span className="text-brand-blue">{username}</span>
-           </span>
-           <span className="date-text">{today}</span>
-        </div>
-
-        <CHeaderNav className="ms-auto">
-          <AppHeaderDropdown />
-        </CHeaderNav>
-
+        <CHeaderToggler
+          className="ps-1"
+          onClick={() => dispatch({ type: 'set', sidebarShow: !sidebarShow })}
+        >
+          <CIcon icon={cilMenu} size="lg" />
+        </CHeaderToggler>
+        
+        <CHeaderBrand className="mx-auto" to="/">
+          <CIcon icon={logo} height={48} alt="Logo" />
+        </CHeaderBrand>
       </CContainer>
     </CHeader>
   )

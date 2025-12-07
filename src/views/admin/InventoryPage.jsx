@@ -217,7 +217,7 @@ const InventoryPage = () => {
   const handleOpenReturnModal = async (product) => {
       setReturnProduct(product);
       setReturnForm({
-          supplierId: product.supplier_id || '', // Default to last known supplier
+          supplierId: '', 
           quantity: 1,
           selectedSerials: [],
           reason: 'Defective/Damaged',
@@ -228,7 +228,6 @@ const InventoryPage = () => {
       if (product.requires_serial) {
           setLoadingSerials(true);
           try {
-              // [FIX] Use getReturnableSerials to fetch 'defective' items too
               const res = await serialNumberAPI.getReturnableSerials(product.product_id);
               if (res.success) {
                   setReturnableSerials(res.data || []);
@@ -239,20 +238,60 @@ const InventoryPage = () => {
           } finally {
               setLoadingSerials(false);
           }
+      } else {
+          setReturnForm(prev => ({ ...prev, supplierId: product.supplier_id || '' }));
       }
       setReturnModalOpen(true);
   }
 
-  const handleReturnSerialSelection = (serialNumber, isChecked) => {
+  // [NEW] Handles supplier dropdown change
+  const handleSupplierChange = (e) => {
+      const newId = e.target.value;
+      
+      // Auto-Uncheck items that don't match the new supplier
+      // This solves the "Checked but Disabled" confusion
+      const validSerials = returnForm.selectedSerials.filter(sn => {
+          if (!newId) return true; // If no supplier selected, allow all (technically they are enabled then)
+          
+          const item = returnableSerials.find(r => r.serial_number === sn);
+          if (!item?.supplier_id) return true; // Keep items without explicit supplier info
+          return String(item.supplier_id) === String(newId);
+      });
+
+      setReturnForm(prev => ({
+          ...prev,
+          supplierId: newId,
+          selectedSerials: validSerials,
+          // Sync quantity if product is serialized
+          quantity: returnProduct.requires_serial ? validSerials.length : prev.quantity
+      }));
+  }
+
+  const handleReturnSerialSelection = (snObject, isChecked) => {
       setReturnForm(prev => {
-          const current = prev.selectedSerials;
-          let updated = [];
+          let updatedSerials = [...prev.selectedSerials];
+          let updatedSupplierId = prev.supplierId;
+
           if (isChecked) {
-              updated = [...current, serialNumber];
+              updatedSerials.push(snObject.serial_number);
+              // Auto-lock supplier on first check
+              if (updatedSerials.length === 1 && snObject.supplier_id) {
+                  updatedSupplierId = snObject.supplier_id;
+              }
           } else {
-              updated = current.filter(s => s !== serialNumber);
+              updatedSerials = updatedSerials.filter(s => s !== snObject.serial_number);
+              // Unlock supplier if all unchecked
+              if (updatedSerials.length === 0) {
+                  updatedSupplierId = '';
+              }
           }
-          return { ...prev, selectedSerials: updated, quantity: updated.length }; // Sync quantity
+
+          return { 
+              ...prev, 
+              selectedSerials: updatedSerials, 
+              quantity: updatedSerials.length,
+              supplierId: updatedSupplierId 
+          };
       });
   }
 
@@ -865,7 +904,7 @@ const InventoryPage = () => {
                               <CFormLabel className="small fw-bold">Select Supplier</CFormLabel>
                               <CFormSelect 
                                 value={returnForm.supplierId} 
-                                onChange={e => setReturnForm({...returnForm, supplierId: e.target.value})}
+                                onChange={handleSupplierChange}
                               >
                                   <option value="">Select Supplier...</option>
                                   {suppliersList.map(s => <option key={s.id} value={s.id}>{s.name || s.supplier_name}</option>)}
@@ -893,23 +932,43 @@ const InventoryPage = () => {
                                       {returnableSerials.length === 0 ? (
                                           <div className="text-muted small text-center p-3">No returnable serial numbers found (Available, Defective, or Returned).</div>
                                       ) : (
-                                          returnableSerials.map(sn => (
-                                              <div key={sn.id} className="d-flex align-items-center gap-2 p-2 border-bottom">
+                                          returnableSerials.map(sn => {
+                                              // [FIX] Calculate Disable State based on selected Supplier
+                                              const isDisabled = returnForm.supplierId && sn.supplier_id && String(sn.supplier_id) !== String(returnForm.supplierId);
+                                              
+                                              return (
+                                              <div 
+                                                  key={sn.id} 
+                                                  // [FIX] Add visual styling to gray out disabled items
+                                                  className={`d-flex align-items-center gap-2 p-2 border-bottom ${isDisabled ? 'bg-secondary bg-opacity-10 opacity-50' : ''}`}
+                                              >
                                                   <CFormCheck 
                                                       id={`sn-${sn.id}`}
                                                       checked={returnForm.selectedSerials.includes(sn.serial_number)}
-                                                      onChange={(e) => handleReturnSerialSelection(sn.serial_number, e.target.checked)}
+                                                      onChange={(e) => handleReturnSerialSelection(sn, e.target.checked)}
+                                                      disabled={isDisabled}
                                                   />
-                                                  <label htmlFor={`sn-${sn.id}`} className="flex-grow-1 cursor-pointer">
-                                                      <span className="font-monospace fw-bold">{sn.serial_number}</span>
-                                                      <span className="ms-2">
-                                                          {sn.status === 'available' && <CBadge color="success" size="sm">Available</CBadge>}
-                                                          {sn.status === 'defective' && <CBadge color="danger" size="sm">Defective</CBadge>}
-                                                          {sn.status === 'returned' && <CBadge color="warning" size="sm" className="text-dark">Returned</CBadge>}
-                                                      </span>
+                                                  <label htmlFor={`sn-${sn.id}`} className={`flex-grow-1 ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                                      <div className="d-flex justify-content-between align-items-center w-100">
+                                                          <div>
+                                                              <span className="font-monospace fw-bold">{sn.serial_number}</span>
+                                                              <span className="ms-2">
+                                                                  {sn.status === 'available' && <CBadge color="success" size="sm">Available</CBadge>}
+                                                                  {sn.status === 'defective' && <CBadge color="danger" size="sm">Defective</CBadge>}
+                                                                  {sn.status === 'returned' && <CBadge color="warning" size="sm" className="text-dark">Returned</CBadge>}
+                                                              </span>
+                                                          </div>
+                                                          {/* Show Supplier Origin */}
+                                                          {sn.supplier_name && (
+                                                              <div className="small text-muted fst-italic">
+                                                                  <CIcon icon={cilTruck} size="sm" className="me-1"/>
+                                                                  {sn.supplier_name}
+                                                              </div>
+                                                          )}
+                                                      </div>
                                                   </label>
                                               </div>
-                                          ))
+                                          )})
                                       )}
                                   </div>
                               )}

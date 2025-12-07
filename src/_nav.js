@@ -9,13 +9,11 @@ import {
   cilGraph,
   cilSettings,
   cilBasket,
-  // Removed cilUser import as it's no longer used here
+  cilHistory // [NEW] Import History Icon
 } from '@coreui/icons'
 import { CNavItem, CNavTitle } from '@coreui/react'
 
 const _nav = [
-  // --- REMOVED: My Profile link here ---
-  
   // --- DASHBOARD (Primary Entry) ---
   {
     component: CNavItem,
@@ -84,6 +82,13 @@ const _nav = [
     name: 'Settings',
     to: '/settings',
     icon: <CIcon icon={cilSettings} customClassName="nav-icon" />,
+  },
+  // [NEW] Activity Logs Link
+  {
+    component: CNavItem,
+    name: 'Activity Logs',
+    to: '/activity-logs',
+    icon: <CIcon icon={cilHistory} customClassName="nav-icon" />,
   },
 ]
 

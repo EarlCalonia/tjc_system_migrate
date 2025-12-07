@@ -150,8 +150,7 @@ export class Inventory {
     return rows;
   }
 
-  // --- UPDATED METHOD: bulkStockIn ---
-  // Fix: Explicitly inserts serial numbers into the database.
+  // Bulk Stock In
   static async bulkStockIn({ supplier, receivedBy, receivedDate, products }) {
     const pool = getPool();
     const connection = await pool.getConnection();
@@ -163,7 +162,6 @@ export class Inventory {
       const notes = `Bulk Stock In - Supplier: ${supplier} | Received by: ${receivedBy}`;
 
       for (const product of products) {
-        // Support both singular and plural inputs
         const { productId, quantity } = product;
         const serialNumbers = product.serialNumbers || (product.serialNumber ? [product.serialNumber] : []);
 
@@ -181,15 +179,13 @@ export class Inventory {
           throw new Error(`Product ${productId} not found`);
         }
 
-        // 2. Insert Serial Numbers (CRITICAL FIX)
+        // 2. Insert Serial Numbers
         if (productExists[0].requires_serial && serialNumbers.length > 0) {
-            // Validate that we have the right amount of serials
             if (serialNumbers.length !== parseInt(quantity)) {
                 throw new Error(`Quantity mismatch for ${productId}. Qty: ${quantity}, Serials scanned: ${serialNumbers.length}`);
             }
 
             for (const sn of serialNumbers) {
-                // Check for duplicates
                 const [existing] = await connection.execute(
                     'SELECT id FROM serial_numbers WHERE serial_number = ? AND product_id = ?',
                     [sn, productId]
@@ -199,7 +195,6 @@ export class Inventory {
                     throw new Error(`Serial number ${sn} already exists for product ${productId}`);
                 }
 
-                // Insert
                 await connection.execute(
                     `INSERT INTO serial_numbers (serial_number, product_id, status, supplier_id, created_at)
                      VALUES (?, ?, 'available', ?, ?)`,
@@ -261,7 +256,6 @@ export class Inventory {
   }
 
   // --- UPDATED METHOD: returnToSupplier ---
-  // Fix: Handles 'defective' items correctly by NOT deducting them from sellable stock.
   static async returnToSupplier({ supplier, returnedBy, returnDate, products, reason }) {
     const pool = getPool();
     const connection = await pool.getConnection();
@@ -286,7 +280,7 @@ export class Inventory {
         }
 
         const inventoryId = inventory[0].id;
-        let deductibleQuantity = 0; // Count of items that are actually in 'stock' (available)
+        let deductibleQuantity = 0;
         let serialsString = 'N/A';
 
         // 2. Handle Serial Numbers logic
@@ -296,7 +290,7 @@ export class Inventory {
 
             for (const serial of validSerials) {
               const [existingSerial] = await connection.execute(
-                'SELECT id, status FROM serial_numbers WHERE serial_number = ? AND product_id = ?',
+                'SELECT id, status, supplier_id FROM serial_numbers WHERE serial_number = ? AND product_id = ?',
                 [serial, productId]
               );
 
@@ -304,11 +298,19 @@ export class Inventory {
                 throw new Error(`Serial number ${serial} not found for product ${productId}`);
               }
 
-              const currentStatus = existingSerial[0].status;
+              const serialRecord = existingSerial[0];
 
-              // CRITICAL LOGIC:
-              // If status is 'available', it is in our Stock count. We must deduct it.
-              // If status is 'defective' or 'returned', it is NOT in our Stock count (usually). We just update status.
+              // [NEW] VALIDATION: Check if this serial belongs to the selected supplier
+              if (serialRecord.supplier_id && String(serialRecord.supplier_id) !== String(supplier)) {
+                  // Fetch supplier names for a better error message
+                  const [actualSupplier] = await connection.execute('SELECT name FROM suppliers WHERE id = ?', [serialRecord.supplier_id]);
+                  const actualName = actualSupplier[0] ? actualSupplier[0].name : 'Another Supplier';
+                  
+                  throw new Error(`Serial ${serial} was bought from "${actualName}", not the selected supplier.`);
+              }
+
+              const currentStatus = serialRecord.status;
+
               if (currentStatus === 'available') {
                   deductibleQuantity++; 
               } else if (['defective', 'returned'].includes(currentStatus)) {
@@ -322,7 +324,7 @@ export class Inventory {
                 `UPDATE serial_numbers 
                  SET status = 'returned_to_supplier', notes = ?, updated_at = CURRENT_TIMESTAMP
                  WHERE serial_number = ?`,
-                [`Returned to Supplier: ${supplier}. Reason: ${reason}`, serial]
+                [`Returned to Supplier ID: ${supplier}. Reason: ${reason}`, serial]
               );
             }
         } else {
@@ -344,7 +346,7 @@ export class Inventory {
         }
 
         // 4. Log Transaction
-        const notes = `Return to Supplier - Reason: ${reason || 'N/A'} | Supplier: ${supplier} | Serials: ${serialsString} | Returned by: ${returnedBy}`;
+        const notes = `Return to Supplier - Reason: ${reason || 'N/A'} | Supplier ID: ${supplier} | Serials: ${serialsString} | Returned by: ${returnedBy}`;
         const transactionId = `TRX-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
         
         await connection.execute(
@@ -354,7 +356,7 @@ export class Inventory {
            ) VALUES (?, ?, ?, 'return_to_supplier', ?, ?, ?, ?, ?)`,
           [
             transactionId, inventoryId, productId,
-            quantity, // Log the total quantity returned physically
+            quantity, 
             serialsString !== 'N/A' ? serialsString : null,
             notes, transactionDate, returnedBy
           ]

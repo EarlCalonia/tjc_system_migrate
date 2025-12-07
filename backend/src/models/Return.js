@@ -96,12 +96,17 @@ export class Return {
 
       // Insert return items and update sale_items
       for (const returnItem of returnItems) {
-        // Insert return item
+        // [FIX] Prepare Serial Numbers string for storage
+        const serialsToStore = (returnItem.serialNumbers && returnItem.serialNumbers.length > 0)
+            ? returnItem.serialNumbers.join(', ')
+            : null;
+
+        // [FIX] Insert return item WITH serial_numbers
         await connection.execute(
           `INSERT INTO return_items (
             return_id, sale_item_id, product_id, product_name, sku,
-            quantity, price, subtotal
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            quantity, price, subtotal, serial_numbers
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             returnId,
             returnItem.saleItemId,
@@ -110,7 +115,8 @@ export class Return {
             returnItem.sku || null,
             returnItem.quantity,
             returnItem.price,
-            returnItem.quantity * returnItem.price
+            returnItem.quantity * returnItem.price,
+            serialsToStore // New Field
           ]
         );
 
@@ -265,6 +271,7 @@ export class Return {
 
     // Get items for each return
     for (const returnRecord of returns) {
+      // [FIX] Now fetching serial_numbers as well
       const [items] = await pool.execute(
         `SELECT * FROM return_items WHERE return_id = ?`,
         [returnRecord.return_id]
@@ -309,6 +316,11 @@ export class Return {
     }
 
     const [returns] = await pool.execute(query, params);
+    
+    // [OPTIONAL] Fetch items for these returns if you want to show serials in the main table
+    // For now, we keep it light to avoid N+1, but if you need to see products immediately:
+    // You would need a JOIN or a second query here.
+
     return returns;
   }
 

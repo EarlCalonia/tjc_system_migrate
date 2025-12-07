@@ -11,6 +11,8 @@ import settingsRoutes from './api/settings.js';
 import serialNumbersRoutes from './api/serialNumbers.js';
 import supplierRoutes from './api/suppliers.js';
 import customersRoutes from './api/customers.js';
+// [NEW] Import the activity logs route here
+import activityLogRoutes from './api/activityLogs.js';
 
 const router = express.Router();
 
@@ -27,6 +29,9 @@ router.use('/settings', settingsRoutes);
 router.use('/serial-numbers', serialNumbersRoutes);
 router.use('/suppliers', supplierRoutes);
 router.use('/customers', customersRoutes);
+
+// [NEW] Register the activity logs route
+router.use('/activity-logs', activityLogRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

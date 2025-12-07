@@ -291,6 +291,17 @@ export const reportsAPI = {
       summary: result.data?.summary || {}
     };
   },
+  getDeadStockReport: async (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => { if (value) params.append(key, value); });
+    const response = await fetch(`${API_BASE_URL}/reports/dead-stock?${params}`, { credentials: 'include' });
+    const result = await handleResponse(response);
+    return {
+      deadStock: result.data?.deadStock || [],
+      pagination: result.data?.pagination || {},
+      summary: result.data?.summary || {}
+    };
+  },
   getReturnsReport: async (filters = {}) => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => { if (value) params.append(key, value); });
@@ -386,7 +397,6 @@ export const serialNumberAPI = {
     const response = await fetch(`${API_BASE_URL}/serial-numbers/product/${productId}/available`, { credentials: 'include' });
     return handleResponse(response);
   },
-  // [NEW] Added for Return to Supplier Logic (includes defective items)
   getReturnableSerials: async (productId) => {
     const response = await fetch(`${API_BASE_URL}/serial-numbers/product/${productId}/returnable`, { credentials: 'include' });
     return handleResponse(response);
@@ -466,6 +476,17 @@ export const suppliersAPI = {
       method: 'DELETE',
       credentials: 'include'
     });
+    return handleResponse(response);
+  }
+};
+
+// [NEW] Activity Logs API
+export const activityLogsAPI = {
+  getAll: async (params = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.append('page', params.page);
+    if (params.search) searchParams.append('search', params.search);
+    const response = await fetch(`${API_BASE_URL}/activity-logs?${searchParams}`, { credentials: 'include' });
     return handleResponse(response);
   }
 };

@@ -70,14 +70,17 @@ export class SerialNumber {
     return rows;
   }
 
-  // [NEW] Get all returnable serial numbers (Available + Defective + Returned)
+  // [UPDATED] Get all returnable serial numbers (Available + Defective + Returned)
+  // Now includes supplier_name so we can identify where it came from
   static async getReturnableByProductId(productId) {
     const pool = getPool();
     const [rows] = await pool.execute(
-      `SELECT * FROM serial_numbers 
-       WHERE product_id = ? 
-       AND status IN ('available', 'defective', 'returned')
-       ORDER BY FIELD(status, 'defective', 'returned', 'available'), created_at DESC`,
+      `SELECT sn.*, s.name as supplier_name 
+       FROM serial_numbers sn
+       LEFT JOIN suppliers s ON sn.supplier_id = s.id 
+       WHERE sn.product_id = ? 
+       AND sn.status IN ('available', 'defective', 'returned')
+       ORDER BY FIELD(sn.status, 'defective', 'returned', 'available'), sn.created_at DESC`,
       [productId]
     );
     return rows;

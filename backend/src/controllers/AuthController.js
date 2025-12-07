@@ -20,7 +20,6 @@ export class AuthController {
             "INSERT INTO users (username, email, password_hash, role, status) VALUES ('Admin', 'admin@gmail.com', ?, 'admin', 'Active')",
             [defaultHash]
           );
-          // Try to fetch again
           ;[rows] = await pool.execute('SELECT id, username, email, password_hash, role, status, avatar FROM users WHERE email = ?', [email]);
         }
       }
@@ -60,6 +59,20 @@ export class AuthController {
     } catch (err) {
       console.error('Change password error:', err);
       res.status(500).json({ success: false, message: 'Failed to change password' });
+    }
+  }
+
+  // [NEW] Added Logout Method
+  static async logout(req, res) {
+    try {
+      // If you were using HTTP-only cookies, you would clear them here:
+      // res.clearCookie('token');
+      
+      // Since we use localStorage, we just return success so the frontend promise resolves
+      res.json({ success: true, message: 'Logged out successfully' });
+    } catch (err) {
+      console.error('Logout error:', err);
+      res.status(500).json({ success: false, message: 'Logout failed' });
     }
   }
 }
