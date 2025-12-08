@@ -4,5 +4,7 @@ import { ActivityLogController } from '../../controllers/ActivityLogController.j
 const router = express.Router();
 
 router.get('/', ActivityLogController.getLogs);
+router.get('/stats', ActivityLogController.getStats); // [NEW]
+router.post('/prune', ActivityLogController.pruneLogs); // [NEW]
 
 export default router;

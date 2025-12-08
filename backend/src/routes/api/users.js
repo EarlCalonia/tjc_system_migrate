@@ -4,7 +4,6 @@ import { UsersController } from '../../controllers/UsersController.js';
 
 const router = express.Router();
 
-// Multer configuration for avatar uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'src/uploads/');
@@ -17,6 +16,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.get('/', UsersController.list);
+router.get('/:id', UsersController.getById); // [NEW] Fetch single user
 router.post('/', upload.single('avatar'), UsersController.create);
 router.put('/:id', upload.single('avatar'), UsersController.update);
 

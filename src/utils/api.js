@@ -57,7 +57,13 @@ export const usersAPI = {
     const response = await fetch(`${API_BASE_URL}/users`, { credentials: 'include' });
     return handleResponse(response);
   },
+  // [NEW] Get User By ID
+  getById: async (id) => {
+    const response = await fetch(`${API_BASE_URL}/users/${id}`, { credentials: 'include' });
+    return handleResponse(response);
+  },
   create: async (user) => {
+    // ... existing logic ...
     const isForm = typeof FormData !== 'undefined' && user instanceof FormData;
     const response = await fetch(`${API_BASE_URL}/users`, {
       method: 'POST',
@@ -68,6 +74,7 @@ export const usersAPI = {
     return handleResponse(response);
   },
   update: async (id, user) => {
+    // ... existing logic ...
     const isForm = typeof FormData !== 'undefined' && user instanceof FormData;
     const response = await fetch(`${API_BASE_URL}/users/${id}`, {
       method: 'PUT',
@@ -487,6 +494,21 @@ export const activityLogsAPI = {
     if (params.page) searchParams.append('page', params.page);
     if (params.search) searchParams.append('search', params.search);
     const response = await fetch(`${API_BASE_URL}/activity-logs?${searchParams}`, { credentials: 'include' });
+    return handleResponse(response);
+  },
+  // [NEW]
+  getStats: async () => {
+    const response = await fetch(`${API_BASE_URL}/activity-logs/stats`, { credentials: 'include' });
+    return handleResponse(response);
+  },
+  // [NEW]
+  prune: async (retentionDays, username) => {
+    const response = await fetch(`${API_BASE_URL}/activity-logs/prune`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ retentionDays, username }),
+      credentials: 'include'
+    });
     return handleResponse(response);
   }
 };

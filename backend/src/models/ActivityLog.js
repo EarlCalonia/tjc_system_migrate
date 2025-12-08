@@ -31,11 +31,9 @@ export class ActivityLog {
       params.push(filters.endDate);
     }
 
-    // Count query for pagination
     const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total');
     const [countResult] = await pool.execute(countQuery, params);
     
-    // Data query
     query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
     params.push(parseInt(limit), parseInt(offset));
     
@@ -45,5 +43,22 @@ export class ActivityLog {
       logs: rows,
       total: countResult[0].total
     };
+  }
+
+  // [NEW] Get total count for dashboard/settings
+  static async countAll() {
+    const pool = getPool();
+    const [rows] = await pool.execute('SELECT COUNT(*) as total FROM activity_logs');
+    return rows[0].total;
+  }
+
+  // [NEW] Delete logs older than X days
+  static async prune(daysToKeep) {
+    const pool = getPool();
+    const [result] = await pool.execute(
+      `DELETE FROM activity_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)`,
+      [parseInt(daysToKeep)]
+    );
+    return result.affectedRows;
   }
 }

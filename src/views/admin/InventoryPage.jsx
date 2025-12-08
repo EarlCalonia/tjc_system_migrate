@@ -73,7 +73,7 @@ const InventoryPage = () => {
   const [returnForm, setReturnForm] = useState({
       supplierId: '',
       quantity: 1,
-      selectedSerials: [], // Array of strings (serial numbers)
+      selectedSerials: [], 
       reason: 'Defective/Damaged',
       notes: ''
   })
@@ -213,7 +213,6 @@ const InventoryPage = () => {
       setBulkModalOpen(true);
   }
 
-  // Return to Supplier Handlers
   const handleOpenReturnModal = async (product) => {
       setReturnProduct(product);
       setReturnForm({
@@ -244,17 +243,12 @@ const InventoryPage = () => {
       setReturnModalOpen(true);
   }
 
-  // [NEW] Handles supplier dropdown change
   const handleSupplierChange = (e) => {
       const newId = e.target.value;
-      
-      // Auto-Uncheck items that don't match the new supplier
-      // This solves the "Checked but Disabled" confusion
       const validSerials = returnForm.selectedSerials.filter(sn => {
-          if (!newId) return true; // If no supplier selected, allow all (technically they are enabled then)
-          
+          if (!newId) return true;
           const item = returnableSerials.find(r => r.serial_number === sn);
-          if (!item?.supplier_id) return true; // Keep items without explicit supplier info
+          if (!item?.supplier_id) return true;
           return String(item.supplier_id) === String(newId);
       });
 
@@ -262,7 +256,6 @@ const InventoryPage = () => {
           ...prev,
           supplierId: newId,
           selectedSerials: validSerials,
-          // Sync quantity if product is serialized
           quantity: returnProduct.requires_serial ? validSerials.length : prev.quantity
       }));
   }
@@ -274,13 +267,11 @@ const InventoryPage = () => {
 
           if (isChecked) {
               updatedSerials.push(snObject.serial_number);
-              // Auto-lock supplier on first check
               if (updatedSerials.length === 1 && snObject.supplier_id) {
                   updatedSupplierId = snObject.supplier_id;
               }
           } else {
               updatedSerials = updatedSerials.filter(s => s !== snObject.serial_number);
-              // Unlock supplier if all unchecked
               if (updatedSerials.length === 0) {
                   updatedSupplierId = '';
               }
@@ -331,7 +322,6 @@ const InventoryPage = () => {
       }
   }
 
-  // Quantity Stepper Logic
   const updateQuantity = (val) => {
       let newQty = parseInt(val);
       if (isNaN(newQty) || newQty < 1) newQty = 1;
@@ -346,7 +336,6 @@ const InventoryPage = () => {
   const handleIncrement = () => updateQuantity(itemForm.quantity + 1);
   const handleDecrement = () => { if(itemForm.quantity > 1) updateQuantity(itemForm.quantity - 1); };
 
-  // Product Selection
   const handleProductInputFocus = () => {
       setShowSuggestions(true);
       if (searchedProducts.length === 0) fetchProductSuggestions('');
@@ -366,7 +355,6 @@ const InventoryPage = () => {
       setShowSuggestions(false);
   }
 
-  // Supplier Selection
   const handleSupplierInputFocus = () => {
       setShowSupplierSuggestions(true);
       if (!globalSupplierId) setFilteredSuppliers(suppliersList);
@@ -383,7 +371,6 @@ const InventoryPage = () => {
       setShowSupplierSuggestions(false);
   }
 
-  // Manifest Handlers
   const handleAddToManifest = () => {
       if (!selectedManifestProduct) return showMessage('Validation', 'Please select a valid product.', 'warning');
       if (itemForm.quantity < 1) return showMessage('Validation', 'Quantity must be at least 1.', 'warning');
@@ -410,7 +397,6 @@ const InventoryPage = () => {
           setManifestItems(prev => [newItem, ...prev]); 
       }
       
-      // Reset form
       setSelectedManifestProduct(null);
       setProductSearchTerm('');
       setItemForm({ quantity: 1, serials: [] });
@@ -485,16 +471,26 @@ const InventoryPage = () => {
     finally { setLoadingSerials(false) }
   }
 
+  // [FIX] Correctly save Reorder Point using Inventory API
   const handleSaveReorderPoint = async () => {
       setIsSubmitting(true)
       try {
           const targetId = editModal.product.product_id;
-          await productAPI.updateProduct(targetId, { reorder_point: editModal.reorderPoint })
-          showMessage('Success', 'Settings updated.', 'success')
+          
+          // Use Inventory API to update reorder point without changing stock
+          await inventoryAPI.updateStock(targetId, { 
+              reorderPoint: editModal.reorderPoint,
+              quantityToAdd: 0 // Explicit 0 ensures only reorder point is updated
+          })
+
+          showMessage('Success', 'Inventory settings updated.', 'success')
           setEditModal({ ...editModal, open: false })
           loadProducts()
-      } catch (e) { showMessage('Error', 'Failed to update.', 'danger') } 
-      finally { setIsSubmitting(false) }
+      } catch (e) { 
+          showMessage('Error', 'Failed to update settings.', 'danger') 
+      } finally { 
+          setIsSubmitting(false) 
+      }
   }
 
   const renderPaginationItems = () => {
