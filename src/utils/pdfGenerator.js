@@ -53,33 +53,60 @@ const formatDate = (dateString) => {
 };
 
 // Helper: Draw Report Header with Logo and Title
-const drawReportHeader = (doc, title, subtitle, logoDataUrl) => {
-  let y = 15;
-  const centerX = LAYOUT.pageWidth / 2;
+const drawReportHeader = (doc, title, subtitle, adminName, logoDataUrl, storeSettings = {}) => {
+  const HEADER_Y = 15;
+  const LOGO_WIDTH = 30; 
+  const LOGO_HEIGHT = 18;
+  const PAGE_WIDTH = doc.internal.pageSize.getWidth();
+  let y = HEADER_Y;
 
+  // 1. LEFT COLUMN: Logo
   if (logoDataUrl) {
-    const imgWidth = 25;
-    const imgHeight = 18;
-    // Center the logo
-    doc.addImage(logoDataUrl, 'PNG', (LAYOUT.pageWidth - imgWidth) / 2, y, imgWidth, imgHeight);
-    y += imgHeight + 8;
-  } else {
-    y += 10;
+    doc.addImage(logoDataUrl, 'PNG', LAYOUT.marginX, y, LOGO_WIDTH, LOGO_HEIGHT);
   }
-
+  
+  // 2. RIGHT COLUMN: Business Info
+  
+  // Store Name
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
+  doc.setFontSize(14);
   doc.setTextColor(THEME.primary);
-  doc.text(title, centerX, y, { align: 'center' });
+  doc.text(storeSettings.store_name || 'TJC AUTO SUPPLY', PAGE_WIDTH - LAYOUT.marginX, y + 2, { align: 'right' });
   
   y += 7;
+  
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setTextColor(THEME.lightText);
-  doc.text(subtitle, centerX, y, { align: 'center' });
+  
+  // Address
+  doc.text(storeSettings.address || 'San Fernando, Pampanga', PAGE_WIDTH - LAYOUT.marginX, y + 2, { align: 'right' });
 
-  return y + 15; // Return new Y position
+  // Contact
+  const contactText = `${storeSettings.email || 'N/A'} | ${storeSettings.contact_number || 'N/A'}`;
+  doc.text(contactText, PAGE_WIDTH - LAYOUT.marginX, y + 6, { align: 'right' });
+  
+  // 3. CENTER SECTION: Report Title (Below Logo/Info Block)
+  y = Math.max(HEADER_Y + LOGO_HEIGHT + 5, y + 10);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(THEME.secondary);
+  doc.text(title, LAYOUT.marginX, y); 
+
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(THEME.lightText);
+  doc.text(subtitle, LAYOUT.marginX, y); 
+  
+  y += 5;
+  doc.setDrawColor(THEME.line);
+  doc.line(LAYOUT.marginX, y, PAGE_WIDTH - LAYOUT.marginX, y); // Separator line
+  
+  return y + 8; // Return new Y position before the table starts
 };
+
 
 // Helper: Draw Footer
 const drawFooter = (doc, adminName) => {
@@ -101,15 +128,16 @@ const drawFooter = (doc, adminName) => {
 };
 
 // ==========================================
-// 3. REPORTS
+// 3. REPORTS (Updated to pass storeSettings)
 // ==========================================
 
 // --- SALES REPORT ---
-export const generateSalesReportPDF = async (salesData, startDate, endDate, adminName, rangeLabel = 'Daily') => {
+export const generateSalesReportPDF = async (salesData, startDate, endDate, adminName, rangeLabel = 'Daily', storeSettings = {}) => {
   const doc = new jsPDF();
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
   
-  let yPos = drawReportHeader(doc, 'Sales Report', `Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, logoDataUrl);
+  // [UPDATED CALL] Pass storeSettings to the header function
+  let yPos = drawReportHeader(doc, 'Sales Report', `Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, adminName, logoDataUrl, storeSettings);
 
   const filteredOrders = salesData || [];
   
@@ -210,11 +238,12 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
 
 
 // --- INVENTORY REPORT ---
-export const generateInventoryReportPDF = async (inventoryData, startDate, endDate, adminName) => {
+export const generateInventoryReportPDF = async (inventoryData, startDate, endDate, adminName, storeSettings = {}) => {
   const doc = new jsPDF();
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
   
-  let yPos = drawReportHeader(doc, 'Inventory Report', `Status as of: ${formatDate(endDate)}`, logoDataUrl);
+  // [UPDATED CALL] Pass storeSettings to the header function
+  let yPos = drawReportHeader(doc, 'Inventory Report', `Status as of: ${formatDate(endDate)}`, adminName, logoDataUrl, storeSettings);
 
   const cols = {
     name: { x: 15 },
@@ -296,11 +325,12 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
 
 
 // --- SMART DEAD STOCK REPORT ---
-export const generateDeadStockReportPDF = async (deadStockData, adminName) => {
+export const generateDeadStockReportPDF = async (deadStockData, adminName, storeSettings = {}) => {
   const doc = new jsPDF();
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
 
-  let yPos = drawReportHeader(doc, 'Dead Stock Report', `As of: ${formatDate(new Date())}`, logoDataUrl);
+  // [UPDATED CALL] Pass storeSettings to the header function
+  let yPos = drawReportHeader(doc, 'Dead Stock Report', `As of: ${formatDate(new Date())}`, adminName, logoDataUrl, storeSettings);
 
   const cols = {
     name: { x: 15 },
@@ -383,12 +413,13 @@ export const generateDeadStockReportPDF = async (deadStockData, adminName) => {
 };
 
 
-// --- [UPDATED] RETURNS REPORT ---
-export const generateReturnsReportPDF = async (returnsData, startDate, endDate, adminName) => {
+// --- RETURNS REPORT ---
+export const generateReturnsReportPDF = async (returnsData, startDate, endDate, adminName, storeSettings = {}) => {
   const doc = new jsPDF();
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
 
-  let yPos = drawReportHeader(doc, 'Returns Report', `${formatDate(startDate)} - ${formatDate(endDate)}`, logoDataUrl);
+  // [UPDATED CALL] Pass storeSettings to the header function
+  let yPos = drawReportHeader(doc, 'Returns Report', `${formatDate(startDate)} - ${formatDate(endDate)}`, adminName, logoDataUrl, storeSettings);
 
   const cols = {
     id: { x: 15 },
@@ -485,7 +516,7 @@ export const generateReturnsReportPDF = async (returnsData, startDate, endDate, 
   return doc;
 };
 
-// Sale Receipt (Unchanged)
+// Sale Receipt [FIXED: NOW ACCEPTS storeSettings]
 export const generateSaleReceipt = async ({
   saleNumber,
   customerName,
@@ -496,7 +527,8 @@ export const generateSaleReceipt = async ({
   changeAmount = 0,
   address = '',
   shippingOption = 'In-Store Pickup',
-  createdAt = new Date()
+  createdAt = new Date(),
+  storeSettings = {} // Added storeSettings parameter
 }) => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = 210;
@@ -512,14 +544,20 @@ export const generateSaleReceipt = async ({
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(THEME.primary);
-  doc.text('TJC AUTO SUPPLY', 200, y + 5, { align: 'right' });
+  
+  // [FIX] Use Store Name from settings or fallback
+  doc.text(storeSettings.store_name || 'TJC AUTO SUPPLY', 200, y + 5, { align: 'right' });
   
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(THEME.lightText);
-  doc.text('General Hizon Avenue, Santa Lucia', 200, y + 10, { align: 'right' });
-  doc.text('San Fernando, Pampanga', 200, y + 14, { align: 'right' });
-  doc.text('tjautosupply@gmail.com | 0912 345 6789', 200, y + 18, { align: 'right' });
+  
+  // [FIX] Use Address from settings or fallback
+  doc.text(storeSettings.address || 'San Fernando, Pampanga', 200, y + 10, { align: 'right' });
+  
+  // [FIX] Use Contact Info from settings
+  const contactText = `${storeSettings.email || 'tjautosupply@gmail.com'} | ${storeSettings.contact_number || '0912 345 6789'}`;
+  doc.text(contactText, 200, y + 15, { align: 'right' });
 
   y += 30;
 

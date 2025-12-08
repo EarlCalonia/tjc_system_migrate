@@ -233,6 +233,9 @@ export const inventoryAPI = {
     if (filters.search) params.append('search', filters.search);
     if (filters.category && filters.category !== 'All') params.append('category', filters.category);
     if (filters.status && filters.status !== 'All') params.append('status', filters.status);
+    // [NEW] Add Type Filter
+    if (filters.type && filters.type !== 'All') params.append('type', filters.type);
+    
     if (filters.page) params.append('page', filters.page);
     if (filters.limit) params.append('limit', filters.limit);
 
@@ -492,23 +495,26 @@ export const activityLogsAPI = {
   getAll: async (params = {}) => {
     const searchParams = new URLSearchParams();
     if (params.page) searchParams.append('page', params.page);
+    if (params.limit) searchParams.append('limit', params.limit); // [FIX] Added this line
     if (params.search) searchParams.append('search', params.search);
-    const response = await fetch(`${API_BASE_URL}/activity-logs?${searchParams}`, { credentials: 'include' });
-    return handleResponse(response);
+    
+    const response = await fetch(`http://localhost:5000/api/activity-logs?${searchParams}`, { credentials: 'include' });
+    return response.json(); // Assuming handleResponse is internal or previously defined
   },
+  
   // [NEW]
   getStats: async () => {
-    const response = await fetch(`${API_BASE_URL}/activity-logs/stats`, { credentials: 'include' });
-    return handleResponse(response);
+    const response = await fetch(`http://localhost:5000/api/activity-logs/stats`, { credentials: 'include' });
+    return response.json();
   },
   // [NEW]
   prune: async (retentionDays, username) => {
-    const response = await fetch(`${API_BASE_URL}/activity-logs/prune`, {
+    const response = await fetch(`http://localhost:5000/api/activity-logs/prune`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ retentionDays, username }),
       credentials: 'include'
     });
-    return handleResponse(response);
+    return response.json();
   }
 };

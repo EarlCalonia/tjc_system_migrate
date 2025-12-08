@@ -16,8 +16,8 @@ export const InventoryController = {
   // Get products with inventory information
   getProductsWithInventory: async (req, res) => {
     try {
-      const { search, category, status } = req.query;
-      const filters = { search, category, stockStatus: status };
+      const { search, category, status, type } = req.query; // [UPDATED] Added 'type'
+      const filters = { search, category, stockStatus: status, type }; 
       const products = await Inventory.getProductsWithInventory(filters);
       res.json({ success: true, data: { products } });
     } catch (error) {

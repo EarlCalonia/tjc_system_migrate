@@ -107,8 +107,8 @@ export class Inventory {
     let query = `
       SELECT 
         p.*,
-        i.stock,
-        i.reorder_point,
+        COALESCE(i.stock, 0) as stock,
+        COALESCE(i.reorder_point, 10) as reorder_point,
         s.name as supplier_name
       FROM products p
       LEFT JOIN inventory i ON p.product_id = i.product_id
@@ -130,16 +130,25 @@ export class Inventory {
       params.push(filters.category);
     }
 
+    // [NEW] Filter by Product Type
+    if (filters.type) {
+        if (filters.type === 'Serialized') {
+            query += ' AND p.requires_serial = 1';
+        } else if (filters.type === 'Standard') {
+            query += ' AND p.requires_serial = 0';
+        }
+    }
+
     if (filters.stockStatus) {
       switch (filters.stockStatus) {
         case 'In Stock':
-          query += ' AND i.stock > i.reorder_point';
+          query += ' AND COALESCE(i.stock, 0) > COALESCE(i.reorder_point, 10)';
           break;
-        case 'Low on Stock':
-          query += ' AND i.stock <= i.reorder_point AND i.stock > 0';
+        case 'Low Stock': 
+          query += ' AND COALESCE(i.stock, 0) <= COALESCE(i.reorder_point, 10) AND COALESCE(i.stock, 0) > 0';
           break;
         case 'Out of Stock':
-          query += ' AND i.stock = 0';
+          query += ' AND (i.stock = 0 OR i.stock IS NULL)';
           break;
       }
     }

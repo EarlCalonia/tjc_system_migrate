@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   CContainer, CRow, CCol, CCard, CCardBody, CCardHeader, CButton, CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter,
-  CWidgetStatsF, CNav, CNavItem, CNavLink, CSpinner, CBadge, CTooltip, CFormSelect
+  CNav, CNavItem, CNavLink, CSpinner, CBadge, CFormSelect, CTooltip, CFormInput // CFormInput is now correctly imported
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
   cilCloudDownload, cilMoney, cilChartLine, cilInbox, cilWarning, cilXCircle, cilArrowThickFromTop, cilCalendar,
-  cilSearch, cilReload, cilBarcode, cilHistory, cilFilterX
+  cilSearch, cilReload, cilBarcode, cilHistory, cilFilterX, cilTag
 } from '@coreui/icons'
 import { generateSalesReportPDF, generateInventoryReportPDF, generateReturnsReportPDF, generateDeadStockReportPDF } from '../../utils/pdfGenerator'
 import { reportsAPI } from '../../utils/api'
@@ -15,6 +15,21 @@ import '../../styles/Admin.css'
 import '../../styles/App.css' 
 import '../../styles/ReportsPage.css'
 
+// --- REUSABLE STAT CARD COMPONENT ---
+const StatCard = ({ title, value, icon, gradient, textColor = 'text-white' }) => (
+  <CCard className="h-100 border-0 shadow-sm overflow-hidden" style={{ background: gradient }}>
+    <CCardBody className="p-4 position-relative d-flex flex-column justify-content-between">
+      <div className="position-absolute" style={{ top: '-10px', right: '-15px', opacity: 0.15, transform: 'rotate(15deg)' }}>
+         {React.cloneElement(icon, { height: 100, width: 100, className: textColor })}
+      </div>
+      <div className="position-relative z-1">
+        <div className={`text-uppercase fw-bold small mb-2 ${textColor}`} style={{ opacity: 0.8, letterSpacing: '1px' }}>{title}</div>
+        <div className={`fw-bold ${textColor}`} style={{ fontSize: '2rem', fontFamily: 'Oswald, sans-serif' }}>{value}</div>
+      </div>
+    </CCardBody>
+  </CCard>
+);
+
 const ReportsPage = () => {
   // --- STATE ---
   const [activeTab, setActiveTab] = useState('sales')
@@ -22,7 +37,6 @@ const ReportsPage = () => {
   
   // FILTERS
   const [reportPeriod, setReportPeriod] = useState('monthly') 
-  // Default date state
   const [filterDate, setFilterDate] = useState(new Date().toISOString().slice(0, 7)) 
   const [customRange, setCustomRange] = useState({ start: '', end: '' })
   const [dateRange, setDateRange] = useState({ start: '', end: '', label: 'This Month' })
@@ -35,7 +49,7 @@ const ReportsPage = () => {
     brand: 'All Brand', 
     category: 'All Categories',
     returnReason: 'All Reasons',
-    isSerializedOnly: false,
+    productType: 'All', 
     search: ''
   }
   const [filters, setFilters] = useState(initialFilters)
@@ -48,14 +62,15 @@ const ReportsPage = () => {
   const [msgModal, setMsgModal] = useState({ visible: false, title: '', message: '', color: 'info' })
   const showMessage = (title, message, color = 'info') => setMsgModal({ visible: true, title, message, color })
   
-  // [FIX] Helper to get current ISO Week string (YYYY-Www)
+  const brandHeaderStyle = { fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' };
+
+  // Helper to get current ISO Week string (YYYY-Www)
   const getCurrentISOWeek = () => {
       const d = new Date();
       d.setHours(0, 0, 0, 0);
       d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
       const week1 = new Date(d.getFullYear(), 0, 4);
       const weekNumber = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-      // Ensure zero padding for single digit weeks
       return `${d.getFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
   };
 
@@ -66,7 +81,7 @@ const ReportsPage = () => {
     return `${year}-${month}-${day}`;
   };
 
-  // [FIX] Improved Date Range Calculation
+  // Improved Date Range Calculation
   useEffect(() => {
     calculateDateRange();
   }, [reportPeriod, filterDate, customRange]);
@@ -80,18 +95,15 @@ const ReportsPage = () => {
             break;
         case 'weekly':
             if (filterDate) {
-                // [FIX] Robust Week Parsing
                 const [yearStr, weekStr] = filterDate.split('-W');
                 if (yearStr && weekStr) {
                     const year = parseInt(yearStr);
                     const week = parseInt(weekStr);
                     
-                    // Simple ISO week calculation
                     const simpleDate = new Date(year, 0, 1 + (week - 1) * 7);
                     const dayOfWeek = simpleDate.getDay();
                     const weekStart = simpleDate;
                     
-                    // Align to Monday
                     if (dayOfWeek <= 4) weekStart.setDate(simpleDate.getDate() - simpleDate.getDay() + 1);
                     else weekStart.setDate(simpleDate.getDate() + 8 - simpleDate.getDay());
                     
@@ -134,12 +146,11 @@ const ReportsPage = () => {
       const today = new Date();
       
       if (type === 'daily') setFilterDate(formatLocalDate(today));
-      else if (type === 'weekly') setFilterDate(getCurrentISOWeek()); // [FIX] Use Helper
+      else if (type === 'weekly') setFilterDate(getCurrentISOWeek());
       else if (type === 'monthly') setFilterDate(today.toISOString().slice(0, 7));
       else if (type === 'yearly') setFilterDate(String(today.getFullYear()));
   };
 
-  const toggleSerializedFilter = () => { setFilters(prev => ({ ...prev, isSerializedOnly: !prev.isSerializedOnly })); setPagination(prev => ({ ...prev, page: 1 })); }
   const handleResetFilters = () => { setFilters(initialFilters); setReportPeriod('monthly'); setFilterDate(new Date().toISOString().slice(0, 7)); setDormancyMonths(6); setPagination(p => ({ ...p, page: 1 })); }
 
   useEffect(() => { reportsAPI.getFilterOptions().then(res => { if(res.success) setOptions({ brands: res.data.brands, categories: res.data.categories }) }).catch(err => console.error(err)) }, [])
@@ -147,7 +158,12 @@ const ReportsPage = () => {
   const fetchReportData = useCallback(async () => {
     setLoading(true)
     try {
-      const query = { page: pagination.page, limit: pagination.limit, start_date: (activeTab === 'sales' || activeTab === 'returns') ? dateRange.start : undefined, end_date: (activeTab === 'sales' || activeTab === 'returns') ? dateRange.end : undefined }
+      const query = { 
+        page: pagination.page, 
+        limit: pagination.limit, 
+        start_date: (activeTab === 'sales' || activeTab === 'returns') ? dateRange.start : undefined, 
+        end_date: (activeTab === 'sales' || activeTab === 'returns') ? dateRange.end : undefined 
+      }
       
       if (activeTab === 'inventory' || activeTab === 'dead_stock') {
         if (filters.brand !== 'All Brand') query.brand = filters.brand 
@@ -155,7 +171,7 @@ const ReportsPage = () => {
       }
       if (activeTab === 'inventory') {
         if (filters.stockStatus !== 'All Status') query.stock_status = filters.stockStatus
-        if (filters.isSerializedOnly) query.requires_serial = true 
+        if (filters.productType && filters.productType !== 'All') query.type = filters.productType
         if (filters.search) query.search = filters.search
       }
       if (activeTab === 'dead_stock') query.months = dormancyMonths;
@@ -182,6 +198,7 @@ const ReportsPage = () => {
         const query = { start_date: dateRange.start, end_date: dateRange.end, page: 1, limit: 999999, ...filters }
         if (activeTab === 'dead_stock') query.months = dormancyMonths;
         if (activeTab === 'returns' && filters.returnReason !== 'All Reasons') query.returnReason = filters.returnReason;
+        if (activeTab === 'inventory' && filters.productType && filters.productType !== 'All') query.type = filters.productType;
 
         let doc;
         if (activeTab === 'sales') { const res = await reportsAPI.getSalesReport(query); doc = await generateSalesReportPDF(res.sales, dateRange.start, dateRange.end, adminName, dateRange.label); doc.save(`Sales_Report.pdf`); }
@@ -192,9 +209,9 @@ const ReportsPage = () => {
   }
 
   const renderStatusBadge = (status) => {
-     if (status === 'In Stock') return <CBadge className="badge-stock-high" shape="rounded-pill">In Stock</CBadge>
-     if (status === 'Low Stock') return <CBadge className="badge-stock-low" shape="rounded-pill">Low Stock</CBadge>
-     return <CBadge className="badge-stock-out" shape="rounded-pill">Out of Stock</CBadge>
+     if (status === 'In Stock') return <CBadge color="success" shape="rounded-pill" className="px-3">In Stock</CBadge>
+     if (status === 'Low Stock') return <CBadge color="warning" shape="rounded-pill" className="px-3 text-dark">Low Stock</CBadge>
+     return <CBadge color="danger" shape="rounded-pill" className="px-3">Out of Stock</CBadge>
   }
   const renderYearOptions = () => { const cy = new Date().getFullYear(); return Array.from({length:10}, (_,i) => cy-i).map(y => <option key={y} value={y}>{y}</option>); }
 
@@ -202,8 +219,27 @@ const ReportsPage = () => {
   const renderTableHead = () => {
     switch(activeTab) {
       case 'sales': return (<tr><th className="ps-4">Order ID</th><th>Customer</th><th>Product Details</th><th className="text-center">Qty</th><th className="text-end">Total</th><th>Payment</th><th className="text-center">Status</th><th className="text-end pe-4">Date</th></tr>);
-      case 'inventory': return (<tr><th className="ps-4" style={{width: '30%'}}>Product Name</th><th style={{width: '10%'}}>Brand</th><th className="text-center" style={{width: '10%'}}>Stock</th><th className="text-end" style={{width: '15%'}}>Unit Price</th><th className="text-end" style={{width: '15%'}}>Total Value</th><th className="text-center pe-4" style={{width: '20%'}}>Status</th></tr>);
-      case 'dead_stock': return (<tr><th className="ps-4" style={{width: '35%'}}>Product / Serial</th><th style={{width: '15%'}}>Category</th><th className="text-center">Stock</th><th className="text-end">Tied Capital</th><th className="text-end pe-4">Last Activity</th></tr>);
+      case 'inventory': return (
+         <tr>
+             <th className="ps-4" style={{width: '18%'}}>Part No. / Type</th>
+             <th style={{width: '25%'}}>Product Name</th>
+             <th style={{width: '10%'}}>Brand</th>
+             <th className="text-center" style={{width: '10%'}}>Stock</th>
+             <th className="text-end" style={{width: '12%'}}>Unit Price</th>
+             <th className="text-end" style={{width: '12%'}}>Total Value</th>
+             <th className="text-center pe-4" style={{width: '13%'}}>Status</th>
+         </tr>
+      );
+      case 'dead_stock': return (
+        <tr>
+            <th className="ps-4" style={{width: '15%'}}>Type</th>
+            <th style={{width: '25%'}}>Product / Detail</th>
+            <th style={{width: '15%'}}>Category</th>
+            <th className="text-center">Stock</th>
+            <th className="text-end">Tied Capital</th>
+            <th className="text-end pe-4">Last Activity</th>
+        </tr>
+      );
       case 'returns': return (<tr><th className="ps-4">Return ID</th><th style={{width:'30%'}}>Items Returned</th><th>Customer</th><th>Reason</th><th>Date</th><th className="text-end pe-4">Refund Amount</th></tr>);
       default: return null;
     }
@@ -215,10 +251,47 @@ const ReportsPage = () => {
          <tr key={idx}><td className="ps-4 font-monospace text-brand-navy fw-bold">#{row.orderId || row.order_id}</td><td className="fw-semibold text-dark">{row.customerName}</td><td><span className="text-product-detail">{row.productName}</span></td><td className="text-center"><span className="fw-bold text-dark bg-light px-2 py-1 rounded">{row.quantity}</span></td><td className="text-end font-monospace text-brand-navy fw-bold">₱{Number(row.totalPrice).toLocaleString()}</td><td><div className="small fw-bold">{row.paymentMethod}</div></td><td className="text-center"><span className={`badge ${row.paymentStatus === 'Paid' ? 'bg-success' : 'bg-warning text-dark'}`}>{row.paymentStatus}</span></td><td className="text-end pe-4 small text-muted font-monospace">{row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}</td></tr>
        );
        if(activeTab === 'inventory') return (
-         <tr key={idx}><td className="ps-4 fw-bold text-dark">{row.productName}</td><td className="text-muted small">{row.brand}</td><td className="text-center font-monospace fs-6 text-dark">{Number(row.currentStock).toLocaleString()}</td><td className="text-end font-monospace text-muted">₱{Number(row.price).toLocaleString()}</td><td className="text-end font-monospace fw-bold text-success">₱{(Number(row.price) * Number(row.currentStock)).toLocaleString()}</td><td className="text-center pe-4">{renderStatusBadge(row.stockStatus)}</td></tr>
+         <tr key={idx}>
+            <td className="ps-4">
+                <div className="font-monospace text-brand-navy fw-bold" style={{fontSize: '0.95rem'}}>{row.id}</div>
+                <div className="mt-1">
+                    {row.requires_serial ? 
+                        <CBadge color="info" shape="rounded-pill" className="px-2" style={{fontSize:'0.65rem', border: '1px solid #3399ff'}}>SERIALIZED</CBadge> : 
+                        <CBadge color="light" shape="rounded-pill" className="text-dark border px-2" style={{fontSize:'0.65rem', borderColor: '#d8dbe0'}}>STANDARD</CBadge>
+                    }
+                </div>
+            </td>
+            <td className="fw-bold text-dark align-middle">{row.productName}</td>
+            <td className="text-muted small align-middle">{row.brand}</td>
+            <td className="text-center font-monospace fs-6 text-dark align-middle">{Number(row.currentStock).toLocaleString()}</td>
+            <td className="text-end font-monospace text-muted align-middle">₱{Number(row.price).toLocaleString()}</td>
+            <td className="text-end font-monospace fw-bold text-success align-middle">₱{(Number(row.price) * Number(row.currentStock)).toLocaleString()}</td>
+            <td className="text-center pe-4 align-middle">{renderStatusBadge(row.stockStatus)}</td>
+         </tr>
        );
        if(activeTab === 'dead_stock') return (
-         <tr key={idx}><td className="ps-4"><div className="fw-bold text-dark">{row.name}</div>{row.type === 'Serial' ? (<div className="small text-danger fw-bold"><CIcon icon={cilBarcode} size="sm" className="me-1"/> SN: {row.serialNumber}</div>) : (<div className="small text-muted">{row.brand}</div>)}</td><td><CBadge className="badge-category" shape="rounded-pill">{row.category}</CBadge></td><td className="text-center font-monospace fs-6 text-dark">{row.currentStock}{row.type === 'Serial' && <span className="ms-1 text-muted small">(1)</span>}</td><td className="text-end font-monospace text-danger fw-bold">₱{Number(row.tiedUpValue).toLocaleString()}</td><td className="text-end pe-4"><div className="text-dark small fw-bold">{row.lastActivity ? new Date(row.lastActivity).toLocaleDateString() : 'No Activity'}</div><div className="small text-muted fst-italic">Dormant: {row.daysDormant}</div></td></tr>
+         <tr key={idx}>
+            <td className="ps-4">
+                {row.type === 'SKU' ? 
+                    <CBadge color="secondary" shape="rounded-pill" className="px-3">WHOLE SKU</CBadge> : 
+                    <CBadge color="warning" shape="rounded-pill" className="px-3 text-dark">OLD UNIT</CBadge>
+                }
+            </td>
+            <td>
+                <div className="fw-bold text-dark">{row.name}</div>
+                {row.type === 'Serial' ? 
+                    (<div className="small text-danger fw-bold mt-1"><CIcon icon={cilBarcode} size="sm" className="me-1"/> SN: {row.serialNumber}</div>) : 
+                    (<div className="small text-muted mt-1"><CIcon icon={cilTag} size="sm" className="me-1"/> Standard Inventory</div>)
+                }
+            </td>
+            <td><CBadge className="badge-category" shape="rounded-pill">{row.category}</CBadge></td>
+            <td className="text-center font-monospace fs-6 text-dark">{row.currentStock}</td>
+            <td className="text-end font-monospace text-danger fw-bold">₱{Number(row.tiedUpValue).toLocaleString()}</td>
+            <td className="text-end pe-4">
+                <div className="text-dark small fw-bold">{row.lastActivity ? new Date(row.lastActivity).toLocaleDateString() : 'No Activity'}</div>
+                <div className="small text-muted fst-italic" style={{fontSize: '0.75rem'}}>Age: {row.daysDormant}</div>
+            </td>
+         </tr>
        );
        if(activeTab === 'returns') return (
          <tr key={idx}><td className="ps-4 text-danger fw-bold font-monospace">#{row.return_id}</td><td><div className="d-flex flex-column gap-1">{row.items && row.items.length > 0 ? (row.items.map((item, i) => (<div key={i} className="small text-dark" style={{lineHeight: '1.2'}}><span className="fw-bold">• {item.product_name}</span>{item.serial_numbers && (<div className="text-muted ms-2 fst-italic" style={{fontSize:'0.75rem'}}>SN: {item.serial_numbers}</div>)}</div>))) : <span className="text-muted small">-</span>}</div></td><td className="fw-semibold">{row.customer_name}</td><td className="text-muted small fst-italic text-truncate" style={{maxWidth:'150px'}}>{row.return_reason}</td><td className="text-muted small font-monospace">{new Date(row.return_date).toLocaleDateString()}</td><td className="text-end pe-4 font-monospace text-danger fw-bold">- ₱{Number(row.refund_amount).toLocaleString()}</td></tr>
@@ -228,52 +301,167 @@ const ReportsPage = () => {
   }
 
   return (
-    <CContainer fluid>
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4 gap-3">
-        <div><h2 className="report-header-title mb-0">ANALYTICS DASHBOARD</h2><div className="text-muted small">Real-time system insights and exportable reports</div></div>
+    <CContainer fluid className="px-4 py-4">
+      {/* --- PAGE HEADER --- */}
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4 gap-3 fade-in-up">
+        <div>
+            <h2 className="fw-bold text-brand-navy mb-1" style={brandHeaderStyle}>ANALYTICS DASHBOARD</h2>
+            <div className="text-medium-emphasis fw-semibold">Real-time system insights and financial reports</div>
+        </div>
+        
+        {/* --- COMMAND TOOLBAR ACTIONS --- */}
         <div className="d-flex gap-2">
-           <button className="btn btn-light border d-flex align-items-center justify-content-center text-danger" onClick={handleResetFilters} disabled={loading} style={{width:'42px',height:'42px',borderRadius:'6px'}} title="Reset"><CIcon icon={cilFilterX}/></button>
-           <button className="btn btn-light border d-flex align-items-center justify-content-center text-secondary" onClick={fetchReportData} disabled={loading} style={{width:'42px',height:'42px',borderRadius:'6px'}} title="Refresh"><CIcon icon={cilReload} className={loading ? "fa-spin" : ""}/></button>
-           <CButton className="fw-bold text-white d-flex align-items-center bg-brand-navy border-0" style={{borderRadius:'6px'}} onClick={handleExportPDF}><CIcon icon={cilCloudDownload} className="me-2"/> EXPORT REPORT</CButton>
+            <CButton 
+                color="danger" 
+                className="d-flex align-items-center justify-content-center shadow-sm fw-bold text-white border-0 px-3 transition-all" 
+                onClick={handleResetFilters} 
+                disabled={loading}
+                style={{height:'45px', borderRadius:'6px', letterSpacing: '0.5px'}}
+            >
+                <CIcon icon={cilFilterX} className="me-2"/> RESET
+            </CButton>
+
+            <CButton 
+                className="d-flex align-items-center justify-content-center shadow-sm fw-bold text-white border-0 px-3 transition-all" 
+                onClick={fetchReportData} 
+                disabled={loading}
+                style={{
+                    height:'45px', 
+                    borderRadius:'6px', 
+                    backgroundColor: 'var(--brand-navy)', 
+                    letterSpacing: '0.5px'
+                }}
+            >
+                <CIcon icon={cilReload} className={`me-2 ${loading ? "fa-spin" : ""}`}/> REFRESH
+            </CButton>
+
+           <CButton 
+                className="fw-bold text-white d-flex align-items-center shadow-sm border-0 px-4" 
+                onClick={handleExportPDF}
+                style={{
+                    height: '45px', 
+                    borderRadius: '6px', 
+                    background: 'linear-gradient(135deg, #17334e 0%, #102a43 100%)', 
+                    letterSpacing: '0.5px'
+                }}
+           >
+                <CIcon icon={cilCloudDownload} className="me-2"/> 
+                EXPORT REPORT
+           </CButton>
         </div>
       </div>
 
+      {/* --- GRADIENT STAT CARDS --- */}
       {summary && (
-        <CRow className="mb-4 g-3">
-          {activeTab === 'sales' && ( <> <CCol sm={4}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="primary" icon={<CIcon icon={cilMoney} height={24}/>} title="Total Revenue" value={`₱${Number(summary.totalRevenue||0).toLocaleString()}`} /></CCol> <CCol sm={4}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="info" icon={<CIcon icon={cilChartLine} height={24}/>} title="Total Sales" value={summary.totalSales || 0} /></CCol> <CCol sm={4}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="warning" icon={<CIcon icon={cilMoney} height={24} className="text-dark"/>} title="Avg. Ticket" value={<span className="text-dark">₱{Number(summary.averageSale||0).toLocaleString()}</span>} /></CCol> </> )}
-          {activeTab === 'inventory' && ( <> <CCol sm={3}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="info" icon={<CIcon icon={cilInbox} height={24}/>} title="Total SKU" value={summary.totalProducts || 0} /></CCol> <CCol sm={3}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="success" icon={<CIcon icon={cilMoney} height={24} className="text-white"/>} title="Asset Value" value={<span className="text-white">₱{Number(summary.totalInventoryValue||0).toLocaleString()}</span>} /></CCol> <CCol sm={3}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="danger" icon={<CIcon icon={cilXCircle} height={24} className="text-white"/>} title="Out of Stock" value={<span className="text-white">{summary.outOfStockProducts || 0}</span>} /></CCol> <CCol sm={3}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="warning" icon={<CIcon icon={cilWarning} height={24} className="text-dark"/>} title="Low Stock" value={<span className="text-dark">{summary.lowStockProducts || 0}</span>} /></CCol> </> )}
-          {activeTab === 'dead_stock' && ( <> <CCol sm={6}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="danger" icon={<CIcon icon={cilHistory} height={24} className="text-white"/>} title="Dormant Items" value={<span className="text-white">{summary.totalDeadItems || 0}</span>} /></CCol> <CCol sm={6}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="warning" icon={<CIcon icon={cilMoney} height={24} className="text-dark"/>} title="Est. Tied Capital" value={<span className="text-dark">₱{Number(summary.totalDeadValue||0).toLocaleString()}</span>} /></CCol> </> )}
-          {activeTab === 'returns' && ( <> <CCol sm={6}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="danger" icon={<CIcon icon={cilArrowThickFromTop} height={24} className="text-white"/>} title="Total Returns" value={<span className="text-white">{summary.totalReturns || 0}</span>} /></CCol> <CCol sm={6}><CWidgetStatsF className="widget-hover shadow-sm border-0" color="warning" icon={<CIcon icon={cilMoney} height={24} className="text-dark"/>} title="Refunded Value" value={<span className="text-dark">₱{Number(summary.totalRefundAmount||0).toLocaleString()}</span>} /></CCol> </> )}
+        <CRow className="mb-4 g-3 fade-in-up delay-100">
+          {activeTab === 'sales' && ( <>
+             <CCol sm={6} lg={4}><StatCard title="Total Revenue" value={`₱${Number(summary.totalRevenue||0).toLocaleString()}`} icon={<CIcon icon={cilMoney}/>} gradient="linear-gradient(135deg, #17334e 0%, #0f2438 100%)" /></CCol> 
+             <CCol sm={6} lg={4}><StatCard title="Total Sales" value={summary.totalSales || 0} icon={<CIcon icon={cilChartLine}/>} gradient="linear-gradient(135deg, #2eb85c 0%, #1b9e3e 100%)" /></CCol> 
+             <CCol sm={6} lg={4}><StatCard title="Avg. Ticket" value={`₱${Number(summary.averageSale||0).toLocaleString()}`} icon={<CIcon icon={cilMoney}/>} gradient="linear-gradient(135deg, #f9b115 0%, #f6960b 100%)" textColor="text-brand-navy" /></CCol> 
+          </> )}
+          {activeTab === 'inventory' && ( <> 
+             <CCol sm={6} lg={3}><StatCard title="Total SKU" value={summary.totalProducts || 0} icon={<CIcon icon={cilInbox}/>} gradient="linear-gradient(135deg, #17334e 0%, #0f2438 100%)" /></CCol> 
+             <CCol sm={6} lg={3}><StatCard title="Asset Value" value={`₱${Number(summary.totalInventoryValue||0).toLocaleString()}`} icon={<CIcon icon={cilMoney}/>} gradient="linear-gradient(135deg, #2eb85c 0%, #1b9e3e 100%)" /></CCol> 
+             <CCol sm={6} lg={3}><StatCard title="Out of Stock" value={summary.outOfStockProducts || 0} icon={<CIcon icon={cilXCircle}/>} gradient="linear-gradient(135deg, #e55353 0%, #b21f2d 100%)" /></CCol> 
+             <CCol sm={6} lg={3}><StatCard title="Low Stock" value={summary.lowStockProducts || 0} icon={<CIcon icon={cilWarning}/>} gradient="linear-gradient(135deg, #f9b115 0%, #f6960b 100%)" textColor="text-brand-navy" /></CCol> 
+          </> )}
+          {activeTab === 'dead_stock' && ( <> 
+             <CCol sm={6}><StatCard title="Dormant Items" value={summary.totalDeadItems || 0} icon={<CIcon icon={cilHistory}/>} gradient="linear-gradient(135deg, #e55353 0%, #b21f2d 100%)" /></CCol> 
+             <CCol sm={6}><StatCard title="Est. Tied Capital" value={`₱${Number(summary.totalDeadValue||0).toLocaleString()}`} icon={<CIcon icon={cilMoney}/>} gradient="linear-gradient(135deg, #f9b115 0%, #f6960b 100%)" textColor="text-brand-navy" /></CCol> 
+          </> )}
+          {activeTab === 'returns' && ( <> 
+             <CCol sm={6}><StatCard title="Total Returns" value={summary.totalReturns || 0} icon={<CIcon icon={cilArrowThickFromTop}/>} gradient="linear-gradient(135deg, #e55353 0%, #b21f2d 100%)" /></CCol> 
+             <CCol sm={6}><StatCard title="Refunded Value" value={`₱${Number(summary.totalRefundAmount||0).toLocaleString()}`} icon={<CIcon icon={cilMoney}/>} gradient="linear-gradient(135deg, #f9b115 0%, #f6960b 100%)" textColor="text-brand-navy" /></CCol> 
+          </> )}
         </CRow>
       )}
 
-      <CCard className="border-0 shadow-sm overflow-hidden" style={{borderRadius: '8px'}}>
+      {/* --- MAIN REPORT CARD --- */}
+      <CCard className="border-0 shadow-sm overflow-hidden fade-in-up delay-200" style={{borderRadius: '8px'}}>
         <CCardHeader className="bg-white p-3 border-bottom">
            <div className="d-flex flex-column flex-xl-row gap-3 justify-content-between align-items-xl-center">
+              {/* Tabs */}
               <CNav variant="pills" className="report-pills flex-nowrap overflow-auto pb-2 pb-xl-0">
                 <CNavItem><CNavLink href="#" active={activeTab === 'sales'} onClick={() => handleTabChange('sales')}><CIcon icon={cilChartLine} className="me-2"/>Sales</CNavLink></CNavItem>
                 <CNavItem><CNavLink href="#" active={activeTab === 'inventory'} onClick={() => handleTabChange('inventory')}><CIcon icon={cilInbox} className="me-2"/>Inventory</CNavLink></CNavItem>
                 <CNavItem><CNavLink href="#" active={activeTab === 'dead_stock'} onClick={() => handleTabChange('dead_stock')}><CIcon icon={cilHistory} className="me-2"/>Dead Stock</CNavLink></CNavItem>
                 <CNavItem><CNavLink href="#" active={activeTab === 'returns'} onClick={() => handleTabChange('returns')}><CIcon icon={cilArrowThickFromTop} className="me-2"/>Returns</CNavLink></CNavItem>
               </CNav>
-              <div className="d-flex flex-wrap gap-2 align-items-center justify-content-start justify-content-xl-end">
-                 {activeTab === 'dead_stock' && ( <div className="d-flex gap-2 flex-wrap align-items-center"><div className="d-flex align-items-center bg-light px-3 py-1 rounded border" style={{height:'45px'}}><span className="text-muted small me-2 fw-bold text-uppercase">Dormancy:</span><select className="bg-transparent border-0 fw-bold text-danger" value={dormancyMonths} onChange={e => setDormancyMonths(e.target.value)} style={{outline:'none', cursor:'pointer', minWidth: '100px'}}><option value="3">3 Months</option><option value="6">6 Months</option><option value="12">1 Year</option><option value="24">2 Years</option></select></div><select className="brand-select" value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})}><option>All Brand</option>{options.brands.map((b,i) => <option key={i}>{b}</option>)}</select><select className="brand-select" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}><option>All Categories</option>{options.categories.map((c,i) => <option key={i}>{c}</option>)}</select></div> )}
+
+              {/* Command Toolbar Filters */}
+              <div className="d-flex flex-wrap gap-2 align-items-center justify-content-start justify-content-xl-end" style={{minWidth: '600px'}}>
+                 {/* Dead Stock Specific - UPDATED TERMINOLOGY & LAYOUT */}
+                 {activeTab === 'dead_stock' && ( 
+                    <div className="d-flex gap-2 align-items-center flex-nowrap w-100">
+                        <div className="bg-light px-3 rounded border d-flex align-items-center flex-grow-1" style={{height:'45px'}}>
+                            <span className="text-muted small me-2 fw-bold text-uppercase text-nowrap">DAYS IN STOCK:</span>
+                            <CFormSelect 
+                                className="bg-transparent border-0 fw-bold text-danger w-100" 
+                                value={dormancyMonths} 
+                                onChange={e => setDormancyMonths(e.target.value)} 
+                                style={{outline:'none', cursor:'pointer'}}
+                            >
+                                <option value="3">&gt; 90 Days</option>
+                                <option value="6">&gt; 180 Days</option>
+                                <option value="12">&gt; 365 Days</option>
+                                <option value="24">&gt; 730 Days</option>
+                            </CFormSelect>
+                        </div>
+                        <CFormSelect className="form-select-sm flex-grow-1" style={{height: '45px', borderColor:'#cbd5e1'}} value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})}><option>All Brand</option>{options.brands.map((b,i) => <option key={i}>{b}</option>)}</CFormSelect>
+                        <CFormSelect className="form-select-sm flex-grow-1" style={{height: '45px', borderColor:'#cbd5e1'}} value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}><option>All Categories</option>{options.categories.map((c,i) => <option key={i}>{c}</option>)}</CFormSelect>
+                    </div> 
+                 )}
+
+                 {/* Sales & Returns Date Filters */}
                  {(activeTab === 'sales' || activeTab === 'returns') && (
-                    <div className="period-filter-group">
-                       <CIcon icon={cilCalendar} className="text-secondary ms-2"/>
-                       <CFormSelect value={reportPeriod} onChange={handlePeriodChange} className="period-select"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option><option value="custom">Custom</option><option value="all">All Time</option></CFormSelect>
-                       <div className="period-divider"></div>
-                       <div className="period-input-wrapper px-2">
-                          {reportPeriod === 'daily' && <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />}
-                          {reportPeriod === 'weekly' && <input type="week" value={filterDate} onChange={e => setFilterDate(e.target.value)} />}
-                          {reportPeriod === 'monthly' && <input type="month" value={filterDate} onChange={e => setFilterDate(e.target.value)} />}
-                          {reportPeriod === 'yearly' && <select className="border-0 bg-transparent fw-bold text-main" value={filterDate} onChange={e => setFilterDate(e.target.value)}>{renderYearOptions()}</select>}
-                          {reportPeriod === 'custom' && <div className="d-flex align-items-center gap-2"><input type="date" value={customRange.start} onChange={e => setCustomRange({...customRange, start: e.target.value})} style={{maxWidth: '110px'}} /><span className="text-muted fw-bold">-</span><input type="date" value={customRange.end} onChange={e => setCustomRange({...customRange, end: e.target.value})} style={{maxWidth: '110px'}} /></div>}
+                    <div className="bg-light p-1 border rounded d-flex align-items-center gap-2 px-2" style={{height:'45px'}}>
+                       <CIcon icon={cilCalendar} className="text-secondary"/>
+                       <CFormSelect value={reportPeriod} onChange={handlePeriodChange} className="bg-transparent border-0 fw-bold text-brand-navy" style={{outline:'none', fontSize:'0.9rem', cursor:'pointer'}}>
+                           <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option><option value="custom">Custom</option><option value="all">All Time</option>
+                       </CFormSelect>
+                       <div style={{width:'1px', height:'20px', backgroundColor:'#cbd5e1'}}></div>
+                       <div className="d-flex align-items-center">
+                          {reportPeriod === 'daily' && <CFormInput type="date" className="bg-transparent border-0 fw-semibold text-dark" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{outline:'none'}} />}
+                          {reportPeriod === 'weekly' && <CFormInput type="week" className="bg-transparent border-0 fw-semibold text-dark" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{outline:'none'}} />}
+                          {reportPeriod === 'monthly' && <CFormInput type="month" className="bg-transparent border-0 fw-semibold text-dark" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{outline:'none'}} />}
+                          {reportPeriod === 'yearly' && <CFormSelect className="bg-transparent border-0 fw-semibold text-dark" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{outline:'none'}}>{renderYearOptions()}</CFormSelect>}
+                          {reportPeriod === 'custom' && <div className="d-flex align-items-center gap-1"><CFormInput type="date" className="bg-transparent border-0 fw-semibold text-dark" style={{width:'110px', outline:'none'}} value={customRange.start} onChange={e => setCustomRange({...customRange, start: e.target.value})} /><span className="text-muted fw-bold">-</span><CFormInput type="date" className="bg-transparent border-0 fw-semibold text-dark" style={{width:'110px', outline:'none'}} value={customRange.end} onChange={e => setCustomRange({...customRange, end: e.target.value})} /></div>}
                        </div>
-                       {activeTab === 'returns' && ( <><div className="period-divider"></div><select className="bg-transparent border-0 fw-bold px-2" style={{outline:'none', cursor:'pointer', fontSize:'0.9rem'}} value={filters.returnReason} onChange={e => setFilters({...filters, returnReason: e.target.value})}><option value="All Reasons">All Reasons</option><option value="Defective/Damaged">Defective</option><option value="Wrong Item">Wrong Item</option><option value="Not as Described">Not as Described</option><option value="Customer Changed Mind">Changed Mind</option><option value="Other">Other</option></select></> )}
+                       
+                       {activeTab === 'returns' && ( 
+                           <>
+                             <div style={{width:'1px', height:'20px', backgroundColor:'#cbd5e1'}} className="mx-1"></div>
+                             <CFormSelect className="bg-transparent border-0 fw-semibold text-dark" style={{outline:'none', cursor:'pointer', fontSize:'0.9rem', maxWidth:'120px'}} value={filters.returnReason} onChange={e => setFilters({...filters, returnReason: e.target.value})}>
+                                <option value="All Reasons">All Reasons</option><option value="Defective/Damaged">Defective</option><option value="Wrong Item">Wrong Item</option><option value="Not as Described">Not Described</option><option value="Customer Changed Mind">Changed Mind</option><option value="Other">Other</option>
+                             </CFormSelect>
+                           </> 
+                       )}
                     </div>
                  )}
-                 {activeTab === 'inventory' && ( <div className="d-flex gap-2 flex-wrap"><div className="brand-search-wrapper" style={{maxWidth:'200px'}}><span className="brand-search-icon"><CIcon icon={cilSearch} /></span><input type="text" className="brand-search-input" placeholder="Search..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} /></div><CButton onClick={toggleSerializedFilter} className={`btn-toggle-filter ${filters.isSerializedOnly ? 'active' : ''}`}><CIcon icon={cilBarcode} /> {filters.isSerializedOnly ? 'Serialized Only' : 'All Items'}</CButton><select className="brand-select" value={filters.stockStatus} onChange={e => setFilters({...filters, stockStatus: e.target.value})}><option>All Status</option><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option></select><select className="brand-select" value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})}><option>All Brand</option>{options.brands.map((b,i) => <option key={i}>{b}</option>)}</select><select className="brand-select" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}><option>All Categories</option>{options.categories.map((c,i) => <option key={i}>{c}</option>)}</select></div> )}
+
+                 {/* Inventory Filters */}
+                 {activeTab === 'inventory' && ( 
+                    <div className="d-flex gap-2 flex-wrap">
+                        {/* [MODIFIED WIDTH] Search Input */}
+                        <div className="bg-light rounded px-3 py-0 d-flex align-items-center border" style={{height: '45px', width: '250px'}}>
+                            <CIcon icon={cilSearch} className="text-muted me-2"/>
+                            <CFormInput className="border-0 bg-transparent w-100" style={{outline: 'none', fontSize: '0.9rem'}} placeholder="Search..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
+                        </div>
+                        
+                        {/* [MODIFIED WIDTH] Product Type */}
+                        <CFormSelect style={{height: '45px', width: '150px', borderColor:'#cbd5e1'}} value={filters.productType} onChange={e => setFilters({...filters, productType: e.target.value})}>
+                          <option value="All">All Types</option>
+                          <option value="Standard">Standard</option>
+                          <option value="Serialized">Serialized</option>
+                        </CFormSelect>
+                        
+                        {/* [MODIFIED WIDTH] Stock Status */}
+                        <CFormSelect style={{height: '45px', width: '150px', borderColor:'#cbd5e1'}} value={filters.stockStatus} onChange={e => setFilters({...filters, stockStatus: e.target.value})}><option value="All Status">All Status</option><option value="In Stock">In Stock</option><option value="Low Stock">Low Stock</option><option value="Out of Stock">Out of Stock</option></CFormSelect>
+                        
+                        <CFormSelect style={{height: '45px', width: '130px', borderColor:'#cbd5e1'}} value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})}><option>All Brand</option>{options.brands.map((b,i) => <option key={i}>{b}</option>)}</CFormSelect>
+                        <CFormSelect style={{height: '45px', width: '130px', borderColor:'#cbd5e1'}} value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}><option>All Categories</option>{options.categories.map((c,i) => <option key={i}>{c}</option>)}</CFormSelect>
+                    </div> 
+                 )}
               </div>
            </div>
         </CCardHeader>
@@ -285,7 +473,7 @@ const ReportsPage = () => {
                 {renderTableHead()}
               </thead>
               <tbody>
-                {loading ? ( <tr><td colSpan="8" className="text-center py-5"><CSpinner color="primary"/><div className="mt-2 text-muted small font-monospace">FETCHING DATA...</div></td></tr> ) : reportData.length === 0 ? ( <tr><td colSpan="8" className="text-center py-5"><CIcon icon={cilSearch} size="4xl" className="text-secondary opacity-25 mb-3"/><h6 className="text-secondary fw-bold mt-2">NO RECORDS FOUND</h6><small className="text-muted">Adjust filters or select a different date range.</small></td></tr> ) : (
+                {loading ? ( <tr><td colSpan="8" className="text-center py-5"><CSpinner color="primary"/><div className="mt-2 text-muted small font-monospace">FETCHING DATA...</div></td></tr> ) : reportData.length === 0 ? ( <tr><td colSpan="8" className="text-center py-5"><CIcon icon={cilSearch} size="4xl" className="text-secondary opacity-25 mb-3"/><h6 className="fw-bold mt-2">NO RECORDS FOUND</h6><small className="text-muted">Adjust filters or select a different date range.</small></td></tr> ) : (
                   renderTableRows()
                 )}
               </tbody>
@@ -297,7 +485,16 @@ const ReportsPage = () => {
           </div>
         </CCardBody>
       </CCard>
-      <CModal visible={msgModal.visible} onClose={() => setMsgModal({...msgModal, visible: false})}><CModalHeader className={`bg-${msgModal.color} text-white`}><CModalTitle className="text-white">{msgModal.title}</CModalTitle></CModalHeader><CModalBody className="fw-bold text-center py-4">{msgModal.message}</CModalBody><CModalFooter><CButton color="secondary" onClick={() => setMsgModal({...msgModal, visible: false})}>Close</CButton></CModalFooter></CModal>
+      
+      <CModal visible={msgModal.visible} onClose={() => setMsgModal({...msgModal, visible: false})} alignment="center">
+        <CModalHeader className={`bg-${msgModal.color === 'danger' ? 'brand-navy' : msgModal.color} text-white`}>
+            <CModalTitle className="text-white" style={brandHeaderStyle}>{msgModal.title}</CModalTitle>
+        </CModalHeader>
+        <CModalBody className="fw-bold text-center py-4">{msgModal.message}</CModalBody>
+        <CModalFooter className="justify-content-center bg-light border-top-0">
+            <CButton color="secondary" onClick={() => setMsgModal({...msgModal, visible: false})} className="fw-bold">Close</CButton>
+        </CModalFooter>
+      </CModal>
     </CContainer>
   )
 }

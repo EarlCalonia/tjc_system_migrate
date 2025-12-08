@@ -16,7 +16,7 @@ import 'react-image-crop/dist/ReactCrop.css'
 
 import '../../styles/Admin.css'
 import '../../styles/App.css' 
-import '../../styles/ProductPage.css' 
+import '../../styles/ProductPage.css'
 
 const ASSET_URL = 'http://localhost:5000'
 

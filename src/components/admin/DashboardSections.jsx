@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom'; 
-import { dashboardAPI, activityLogsAPI } from '../../utils/api'; // Added activityLogsAPI
+import { dashboardAPI, activityLogsAPI } from '../../utils/api'; 
 import { Line, Doughnut } from 'react-chartjs-2';
 import { hexToRgba } from '@coreui/utils';
 import { 
@@ -18,7 +18,6 @@ import {
   Title, Tooltip, Legend, Filler, ArcElement 
 } from 'chart.js';
 
-// Register Chart.js
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler, ArcElement);
 
 // --- UTILS ---
@@ -53,13 +52,8 @@ const BRAND_RED = '#e55353';
 const BRAND_ORANGE = '#f9b115';
 const BRAND_GREEN = '#2eb85c';
 
-// 1. CATEGORY (Industrial Mix)
 const CATEGORY_PALETTE = [BRAND_NAVY, BRAND_YELLOW, '#636f83', BRAND_GREEN, BRAND_RED, '#321fdb', '#39f'];
-
-// 2. FAST MOVING (Navy to Blue)
 const FAST_PALETTE = [BRAND_NAVY, '#24486b', '#315d88', '#3e72a5', '#4b87c2']; 
-
-// 3. SLOW MOVING (Red Warning Scale)
 const SLOW_PALETTE = ['#b21f2d', '#c93636', '#df4d3f', '#f56448', '#ff7b51'];
 
 const DashboardSections = () => {
@@ -70,7 +64,7 @@ const DashboardSections = () => {
   const [fastMoving, setFastMoving] = useState([]);
   const [slowMoving, setSlowMoving] = useState([]);
   const [salesByCategory, setSalesByCategory] = useState([]);
-  const [recentActivity, setRecentActivity] = useState([]); // New State
+  const [recentActivity, setRecentActivity] = useState([]); 
   
   const [stockTab, setStockTab] = useState('all'); 
   const [productTab, setProductTab] = useState('fast');
@@ -87,14 +81,15 @@ const DashboardSections = () => {
           dashboardAPI.getFastMovingProducts(),
           dashboardAPI.getSlowMovingProducts(),
           dashboardAPI.getSalesByCategory(),
-          activityLogsAPI.getAll({ limit: 8, page: 1 }) // Fetch recent logs
+          activityLogsAPI.getAll({ limit: 5, page: 1 }) 
         ]);
 
         if (lowStockRes.success) setLowStock((lowStockRes.data || []).map(item => ({ ...item, remaining: Number(item.remaining) })));
         if (fastMovingRes.success) setFastMoving(fastMovingRes.data || []);
         if (slowMovingRes.success) setSlowMoving(slowMovingRes.data || []);
         if (salesByCategoryRes.success) setSalesByCategory(salesByCategoryRes.data || []);
-        if (activityRes.success) setRecentActivity(activityRes.data?.logs || []); // Set logs
+        if (activityRes.success) setRecentActivity(activityRes.data || []); 
+
       } catch (error) { console.error("Failed to fetch data", error); } finally { setLoading(false); }
     };
     fetchAllData();
@@ -106,12 +101,10 @@ const DashboardSections = () => {
       try {
         setLoadingSales(true);
         const salesRes = await dashboardAPI.getDailySales({ period: salesPeriod });
-        
         if (salesRes.success) {
           const data = salesRes.data || [];
           const labels = data.map(d => formatDate(d.date, salesPeriod));
           const values = data.map(d => d.total);
-
           setSalesChartData({
             labels: labels,
             datasets: [{
@@ -144,14 +137,29 @@ const DashboardSections = () => {
     fetchSalesData();
   }, [salesPeriod]);
 
-  // --- Helper to get Icon based on Action Type ---
+  // --- Helper to get Icon & Colors based on Action Type ---
+  // [FIX] Updated colors and text classes to ensure high contrast (WCAG)
   const getActionIcon = (action) => {
     const act = action.toUpperCase();
-    if (act.includes('LOGIN') || act.includes('AUTH')) return { icon: cilUser, color: 'info' };
-    if (act.includes('CREATE') || act.includes('ADD')) return { icon: cilPlus, color: 'success' };
-    if (act.includes('UPDATE') || act.includes('EDIT')) return { icon: cilPencil, color: 'warning' };
-    if (act.includes('DELETE') || act.includes('REMOVE')) return { icon: cilTrash, color: 'danger' };
-    return { icon: cilCheckCircle, color: 'secondary' };
+    
+    // Login/Auth: Use Primary (Blue) with White Text
+    if (act.includes('LOGIN') || act.includes('AUTH')) 
+      return { icon: cilUser, bg: 'bg-primary', text: 'text-white' };
+    
+    // Create/Add: Use Success (Green) with White Text
+    if (act.includes('CREATE') || act.includes('ADD')) 
+      return { icon: cilPlus, bg: 'bg-success', text: 'text-white' };
+    
+    // Update/Edit: Use Warning (Yellow) with DARK Text (White on Yellow fails WCAG)
+    if (act.includes('UPDATE') || act.includes('EDIT')) 
+      return { icon: cilPencil, bg: 'bg-warning', text: 'text-dark' };
+    
+    // Delete: Use Danger (Red) with White Text
+    if (act.includes('DELETE') || act.includes('REMOVE')) 
+      return { icon: cilTrash, bg: 'bg-danger', text: 'text-white' };
+    
+    // Default: Secondary (Grey) with Dark Text
+    return { icon: cilCheckCircle, bg: 'bg-secondary', text: 'text-dark' };
   };
 
   const salesChartOptions = {
@@ -321,7 +329,8 @@ const DashboardSections = () => {
             </CCardHeader>
             <CCardBody className="p-0">
               <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
+                {/* [MODIFIED] Added 'table-striped' for Zebra Styling */}
+                <table className="table table-hover table-striped align-middle mb-0">
                   <thead className="bg-light text-medium-emphasis">
                     <tr>
                       <th className="px-4 py-3 small fw-bold text-uppercase border-bottom-0">User</th>
@@ -333,13 +342,14 @@ const DashboardSections = () => {
                   <tbody>
                     {recentActivity.length > 0 ? (
                       recentActivity.map((log, idx) => {
-                        const { icon, color } = getActionIcon(log.action);
+                        const { icon, bg, text } = getActionIcon(log.action);
                         return (
                           <tr key={idx} style={{cursor: 'default'}}>
                             {/* User Column */}
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="d-flex align-items-center">
-                                <div className={`avatar avatar-md bg-${color}-gradient text-white d-flex align-items-center justify-content-center rounded-circle shadow-sm`} style={{width: '36px', height: '36px'}}>
+                                {/* [FIX] Standardized Classes for WCAG */}
+                                <div className={`avatar avatar-md ${bg} ${text} d-flex align-items-center justify-content-center rounded-circle shadow-sm`} style={{width: '36px', height: '36px'}}>
                                   <CIcon icon={icon} size="sm" />
                                 </div>
                                 <div className="ms-3">
@@ -351,7 +361,8 @@ const DashboardSections = () => {
                             
                             {/* Action Column */}
                             <td className="px-4 py-3">
-                              <CBadge color={color} shape="rounded-pill" className="text-white text-uppercase" style={{fontSize: '0.65rem', letterSpacing: '0.5px'}}>
+                              {/* [FIX] Badge Colors to match Icon */}
+                              <CBadge className={`${bg} ${text} text-uppercase border-0`} shape="rounded-pill" style={{fontSize: '0.65rem', letterSpacing: '0.5px'}}>
                                 {log.action}
                               </CBadge>
                             </td>

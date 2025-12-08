@@ -10,7 +10,8 @@ import {
   cilList, cilPlus, cilImage, cilBarcode, cilTrash, cilTruck, cilChevronLeft, 
   cilChevronRight, cilChevronBottom, cilMinus, cilArrowThickFromRight, cilDescription, cilSave
 } from '@coreui/icons'
-import { inventoryAPI, serialNumberAPI, suppliersAPI } from '../../utils/api'
+// [UPDATED] Added productAPI to imports
+import { inventoryAPI, serialNumberAPI, suppliersAPI, productAPI } from '../../utils/api'
 
 // Import Global Brand Styles
 import '../../styles/Admin.css'
@@ -40,6 +41,9 @@ const InventoryPage = () => {
   const [suppliersList, setSuppliersList] = useState([])
   const [inventoryStats, setInventoryStats] = useState({ totalProducts: 0, inStock: 0, lowStock: 0, outOfStock: 0 })
   
+  // [NEW] Stable Filter Options
+  const [categoryOptions, setCategoryOptions] = useState([])
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -53,6 +57,7 @@ const InventoryPage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedStatus, setSelectedStatus] = useState('All')
+  const [selectedType, setSelectedType] = useState('All') 
   
   // --- UNIFIED STOCK IN STATE ---
   const [bulkModalOpen, setBulkModalOpen] = useState(false)
@@ -96,12 +101,16 @@ const InventoryPage = () => {
   const brandHeaderStyle = { fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' };
 
   // --- LIFECYCLE ---
-  useEffect(() => { loadInventoryStats(); loadSuppliers(); }, [])
+  useEffect(() => { 
+      loadInventoryStats(); 
+      loadSuppliers(); 
+      loadFilterOptions(); // [NEW] Load categories once on mount
+  }, [])
 
   useEffect(() => {
      const t = setTimeout(() => { loadProducts(); }, 300);
      return () => clearTimeout(t);
-  }, [currentPage, searchQuery, selectedCategory, selectedStatus]);
+  }, [currentPage, searchQuery, selectedCategory, selectedStatus, selectedType]); 
 
   // Click Outside Handler
   useEffect(() => {
@@ -166,6 +175,16 @@ const InventoryPage = () => {
       } catch (e) { console.error(e); }
   }
 
+  // [NEW] Load Categories
+  const loadFilterOptions = async () => {
+      try {
+          const res = await productAPI.getCategories();
+          if (res.success) {
+              setCategoryOptions(res.data || []);
+          }
+      } catch (e) { console.error("Failed to load categories", e); }
+  }
+
   const loadProducts = useCallback(async () => {
     setLoading(true)
     try {
@@ -174,7 +193,8 @@ const InventoryPage = () => {
         limit: ITEMS_PER_PAGE,
         search: searchQuery,
         category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        status: selectedStatus !== 'All' ? selectedStatus : undefined
+        status: selectedStatus !== 'All' ? selectedStatus : undefined,
+        type: selectedType !== 'All' ? selectedType : undefined 
       }
 
       const response = await inventoryAPI.getProducts(filters)
@@ -196,7 +216,7 @@ const InventoryPage = () => {
       }
     } catch (error) { console.error(error) } 
     finally { setLoading(false) }
-  }, [currentPage, searchQuery, selectedCategory, selectedStatus])
+  }, [currentPage, searchQuery, selectedCategory, selectedStatus, selectedType])
 
   const loadInventoryStats = async () => {
     try {
@@ -215,7 +235,7 @@ const InventoryPage = () => {
     } catch (e) { console.error(e) }
   }
 
-  // --- HANDLERS (Unchanged Logic) ---
+  // --- HANDLERS (Same as before) ---
   const handleOpenStockIn = () => {
       setItemForm({ quantity: 1, serials: [] });
       setManifestItems([]);
@@ -435,7 +455,7 @@ const InventoryPage = () => {
         <div className="text-medium-emphasis fw-semibold">Real-time stock monitoring and adjustments</div>
       </div>
 
-      {/* --- STAT CARDS (UPDATED) --- */}
+      {/* --- STAT CARDS --- */}
       <CRow className="mb-4 g-3 fade-in-up delay-100">
         <CCol sm={6} lg={3}><StatCard title="Total Products" value={inventoryStats.totalProducts} icon={<CIcon icon={cilInbox}/>} gradient="linear-gradient(135deg, #17334e 0%, #0f2438 100%)" /></CCol>
         <CCol sm={6} lg={3}><StatCard title="In Stock" value={inventoryStats.inStock} icon={<CIcon icon={cilCheckCircle}/>} gradient="linear-gradient(135deg, #2eb85c 0%, #1b9e3e 100%)" /></CCol>
@@ -451,11 +471,20 @@ const InventoryPage = () => {
                   <CIcon icon={cilMagnifyingGlass} className="text-muted me-2"/>
                   <input className="border-0 bg-transparent w-100" style={{outline: 'none', fontSize: '0.9rem'}} placeholder="Search products..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} />
                 </div>
+                
+                {/* [UPDATED] CATEGORY DROPDOWN - Uses Stable Options */}
                 <CFormSelect className="form-select-sm" style={{maxWidth: '180px', borderColor:'#e9ecef'}} value={selectedCategory} onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }}>
                   <option value="All">All Categories</option>
-                  {[...new Set(products.map(p => p.category).filter(Boolean))].map(c => <option key={c} value={c}>{c}</option>)}
+                  {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
                 </CFormSelect>
-                <CFormSelect className="form-select-sm" style={{maxWidth: '180px', borderColor:'#e9ecef'}} value={selectedStatus} onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}>
+
+                <CFormSelect className="form-select-sm" style={{maxWidth: '140px', borderColor:'#e9ecef'}} value={selectedType} onChange={(e) => { setSelectedType(e.target.value); setCurrentPage(1); }}>
+                  <option value="All">All Types</option>
+                  <option value="Standard">Standard</option>
+                  <option value="Serialized">Serialized</option>
+                </CFormSelect>
+
+                <CFormSelect className="form-select-sm" style={{maxWidth: '140px', borderColor:'#e9ecef'}} value={selectedStatus} onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}>
                   <option value="All">All Status</option><option value="In Stock">In Stock</option><option value="Low Stock">Low Stock</option><option value="Out of Stock">Out of Stock</option>
                 </CFormSelect>
              </div>
@@ -513,7 +542,6 @@ const InventoryPage = () => {
                         <td className="text-center"><span className="fw-bold fs-5 text-brand-navy">{Number(p.stock ?? 0).toLocaleString()}</span></td>
                         <td className="text-center">{renderStatusBadge(p.computedStatus)}</td>
                         
-                        {/* --- IMPROVED ACTION BUTTONS (SOLID COMMAND STYLE) --- */}
                         <td className="text-end pe-4">
                            <div className="d-flex justify-content-end gap-2">
                               <CTooltip content="Return to Supplier">
@@ -572,7 +600,7 @@ const InventoryPage = () => {
         </div>
       </CCard>
 
-      {/* --- STOCK IN MODAL (Updated for WCAG & Styling) --- */}
+      {/* ... (rest of modals) ... */}
       <CModal visible={bulkModalOpen} onClose={() => setBulkModalOpen(false)} size="lg" alignment="center" backdrop="static" scrollable>
         <CModalHeader className="bg-brand-navy"><CModalTitle component="span" className="text-white" style={brandHeaderStyle}>STOCK IN</CModalTitle></CModalHeader>
         <CModalBody className="p-4 bg-light">

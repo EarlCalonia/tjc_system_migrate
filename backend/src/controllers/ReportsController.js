@@ -6,16 +6,20 @@ export class ReportsController {
   // Helper: Convert UTC to Philippine Time
   static convertToPhilippineTime(utcDateString) {
     if (!utcDateString) return null;
-    const utcDate = new Date(utcDateString);
-    utcDate.setHours(utcDate.getHours() + 8);
-    return utcDate.toISOString().replace('Z', '+08:00');
+    try {
+      const utcDate = new Date(utcDateString);
+      utcDate.setHours(utcDate.getHours() + 8);
+      return utcDate.toISOString().replace('Z', '+08:00');
+    } catch (e) {
+      return utcDateString; // Fallback if date parsing fails
+    }
   }
 
   // 1. SALES REPORT
   static async getSalesReport(req, res) {
     try {
       const { page = 1, limit = 10, start_date, end_date } = req.query;
-      const offset = (page - 1) * limit;
+      const offset = (parseInt(page) - 1) * parseInt(limit);
       const pool = getPool();
 
       const baseWhere = `
@@ -60,19 +64,11 @@ export class ReportsController {
       const queryParams = [...params, parseInt(limit), parseInt(offset)];
       const [items] = await pool.execute(query, queryParams);
 
-      const countQuery = `
-        SELECT COUNT(*) as total 
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        ${baseWhere}
-        ${dateFilter}
-      `;
-      const [countResult] = await pool.execute(countQuery, params);
-      const totalItems = countResult[0].total;
-
+      // Get Counts and Summary
       const summaryQuery = `
         SELECT 
           COUNT(DISTINCT s.id) as total_sales_count,
+          COUNT(*) as total_items_count,
           SUM((si.quantity - COALESCE(si.returned_quantity, 0)) * si.price) as total_revenue
         FROM sale_items si
         JOIN sales s ON si.sale_id = s.id
@@ -80,19 +76,20 @@ export class ReportsController {
         ${dateFilter}
       `;
       const [summaryResult] = await pool.execute(summaryQuery, params);
+      const stats = summaryResult[0] || {};
       
       const summary = {
-        totalSales: summaryResult[0].total_sales_count || 0,
-        totalRevenue: summaryResult[0].total_revenue || 0,
+        totalSales: stats.total_sales_count || 0,
+        totalRevenue: stats.total_revenue || 0,
         averageSale: 0,
-        totalItems: totalItems
+        totalItems: stats.total_items_count || 0
       };
 
       if (summary.totalSales > 0) {
         summary.averageSale = summary.totalRevenue / summary.totalSales;
       }
 
-      const formattedItems = items.map(item => ({
+      const formattedItems = Array.isArray(items) ? items.map(item => ({
         id: `${item.sale_id}-${item.product_name}`,
         orderId: item.order_id,
         customerName: item.customer_name,
@@ -104,7 +101,7 @@ export class ReportsController {
         orderDate: ReportsController.convertToPhilippineTime(item.order_date),
         paymentMethod: item.payment_method || 'N/A',
         paymentStatus: item.payment_status || 'Unpaid'
-      }));
+      })) : [];
 
       res.json({
         success: true,
@@ -113,8 +110,8 @@ export class ReportsController {
           pagination: {
             current_page: parseInt(page),
             per_page: parseInt(limit),
-            total: totalItems,
-            total_pages: Math.ceil(totalItems / limit),
+            total: summary.totalItems,
+            total_pages: Math.ceil(summary.totalItems / parseInt(limit)) || 1,
           },
           summary: summary
         }
@@ -129,92 +126,99 @@ export class ReportsController {
   // 2. INVENTORY REPORT
   static async getInventoryReport(req, res) {
     try {
-      const { page = 1, limit = 10, search, category, brand, status, stock_status } = req.query;
-      const offset = (page - 1) * limit;
+      const { page = 1, limit = 10, search, category, brand, status, stock_status, type } = req.query; // [FIX] Added 'type'
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+      const pool = getPool();
 
-      let query = `
+      // --- 1. BUILD BASE FILTERS ---
+      let baseConditions = `WHERE 1=1`;
+      let params = [];
+
+      if (search) {
+        baseConditions += ' AND (p.name LIKE ? OR p.product_id LIKE ? OR p.brand LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      }
+      if (category && category !== 'All Categories') {
+        baseConditions += ' AND p.category = ?';
+        params.push(category);
+      }
+      if (brand && brand !== 'All Brand') {
+        baseConditions += ' AND p.brand = ?';
+        params.push(brand);
+      }
+      if (status && status !== 'All Status') {
+        baseConditions += ' AND p.status = ?';
+        params.push(status);
+      }
+      
+      // [FIX] Filter by Product Type
+      if (type) {
+        if (type === 'Serialized') {
+            baseConditions += ' AND p.requires_serial = 1';
+        } else if (type === 'Standard') {
+            baseConditions += ' AND p.requires_serial = 0';
+        }
+      }
+
+      // --- 2. HANDLE STOCK STATUS LOGIC ---
+      if (stock_status && stock_status !== 'All Status') {
+        if (stock_status === 'Out of Stock') {
+          baseConditions += ' AND (COALESCE(i.stock, 0) <= 0 OR i.stock IS NULL)'; 
+        } else if (stock_status === 'Low Stock') {
+          baseConditions += ' AND COALESCE(i.stock, 0) <= COALESCE(i.reorder_point, 10) AND COALESCE(i.stock, 0) > 0';
+        } else if (stock_status === 'In Stock') {
+          baseConditions += ' AND COALESCE(i.stock, 0) > COALESCE(i.reorder_point, 10)'; 
+        }
+      }
+
+      // --- 3. SUMMARY STATS QUERY (Real-time) ---
+      const summaryQuery = `
+        SELECT 
+          COUNT(*) as totalProducts,
+          SUM(COALESCE(p.price, 0) * GREATEST(COALESCE(i.stock, 0), 0)) as totalInventoryValue,
+          SUM(CASE WHEN COALESCE(i.stock, 0) <= 0 OR i.stock IS NULL THEN 1 ELSE 0 END) as outOfStockProducts,
+          SUM(CASE WHEN COALESCE(i.stock, 0) <= COALESCE(i.reorder_point, 10) AND COALESCE(i.stock, 0) > 0 THEN 1 ELSE 0 END) as lowStockProducts
+        FROM products p
+        LEFT JOIN inventory i ON p.product_id = i.product_id
+        ${baseConditions}
+      `;
+      
+      const [summaryResult] = await pool.execute(summaryQuery, params);
+      const stats = summaryResult[0] || {};
+
+      const summary = {
+        totalProducts: stats.totalProducts || 0,
+        inStockProducts: (stats.totalProducts || 0) - ((stats.outOfStockProducts || 0) + (stats.lowStockProducts || 0)), 
+        lowStockProducts: stats.lowStockProducts || 0,
+        outOfStockProducts: stats.outOfStockProducts || 0,
+        totalInventoryValue: stats.totalInventoryValue || 0
+      };
+
+      // --- 4. DATA LIST QUERY ---
+      const listQuery = `
         SELECT p.product_id, p.name, p.brand, p.category, p.price, p.status, p.requires_serial,
                p.created_at,
                COALESCE(i.stock, 0) as current_stock,
                COALESCE(i.reorder_point, 10) as reorder_point,
                CASE
-                 WHEN COALESCE(i.stock, 0) <= 0 THEN 'Out of Stock'
+                 WHEN COALESCE(i.stock, 0) <= 0 OR i.stock IS NULL THEN 'Out of Stock'
                  WHEN COALESCE(i.stock, 0) < COALESCE(i.reorder_point, 10) THEN 'Low Stock'
                  ELSE 'In Stock'
                END as stock_status
         FROM products p
         LEFT JOIN inventory i ON p.product_id = i.product_id
-        WHERE 1=1
+        ${baseConditions}
+        ORDER BY p.created_at DESC 
+        LIMIT ? OFFSET ?
       `;
-      let params = [];
 
-      if (search) {
-        query += ' AND (p.name LIKE ? OR p.product_id LIKE ? OR p.brand LIKE ?)';
-        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-      }
-      if (category && category !== 'All Categories') {
-        query += ' AND p.category = ?';
-        params.push(category);
-      }
-      if (brand && brand !== 'All Brand') {
-        query += ' AND p.brand = ?';
-        params.push(brand);
-      }
-      if (status && status !== 'All Status') {
-        query += ' AND p.status = ?';
-        params.push(status);
-      }
-      if (stock_status && stock_status !== 'All Status') {
-        query += ' HAVING stock_status = ?';
-        params.push(stock_status);
-      }
-
-      query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), parseInt(offset));
-
-      const pool = getPool();
-      const [products] = await pool.execute(query, params);
-
-      // Simple summary calculation from fetched products (approximation for speed, or full count query)
-      // For accurate total counts matching filters, we run a count query:
-      let countQuery = `
-        SELECT COUNT(*) as total FROM (
-          SELECT p.product_id,
-                 CASE
-                   WHEN COALESCE(i.stock, 0) <= 0 THEN 'Out of Stock'
-                   WHEN COALESCE(i.stock, 0) < COALESCE(i.reorder_point, 10) THEN 'Low Stock'
-                   ELSE 'In Stock'
-                 END as stock_status
-          FROM products p
-          LEFT JOIN inventory i ON p.product_id = i.product_id
-          WHERE 1=1
-      `;
-      let countParams = [];
-      if (search) { countQuery += ' AND (p.name LIKE ? OR p.product_id LIKE ? OR p.brand LIKE ?)'; countParams.push(`%${search}%`, `%${search}%`, `%${search}%`); }
-      if (category && category !== 'All Categories') { countQuery += ' AND p.category = ?'; countParams.push(category); }
-      if (brand && brand !== 'All Brand') { countQuery += ' AND p.brand = ?'; countParams.push(brand); }
-      if (status && status !== 'All Status') { countQuery += ' AND p.status = ?'; countParams.push(status); }
-      countQuery += ') t';
-      if (stock_status && stock_status !== 'All Status') { countQuery += ' WHERE t.stock_status = ?'; countParams.push(stock_status); }
-
-      const [totalResult] = await pool.execute(countQuery, countParams);
-      const total = totalResult[0].total;
-
-      // NOTE: Total Value here is just for the *current page* to be fast, or we can query DB.
-      // For performance on large DBs, usually we don't sum everything on every page load.
-      // But for this size, we can sum the array we got.
-      const summary = {
-        totalProducts: total,
-        inStockProducts: 0, // Placeholder, would require full scan
-        lowStockProducts: 0,
-        outOfStockProducts: 0,
-        totalInventoryValue: 0
-      };
+      const listParams = [...params, parseInt(limit), parseInt(offset)];
+      const [products] = await pool.execute(listQuery, listParams);
 
       res.json({
         success: true,
         data: {
-          products: products.map(product => ({
+          products: Array.isArray(products) ? products.map(product => ({
             id: product.product_id,
             productName: product.name || 'N/A',
             category: product.category || 'N/A',
@@ -225,12 +229,12 @@ export class ReportsController {
             status: product.status || 'N/A',
             requires_serial: !!product.requires_serial,
             createdDate: ReportsController.convertToPhilippineTime(product.created_at)
-          })),
+          })) : [],
           pagination: {
             current_page: parseInt(page),
             per_page: parseInt(limit),
-            total: total,
-            total_pages: Math.ceil(total / limit),
+            total: summary.totalProducts, 
+            total_pages: Math.ceil(summary.totalProducts / parseInt(limit)) || 1,
           },
           summary: summary
         }
@@ -245,7 +249,7 @@ export class ReportsController {
   static async getDeadStockReport(req, res) {
     try {
       const { page = 1, limit = 10, months = 6, brand, category } = req.query;
-      const offset = (page - 1) * limit;
+      const offset = (parseInt(page) - 1) * parseInt(limit);
       const pool = getPool();
       
       const filterParams = [];
@@ -253,7 +257,7 @@ export class ReportsController {
       if (brand && brand !== 'All Brand') { filters += ` AND p.brand = ?`; filterParams.push(brand); }
       if (category && category !== 'All Categories') { filters += ` AND p.category = ?`; filterParams.push(category); }
 
-      const monthsInt = parseInt(months);
+      const monthsInt = parseInt(months) || 6;
 
       // Check Creation Date if Never Sold to protect new products
       const havingClause = `
@@ -282,7 +286,7 @@ export class ReportsController {
       const [deadSKUs] = await pool.execute(skuQuery, [...filterParams, monthsInt, monthsInt]);
 
       // 2. Fetch Aged Serials (Specific units old, but product might be active)
-      const deadSkuIds = deadSKUs.map(i => i.product_id);
+      const deadSkuIds = Array.isArray(deadSKUs) ? deadSKUs.map(i => i.product_id) : [];
       let excludeClause = "";
       if (deadSkuIds.length > 0) {
           const placeholders = deadSkuIds.map(() => '?').join(',');
@@ -309,13 +313,11 @@ export class ReportsController {
       const [agedSerials] = await pool.execute(serialQuery, serialParams);
 
       // 3. Merge, Sort, and Paginate
-      const allDeadStock = [...deadSKUs, ...agedSerials];
+      const allDeadStock = [...(deadSKUs || []), ...(agedSerials || [])];
       allDeadStock.sort((a, b) => (b.price * b.current_stock) - (a.price * a.current_stock));
 
       const totalItems = allDeadStock.length;
-      const start = (page - 1) * limit;
-      const end = start + parseInt(limit);
-      const paginatedData = allDeadStock.slice(start, end);
+      const paginatedData = allDeadStock.slice(offset, offset + parseInt(limit));
 
       const summary = {
         totalDeadItems: totalItems,
@@ -345,7 +347,7 @@ export class ReportsController {
             current_page: parseInt(page),
             per_page: parseInt(limit),
             total: totalItems,
-            total_pages: Math.ceil(totalItems / limit)
+            total_pages: Math.ceil(totalItems / parseInt(limit)) || 1
           },
           summary
         }
@@ -361,14 +363,14 @@ export class ReportsController {
   static async getReturnsReport(req, res) {
     try {
       const { page = 1, limit = 10, start_date, end_date, returnReason } = req.query;
-      const offset = (page - 1) * limit;
+      const offset = (parseInt(page) - 1) * parseInt(limit);
 
       const filters = { startDate: start_date, endDate: end_date, returnReason, limit: parseInt(limit), offset: parseInt(offset) };
       const returns = await Return.getAllReturns(filters);
 
       // Eager Load Return Items
       const pool = getPool();
-      if (returns.length > 0) {
+      if (returns && returns.length > 0) {
           const returnIds = returns.map(r => r.return_id);
           const placeholders = returnIds.map(() => '?').join(',');
           
@@ -378,7 +380,7 @@ export class ReportsController {
           );
 
           const itemsMap = {};
-          items.forEach(i => {
+          (items || []).forEach(i => {
               if(!itemsMap[i.return_id]) itemsMap[i.return_id] = [];
               itemsMap[i.return_id].push(i);
           });
@@ -402,12 +404,12 @@ export class ReportsController {
       res.json({
         success: true,
         data: {
-          returns: returns,
+          returns: returns || [],
           pagination: {
             current_page: parseInt(page),
             per_page: parseInt(limit),
             total: total,
-            total_pages: Math.ceil(total / limit),
+            total_pages: Math.ceil(total / parseInt(limit)) || 1,
           },
           summary: summary
         }
@@ -428,8 +430,8 @@ export class ReportsController {
       res.json({
         success: true,
         data: {
-          brands: brands.map(b => b.brand),
-          categories: categories.map(c => c.category)
+          brands: (brands || []).map(b => b.brand),
+          categories: (categories || []).map(c => c.category)
         }
       });
     } catch (error) {
