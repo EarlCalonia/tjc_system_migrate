@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom'; 
-import { dashboardAPI } from '../../utils/api';
+import { dashboardAPI, activityLogsAPI } from '../../utils/api'; // Added activityLogsAPI
 import { Line, Doughnut } from 'react-chartjs-2';
-import { getStyle, hexToRgba } from '@coreui/utils';
+import { hexToRgba } from '@coreui/utils';
 import { 
   CCard, CCardBody, CCardHeader, CRow, CCol, 
-  CTable, CTableBody, CTableHead, CTableHeaderCell, CTableRow, CTableDataCell,
   CProgress, CDropdown, CDropdownToggle, CDropdownMenu, CDropdownItem,
-  CSpinner, CBadge, CTooltip
+  CSpinner, CBadge, CAvatar
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
-import { cilInbox, cilFilter, cilArrowRight, cilWarning, cilTrash, cilGraph, cilList, cilChartPie } from '@coreui/icons';
+import { 
+  cilGraph, cilList, cilChartPie, cilFilter, cilArrowRight, cilInbox, 
+  cilWarning, cilHistory, cilUser, cilPencil, cilTrash, cilPlus, cilCheckCircle 
+} from '@coreui/icons';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, 
   Title, Tooltip, Legend, Filler, ArcElement 
@@ -19,22 +21,46 @@ import {
 // Register Chart.js
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler, ArcElement);
 
+// --- UTILS ---
 const formatDate = (dateString, period) => {
   const date = new Date(dateString);
-  if (period === 'year') return date.toLocaleDateString('en-US', { month: 'short' });
+  if (period === 'year') return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-// --- [BRANDING] COLOR PSYCHOLOGY PALETTES ---
+const formatTimeAgo = (dateString) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+  
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years ago";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months ago";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days ago";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours ago";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " mins ago";
+  return Math.floor(seconds) + " seconds ago";
+};
 
-// 1. CATEGORY (Rainbow): Distinct colors for separation
-const RAINBOW_COLORS = ['#2478bd', '#f1ce44', '#28a745', '#6f42c1', '#fd7e14', '#20c997', '#dc3545'];
+// --- [BRANDING] INDUSTRIAL COLOR PALETTES ---
+const BRAND_NAVY = '#17334e';
+const BRAND_YELLOW = '#f1ce44';
+const BRAND_RED = '#e55353';
+const BRAND_ORANGE = '#f9b115';
+const BRAND_GREEN = '#2eb85c';
 
-// 2. FAST MOVING (Green): Success, Growth, Flow
-const GREEN_PALETTE = ['#1b9e3e', '#2eb85c', '#51cd78', '#81e69e', '#b9f6ca']; 
+// 1. CATEGORY (Industrial Mix)
+const CATEGORY_PALETTE = [BRAND_NAVY, BRAND_YELLOW, '#636f83', BRAND_GREEN, BRAND_RED, '#321fdb', '#39f'];
 
-// 3. SLOW MOVING (Red): Warning, Stoppage, Action Required
-const RED_PALETTE = ['#b21f2d', '#e55353', '#ff8787', '#ffaeb0', '#f9e1e5'];
+// 2. FAST MOVING (Navy to Blue)
+const FAST_PALETTE = [BRAND_NAVY, '#24486b', '#315d88', '#3e72a5', '#4b87c2']; 
+
+// 3. SLOW MOVING (Red Warning Scale)
+const SLOW_PALETTE = ['#b21f2d', '#c93636', '#df4d3f', '#f56448', '#ff7b51'];
 
 const DashboardSections = () => {
   const [lowStock, setLowStock] = useState([]);
@@ -44,25 +70,31 @@ const DashboardSections = () => {
   const [fastMoving, setFastMoving] = useState([]);
   const [slowMoving, setSlowMoving] = useState([]);
   const [salesByCategory, setSalesByCategory] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]); // New State
+  
   const [stockTab, setStockTab] = useState('all'); 
   const [productTab, setProductTab] = useState('fast');
   const [loading, setLoading] = useState(true);
+  
+  const chartRef = useRef(null);
 
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
-        const [lowStockRes, fastMovingRes, slowMovingRes, salesByCategoryRes] = await Promise.all([
+        const [lowStockRes, fastMovingRes, slowMovingRes, salesByCategoryRes, activityRes] = await Promise.all([
           dashboardAPI.getLowStockItems(),
           dashboardAPI.getFastMovingProducts(),
           dashboardAPI.getSlowMovingProducts(),
-          dashboardAPI.getSalesByCategory()
+          dashboardAPI.getSalesByCategory(),
+          activityLogsAPI.getAll({ limit: 8, page: 1 }) // Fetch recent logs
         ]);
 
         if (lowStockRes.success) setLowStock((lowStockRes.data || []).map(item => ({ ...item, remaining: Number(item.remaining) })));
         if (fastMovingRes.success) setFastMoving(fastMovingRes.data || []);
         if (slowMovingRes.success) setSlowMoving(slowMovingRes.data || []);
         if (salesByCategoryRes.success) setSalesByCategory(salesByCategoryRes.data || []);
+        if (activityRes.success) setRecentActivity(activityRes.data?.logs || []); // Set logs
       } catch (error) { console.error("Failed to fetch data", error); } finally { setLoading(false); }
     };
     fetchAllData();
@@ -74,24 +106,36 @@ const DashboardSections = () => {
       try {
         setLoadingSales(true);
         const salesRes = await dashboardAPI.getDailySales({ period: salesPeriod });
+        
         if (salesRes.success) {
           const data = salesRes.data || [];
-          const brandColor = '#2478bd'; // Brand Blue
-          
+          const labels = data.map(d => formatDate(d.date, salesPeriod));
+          const values = data.map(d => d.total);
+
           setSalesChartData({
-            labels: data.map(d => formatDate(d.date, salesPeriod)),
+            labels: labels,
             datasets: [{
               label: 'Revenue',
-              backgroundColor: hexToRgba(brandColor, 0.1), 
-              borderColor: brandColor,
-              pointBackgroundColor: '#ffffff',
-              pointBorderColor: brandColor,
-              pointHoverBackgroundColor: brandColor,
-              pointHoverBorderColor: '#ffffff',
-              borderWidth: 3,
-              data: data.map(d => d.total),
+              backgroundColor: (context) => {
+                const ctx = context.chart.ctx;
+                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, 'rgba(23, 51, 78, 0.4)'); 
+                gradient.addColorStop(1, 'rgba(23, 51, 78, 0.0)'); 
+                return gradient;
+              },
+              borderColor: BRAND_NAVY,
+              pointBackgroundColor: BRAND_YELLOW,
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointHoverBackgroundColor: BRAND_YELLOW,
+              pointHoverBorderColor: BRAND_NAVY,
+              pointHoverRadius: 6,
+              pointRadius: 0,
+              pointHitRadius: 10,
+              borderWidth: 2,
+              data: values,
               fill: true,
-              tension: 0.3 
+              tension: 0.3, 
             }],
           });
         }
@@ -100,61 +144,29 @@ const DashboardSections = () => {
     fetchSalesData();
   }, [salesPeriod]);
 
-  const salesChartOptions = {
-    maintainAspectRatio: false,
-    responsive: true, 
-    plugins: { 
-      legend: { display: false }, 
-      tooltip: { 
-        backgroundColor: '#0f2438', 
-        titleFont: { family: 'Oswald', size: 14 },
-        bodyFont: { family: 'Inter', size: 14 },
-        padding: 14, 
-        cornerRadius: 4,
-        displayColors: false,
-        callbacks: { label: (context) => ` Revenue: ₱ ${context.parsed.y.toLocaleString('en-PH')}` } 
-      } 
-    },
-    scales: {
-      x: { 
-        grid: { display: false }, 
-        ticks: { font: { size: 12, family: 'Inter', weight: '500' }, color: '#495057' } 
-      },
-      y: { 
-        beginAtZero: true, 
-        border: { display: false }, 
-        grid: { color: '#e9ecef', borderDash: [5, 5] }, 
-        ticks: { 
-          callback: (value) => '₱' + (value >= 1000 ? value/1000 + 'k' : value), 
-          font: { size: 12, weight: '600', family: 'Inter' },
-          color: '#0f2438' 
-        } 
-      }
-    },
-    elements: { point: { radius: 4, hitRadius: 10, hoverRadius: 7 } }
+  // --- Helper to get Icon based on Action Type ---
+  const getActionIcon = (action) => {
+    const act = action.toUpperCase();
+    if (act.includes('LOGIN') || act.includes('AUTH')) return { icon: cilUser, color: 'info' };
+    if (act.includes('CREATE') || act.includes('ADD')) return { icon: cilPlus, color: 'success' };
+    if (act.includes('UPDATE') || act.includes('EDIT')) return { icon: cilPencil, color: 'warning' };
+    if (act.includes('DELETE') || act.includes('REMOVE')) return { icon: cilTrash, color: 'danger' };
+    return { icon: cilCheckCircle, color: 'secondary' };
   };
 
-  const pieOptions = { 
-    responsive: true, 
-    maintainAspectRatio: false, 
-    cutout: '60%', 
-    plugins: { 
-      legend: { 
-        position: 'right', 
-        labels: { usePointStyle: true, boxWidth: 10, padding: 15, font: { size: 12, family: 'Inter', weight: '500' }, color: '#212529' } 
-      } 
-    } 
+  const salesChartOptions = {
+    maintainAspectRatio: false,
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: BRAND_NAVY, titleFont: { family: 'Oswald', size: 14 }, bodyFont: { family: 'Inter', size: 13 }, padding: 12, cornerRadius: 2, displayColors: false, callbacks: { label: (context) => ` Revenue: ₱ ${Number(context.parsed.y).toLocaleString('en-PH', {minimumFractionDigits: 2})}` } } },
+    scales: { x: { grid: { display: false }, ticks: { font: { size: 11, family: 'Inter', weight: '600' }, color: '#636f83' } }, y: { beginAtZero: true, border: { display: false }, grid: { color: '#ebedef', borderDash: [4, 4], drawBorder: false }, ticks: { callback: (value) => '₱' + (value >= 1000 ? (value/1000).toFixed(1) + 'k' : value), font: { size: 11, weight: '600', family: 'Inter' }, color: '#636f83', padding: 10 } } }
   };
+
+  const pieOptions = { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, padding: 15, font: { size: 11, family: 'Inter', weight: '500' }, color: BRAND_NAVY } } } };
 
   const getProductChartData = (data, type) => ({
     labels: data.map(p => p.name.length > 15 ? p.name.substring(0,15)+'...' : p.name),
-    datasets: [{ 
-      data: data.map(p => p.total_sold), 
-      // DYNAMIC COLOR LOGIC: Green for Fast, Red for Slow
-      backgroundColor: type === 'fast' ? GREEN_PALETTE : RED_PALETTE, 
-      borderWidth: 2,
-      borderColor: '#ffffff'
-    }]
+    datasets: [{ data: data.map(p => p.total_sold), backgroundColor: type === 'fast' ? FAST_PALETTE : SLOW_PALETTE, borderWidth: 0 }]
   });
 
   const getStockHealth = (stock) => { if (stock <= 0) return 0; return Math.min((stock / 20) * 100, 100); };
@@ -178,8 +190,7 @@ const DashboardSections = () => {
   return (
     <>
       <CRow className="g-4 mb-4"> 
-        
-        {/* --- 1. SALES PERFORMANCE --- */}
+        {/* 1. SALES PERFORMANCE */}
         <CCol xs={12} lg={8}>
           <CCard className="shadow-sm h-100 d-flex flex-column border-0">
             <CCardHeader className="bg-brand-navy border-0 d-flex justify-content-between align-items-center py-3 px-4">
@@ -189,32 +200,21 @@ const DashboardSections = () => {
               </div>
               <div className="d-flex gap-2">
                 {['week', 'month', 'year'].map(period => (
-                  <button 
-                    key={period} 
-                    className={`btn-brand btn-brand-sm ${salesPeriod === period ? 'btn-brand-primary' : 'btn-brand-outline text-white'}`}
-                    onClick={() => setSalesPeriod(period)}
-                    style={{minWidth: 'auto', padding: '0 12px', border: salesPeriod === period ? 'none' : '1px solid rgba(255,255,255,0.3)'}}
-                  >
-                    {period === 'week' ? 'Last 7 Days' : period === 'month' ? 'Last 30 Days' : 'Last Year'} 
-                  </button>
+                  <button key={period} className={`btn btn-sm text-uppercase fw-bold ${salesPeriod === period ? 'bg-brand-yellow text-brand-navy' : 'text-white'}`} onClick={() => setSalesPeriod(period)} style={{ minWidth: 'auto', padding: '4px 12px', border: salesPeriod === period ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.75rem', fontFamily: 'Inter', letterSpacing: '0.5px' }}>{period === 'week' ? '7 Days' : period === 'month' ? '30 Days' : 'Year'}</button>
                 ))}
               </div>
             </CCardHeader>
             <CCardBody className="px-4 py-4 d-flex flex-column" style={{ minHeight: '400px' }}>
-              {loadingSales ? (
-                <div className="d-flex align-items-center justify-content-center flex-grow-1"><CSpinner size="sm"/></div>
-              ) : (
+              {loadingSales ? <div className="d-flex align-items-center justify-content-center flex-grow-1"><CSpinner size="sm"/></div> : 
                 <div className="w-100 flex-grow-1 position-relative">
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-                        <Line options={salesChartOptions} data={salesChartData} role="img" aria-label="Sales Chart" />
-                    </div>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}><Line ref={chartRef} options={salesChartOptions} data={salesChartData} /></div>
                 </div>
-              )}
+              }
             </CCardBody>
           </CCard>
         </CCol>
 
-        {/* --- 2. INVENTORY HEALTH --- */}
+        {/* 2. INVENTORY HEALTH */}
         <CCol xs={12} lg={4}>
           <CCard className="shadow-sm h-100 d-flex flex-column border-0">
             <CCardHeader className="bg-brand-navy border-0 d-flex justify-content-between align-items-center py-3 px-4">
@@ -223,61 +223,56 @@ const DashboardSections = () => {
                  <h5 className="mb-0 text-white fw-bold" style={{fontFamily: 'Oswald', letterSpacing: '0.5px'}}>INVENTORY HEALTH</h5>
               </div>
               <CDropdown>
-                <CDropdownToggle className="btn-brand btn-brand-outline btn-brand-sm text-white d-flex align-items-center" color="transparent">
+                <CDropdownToggle className="btn btn-sm border-0 text-white d-flex align-items-center text-uppercase fw-bold" color="transparent" style={{fontSize: '0.75rem'}}>
                   <CIcon icon={cilFilter} size="sm" className="me-2"/> {getFilterLabel()}
                 </CDropdownToggle>
                 <CDropdownMenu>
                   <CDropdownItem onClick={() => setStockTab('all')} active={stockTab === 'all'}>All Alerts</CDropdownItem>
                   <CDropdownItem onClick={() => setStockTab('low')} active={stockTab === 'low'}>Low Stock</CDropdownItem>
                   <CDropdownItem onClick={() => setStockTab('oos')} active={stockTab === 'oos'}>Out of Stock</CDropdownItem>
-                  <CDropdownItem divider />
-                  <CDropdownItem href="/inventory">View Full Inventory</CDropdownItem>
                 </CDropdownMenu>
               </CDropdown>
             </CCardHeader>
-            <div className="table-responsive flex-grow-1">
-              <CTable hover align="middle" className="mb-0">
-                <CTableHead> 
-                  <CTableRow className="bg-light">
-                    <CTableHeaderCell className="px-4 small fw-bold text-brand-navy text-uppercase border-bottom-0" style={{width: '60%'}}>Item Details</CTableHeaderCell>
-                    <CTableHeaderCell className="px-4 small fw-bold text-brand-navy text-uppercase border-bottom-0 text-end">Status</CTableHeaderCell>
-                  </CTableRow>
-                </CTableHead>
-                <CTableBody>
-                  {filteredStock.length > 0 ? (
-                    filteredStock.slice(0, 5).map((item, idx) => (
-                      <CTableRow key={idx}>
-                        <CTableDataCell className="px-4 py-3">
-                          <div className="fw-bold text-dark text-truncate" style={{maxWidth: '140px'}} title={item.name}>{item.name}</div>
-                          <div className="small text-muted fw-semibold">ID: {item.product_id}</div>
-                        </CTableDataCell>
-                        <CTableDataCell className="px-4 py-3 text-end">
-                           <span className={`fw-bold small ${item.remaining <= 0 ? 'text-danger' : 'text-warning'}`}>
-                              {item.remaining <= 0 ? 'OUT OF STOCK' : `${item.remaining} Left`}
-                           </span>
-                           <CProgress thin color={item.remaining <= 5 ? 'danger' : 'warning'} value={getStockHealth(item.remaining)} className="mt-1"/>
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))
-                  ) : (
-                    <CTableRow>
-                      <CTableDataCell colSpan="2" className="text-center py-5 text-muted">
-                        <CIcon icon={cilInbox} size="xl" className="mb-2 opacity-25"/>
-                        <div className="small fw-bold">All systems nominal.</div>
-                      </CTableDataCell>
-                    </CTableRow>
-                  )}
-                </CTableBody>
-              </CTable>
+            <div className="flex-grow-1 overflow-auto custom-scrollbar p-3" style={{ maxHeight: '400px' }}>
+              {filteredStock.length > 0 ? (
+                <div className="d-flex flex-column gap-3">
+                  {filteredStock.slice(0, 6).map((item, idx) => {
+                    const isOOS = item.remaining <= 0;
+                    const statusColor = isOOS ? BRAND_RED : BRAND_ORANGE;
+                    return (
+                      <div key={idx} className="d-flex align-items-center p-2 rounded-2 border bg-light position-relative overflow-hidden">
+                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', backgroundColor: statusColor }}></div>
+                        <div className="ms-3 flex-grow-1">
+                          <div className="d-flex justify-content-between align-items-start mb-1">
+                            <span className="fw-bold text-brand-navy text-truncate" style={{maxWidth: '160px'}} title={item.name}>{item.name}</span>
+                            <CBadge color={isOOS ? 'danger' : 'warning'} shape="rounded-pill" style={{fontSize: '0.65rem'}}>{isOOS ? 'OUT OF STOCK' : 'LOW STOCK'}</CBadge>
+                          </div>
+                          <div className="d-flex justify-content-between align-items-center">
+                            <div className="d-flex flex-column"><span className="small text-muted font-monospace" style={{fontSize: '0.7rem'}}>SKU: {item.product_id}</span></div>
+                            <div className="text-end"><div className="fw-bold" style={{color: statusColor, fontFamily: 'Oswald', fontSize: '1.2rem', lineHeight: 1}}>{item.remaining}</div><span className="small text-muted" style={{fontSize: '0.65rem'}}>units left</span></div>
+                          </div>
+                          {!isOOS && <CProgress className="mt-2" height={4} color="warning" value={getStockHealth(item.remaining)} variant="striped" animated />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="h-100 d-flex flex-column align-items-center justify-content-center text-muted">
+                  <div className="p-4 rounded-circle bg-light mb-3"><CIcon icon={cilInbox} size="xxl" className="text-secondary opacity-25"/></div>
+                  <h6 className="fw-bold mb-1">Operational Efficiency 100%</h6>
+                  <p className="small mb-0">No critical inventory alerts.</p>
+                </div>
+              )}
             </div>
-            <div className="p-3 border-top bg-white text-center"><Link to="/inventory" className="text-decoration-none small fw-bold text-brand-navy">VIEW FULL REPORT <CIcon icon={cilArrowRight} size="sm"/></Link></div>
+            <div className="p-3 border-top bg-white text-center"><Link to="/inventory" className="text-decoration-none small fw-bold text-brand-navy d-inline-flex align-items-center letter-spacing-1">FULL INVENTORY REPORT <CIcon icon={cilArrowRight} size="sm" className="ms-1"/></Link></div>
           </CCard>
         </CCol>
       </CRow>
 
-      {/* --- ROW 2: Circular Charts --- */}
-      <CRow className="g-4">
-        {/* --- 3. REVENUE CATEGORY (Rainbow) --- */}
+      {/* ROW 2: Circular Charts */}
+      <CRow className="g-4 mb-4">
+        {/* 3. REVENUE CATEGORY */}
         <CCol xs={12} md={6}>
           <CCard className="shadow-sm border-0 h-100 d-flex flex-column">
             <CCardHeader className="bg-brand-navy border-bottom py-3 px-4 d-flex align-items-center gap-2">
@@ -285,27 +280,12 @@ const DashboardSections = () => {
               <h5 className="mb-0 text-white fw-bold" style={{fontFamily: 'Oswald', letterSpacing: '0.5px'}}>REVENUE BY CATEGORY</h5>
             </CCardHeader>
             <CCardBody className="d-flex align-items-center justify-content-center flex-grow-1 p-4" style={{ minHeight: '300px' }}>
-              {salesByCategory.length > 0 ? 
-                <div style={{ width: '100%', maxWidth: '350px', position: 'relative', height: '100%' }} role="img" aria-label="Doughnut chart showing sales by category">
-                  <div style={{ position: 'absolute', inset: 0 }}>
-                    <Doughnut options={pieOptions} data={{
-                        labels: salesByCategory.map(c => c.category),
-                        datasets: [{ 
-                        data: salesByCategory.map(c => c.total_revenue), 
-                        backgroundColor: RAINBOW_COLORS, // Restore Rainbow
-                        borderWidth: 2,
-                        borderColor: '#ffffff'
-                        }]
-                    }} />
-                  </div>
-                </div>
-                : <div className="text-muted">No sales data available</div>
-              }
+              {salesByCategory.length > 0 ? <div style={{ width: '100%', maxWidth: '350px', position: 'relative', height: '100%' }}><div style={{ position: 'absolute', inset: 0 }}><Doughnut options={pieOptions} data={{ labels: salesByCategory.map(c => c.category), datasets: [{ data: salesByCategory.map(c => c.total_revenue), backgroundColor: CATEGORY_PALETTE, borderWidth: 0 }] }} /></div></div> : <div className="text-muted small fst-italic">No sales data available</div>}
             </CCardBody>
           </CCard>
         </CCol>
 
-        {/* --- 4. PRODUCT METRICS (Green for Fast, Red for Slow) --- */}
+        {/* 4. PRODUCT METRICS */}
         <CCol xs={12} md={6}>
           <CCard className="shadow-sm border-0 h-100 d-flex flex-column">
             <CCardHeader className="bg-brand-navy border-bottom d-flex justify-content-between align-items-center py-3 px-4">
@@ -314,34 +294,105 @@ const DashboardSections = () => {
                  <h5 className="mb-0 text-white fw-bold" style={{fontFamily: 'Oswald', letterSpacing: '0.5px'}}>PRODUCT METRICS</h5>
               </div>
               <div className="d-flex gap-2">
-                 <button 
-                   className={`btn-brand btn-brand-sm ${productTab === 'fast' ? 'btn-brand-primary' : 'btn-brand-outline text-white'}`} 
-                   onClick={() => setProductTab('fast')}
-                 >
-                   TOP SELLERS
-                 </button>
-                 <button 
-                   className={`btn-brand btn-brand-sm ${productTab === 'slow' ? 'btn-brand-primary' : 'btn-brand-outline text-white'}`} 
-                   onClick={() => setProductTab('slow')}
-                 >
-                   SLOW MOVING
-                 </button>
+                 <button className={`btn btn-sm text-uppercase fw-bold ${productTab === 'fast' ? 'bg-brand-yellow text-brand-navy' : 'text-white'}`} onClick={() => setProductTab('fast')} style={{fontSize: '0.75rem', border: productTab === 'fast' ? 'none' : '1px solid rgba(255,255,255,0.2)'}}>Top 5</button>
+                 <button className={`btn btn-sm text-uppercase fw-bold ${productTab === 'slow' ? 'bg-brand-yellow text-brand-navy' : 'text-white'}`} onClick={() => setProductTab('slow')} style={{fontSize: '0.75rem', border: productTab === 'slow' ? 'none' : '1px solid rgba(255,255,255,0.2)'}}>Slowest</button>
               </div>
             </CCardHeader>
-            
             <CCardBody className="d-flex flex-column align-items-center justify-content-center flex-grow-1 p-4" style={{ minHeight: '300px' }}>
-              {(productTab === 'fast' ? fastMoving : slowMoving).length > 0 ? 
-                <>
-                  <div style={{ width: '100%', maxWidth: '350px', flex: 1, position: 'relative' }} role="img" aria-label={productTab === 'fast' ? "Chart of best selling products" : "Chart of slow moving products"}>
-                    <div style={{ position: 'absolute', inset: 0 }}>
-                         {/* Dynamic Color Logic: Green for Fast, Red for Slow */}
-                         <Doughnut options={pieOptions} data={getProductChartData(productTab === 'fast' ? fastMoving : slowMoving, productTab)} />
-                    </div>
-                  </div>
-                </>
-                : <div className="text-muted">No data available</div>
-              }
+              {(productTab === 'fast' ? fastMoving : slowMoving).length > 0 ? <div style={{ width: '100%', maxWidth: '350px', flex: 1, position: 'relative' }}><div style={{ position: 'absolute', inset: 0 }}><Doughnut options={pieOptions} data={getProductChartData(productTab === 'fast' ? fastMoving : slowMoving, productTab)} /></div></div> : <div className="text-muted small fst-italic">No data available</div>}
             </CCardBody>
+          </CCard>
+        </CCol>
+      </CRow>
+
+      {/* --- ROW 3: LIVE AUDIT FEED (NEW) --- */}
+      <CRow className="mb-4">
+        <CCol xs={12}>
+          <CCard className="shadow-sm border-0 h-100">
+            <CCardHeader className="bg-brand-navy border-0 d-flex justify-content-between align-items-center py-3 px-4">
+              <div className="d-flex align-items-center gap-2">
+                <CIcon icon={cilHistory} className="text-brand-yellow" size="lg"/>
+                <h5 className="mb-0 text-white fw-bold" style={{fontFamily: 'Oswald', letterSpacing: '0.5px'}}>LIVE AUDIT FEED</h5>
+              </div>
+              <div className="d-flex align-items-center gap-2">
+                <div className="blob red me-2"></div>
+                <span className="text-white small fw-bold text-uppercase" style={{fontSize: '0.7rem', opacity: 0.8}}>Live Tracking</span>
+              </div>
+            </CCardHeader>
+            <CCardBody className="p-0">
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0">
+                  <thead className="bg-light text-medium-emphasis">
+                    <tr>
+                      <th className="px-4 py-3 small fw-bold text-uppercase border-bottom-0">User</th>
+                      <th className="px-4 py-3 small fw-bold text-uppercase border-bottom-0">Action</th>
+                      <th className="px-4 py-3 small fw-bold text-uppercase border-bottom-0">Details</th>
+                      <th className="px-4 py-3 small fw-bold text-uppercase border-bottom-0 text-end">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentActivity.length > 0 ? (
+                      recentActivity.map((log, idx) => {
+                        const { icon, color } = getActionIcon(log.action);
+                        return (
+                          <tr key={idx} style={{cursor: 'default'}}>
+                            {/* User Column */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="d-flex align-items-center">
+                                <div className={`avatar avatar-md bg-${color}-gradient text-white d-flex align-items-center justify-content-center rounded-circle shadow-sm`} style={{width: '36px', height: '36px'}}>
+                                  <CIcon icon={icon} size="sm" />
+                                </div>
+                                <div className="ms-3">
+                                  <div className="fw-bold text-brand-navy">{log.username || 'System'}</div>
+                                  <div className="small text-muted" style={{fontSize: '0.7rem'}}>{log.role || 'Automated'}</div>
+                                </div>
+                              </div>
+                            </td>
+                            
+                            {/* Action Column */}
+                            <td className="px-4 py-3">
+                              <CBadge color={color} shape="rounded-pill" className="text-white text-uppercase" style={{fontSize: '0.65rem', letterSpacing: '0.5px'}}>
+                                {log.action}
+                              </CBadge>
+                            </td>
+
+                            {/* Details Column */}
+                            <td className="px-4 py-3 text-break">
+                              <span className="text-medium-emphasis small fw-semibold">
+                                {log.details}
+                              </span>
+                              {log.entity_id && (
+                                <div className="font-monospace text-muted mt-1" style={{fontSize: '0.7rem'}}>
+                                  REF: {log.entity_id}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Time Column */}
+                            <td className="px-4 py-3 text-end text-nowrap">
+                              <div className="fw-bold text-dark small">{formatTimeAgo(log.created_at)}</div>
+                              <div className="text-muted" style={{fontSize: '0.7rem'}}>{new Date(log.created_at).toLocaleTimeString()}</div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="4" className="text-center py-5 text-muted">
+                          <CIcon icon={cilHistory} size="xl" className="mb-2 opacity-25"/>
+                          <div className="small fw-bold">No recent activity found.</div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CCardBody>
+            <div className="p-3 border-top bg-white text-center">
+              <Link to="/activity-logs" className="text-decoration-none small fw-bold text-brand-navy d-inline-flex align-items-center letter-spacing-1">
+                VIEW FULL AUDIT LOGS <CIcon icon={cilArrowRight} size="sm" className="ms-1"/>
+              </Link>
+            </div>
           </CCard>
         </CCol>
       </CRow>

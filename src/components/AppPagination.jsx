@@ -5,7 +5,6 @@ import { cilChevronLeft, cilChevronRight } from '@coreui/icons'
 import PropTypes from 'prop-types'
 
 const AppPagination = ({ currentPage, totalPages, onPageChange }) => {
-  // Guard clause: Don't render if there's only 1 page or no data
   if (!totalPages || totalPages <= 1) return null
 
   const renderPaginationItems = () => {
@@ -24,7 +23,6 @@ const AppPagination = ({ currentPage, totalPages, onPageChange }) => {
         key="prev"
         disabled={currentPage === 1}
         onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-        style={{ cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
         aria-label="Previous"
       >
         <CIcon icon={cilChevronLeft} size="sm" />
@@ -34,7 +32,7 @@ const AppPagination = ({ currentPage, totalPages, onPageChange }) => {
     // First Page + Ellipsis
     if (startPage > 1) {
       items.push(
-        <CPaginationItem key={1} onClick={() => onPageChange(1)} style={{ cursor: 'pointer' }}>
+        <CPaginationItem key={1} onClick={() => onPageChange(1)}>
           1
         </CPaginationItem>
       )
@@ -54,12 +52,6 @@ const AppPagination = ({ currentPage, totalPages, onPageChange }) => {
           key={i}
           active={i === currentPage}
           onClick={() => onPageChange(i)}
-          style={{
-            cursor: 'pointer',
-            backgroundColor: i === currentPage ? 'var(--brand-navy)' : '',
-            borderColor: i === currentPage ? 'var(--brand-navy)' : '',
-            color: i === currentPage ? '#fff' : '',
-          }}
         >
           {i}
         </CPaginationItem>
@@ -76,7 +68,7 @@ const AppPagination = ({ currentPage, totalPages, onPageChange }) => {
         )
       }
       items.push(
-        <CPaginationItem key={totalPages} onClick={() => onPageChange(totalPages)} style={{ cursor: 'pointer' }}>
+        <CPaginationItem key={totalPages} onClick={() => onPageChange(totalPages)}>
           {totalPages}
         </CPaginationItem>
       )
@@ -88,7 +80,6 @@ const AppPagination = ({ currentPage, totalPages, onPageChange }) => {
         key="next"
         disabled={currentPage === totalPages}
         onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-        style={{ cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
         aria-label="Next"
       >
         <CIcon icon={cilChevronRight} size="sm" />
@@ -99,7 +90,8 @@ const AppPagination = ({ currentPage, totalPages, onPageChange }) => {
   }
 
   return (
-    <CPagination className="mb-0 justify-content-end" aria-label="Page navigation">
+    // Applied "brand-pagination" class for the new styling
+    <CPagination className="brand-pagination mb-0 justify-content-end" aria-label="Page navigation">
       {renderPaginationItems()}
     </CPagination>
   )

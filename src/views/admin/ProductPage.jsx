@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  CContainer, CRow, CCol, CCard, CCardBody, CButton, CFormInput, CFormSelect, CFormLabel,
+  CContainer, CRow, CCol, CCard, CCardBody, CCardHeader, CButton, CFormInput, CFormSelect, CFormLabel,
   CFormTextarea, CFormSwitch, CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter,
-  CBadge, CSpinner, CTooltip
+  CBadge, CSpinner, CTooltip, CPagination, CPaginationItem
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { 
   cilMagnifyingGlass, cilPlus, cilPencil, cilTrash, cilImage, 
-  cilCloudUpload, cilCrop
+  cilCloudUpload, cilCrop, cilTags, cilCheckCircle, cilXCircle, cilLayers, cilChevronLeft, cilChevronRight
 } from '@coreui/icons'
 import { productAPI } from '../../utils/api'
 import { serialNumberAPI } from '../../utils/serialNumberApi'
-import AppPagination from '../../components/AppPagination'
-
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 
@@ -22,31 +20,35 @@ import '../../styles/ProductPage.css'
 
 const ASSET_URL = 'http://localhost:5000'
 
-// [FIX] Map acronyms to user-friendly names
 const UOM_MAP = {
-    'EA': 'Each',
-    'SET': 'Set',
-    'KIT': 'Kit',
-    'PR': 'Pair',
-    'ASY': 'Assembly',
-    'PK': 'Pack'
+    'EA': 'Each', 'SET': 'Set', 'KIT': 'Kit', 'PR': 'Pair', 'ASY': 'Assembly', 'PK': 'Pack'
 };
 const UOM_OPTIONS = Object.keys(UOM_MAP);
-
 const CROP_ASPECT = 4 / 3; 
 const ITEMS_PER_PAGE = 10;
 
-// ==================================================================================
-// SUB-COMPONENT: CROP MODAL (Isolated Logic)
-// ==================================================================================
+// --- REUSABLE STAT CARD ---
+const StatCard = ({ title, value, icon, gradient, textColor = 'text-white' }) => (
+  <CCard className="h-100 border-0 shadow-sm overflow-hidden" style={{ background: gradient }}>
+    <CCardBody className="p-4 position-relative d-flex flex-column justify-content-between">
+      <div className="position-absolute" style={{ top: '-10px', right: '-15px', opacity: 0.15, transform: 'rotate(15deg)' }}>
+         {React.cloneElement(icon, { height: 100, width: 100, className: textColor })}
+      </div>
+      <div className="position-relative z-1">
+        <div className={`text-uppercase fw-bold small mb-2 ${textColor}`} style={{ opacity: 0.8, letterSpacing: '1px' }}>{title}</div>
+        <div className={`fw-bold ${textColor}`} style={{ fontSize: '2rem', fontFamily: 'Oswald, sans-serif' }}>{value}</div>
+      </div>
+    </CCardBody>
+  </CCard>
+);
+
+// --- CROP MODAL ---
 const ImageCropModal = ({ visible, imageSrc, onClose, onApply, loading }) => {
     const [crop, setCrop] = useState(undefined);
     const [completedCrop, setCompletedCrop] = useState(null);
     const imgRef = useRef(null);
 
-    useEffect(() => { 
-        if(visible) { setCrop(undefined); setCompletedCrop(null); }
-    }, [visible]);
+    useEffect(() => { if(visible) { setCrop(undefined); setCompletedCrop(null); } }, [visible]);
 
     const onImageLoad = useCallback((e) => {
         const { width, height } = e.currentTarget;
@@ -74,25 +76,14 @@ const ImageCropModal = ({ visible, imageSrc, onClose, onApply, loading }) => {
         <CModal visible={visible} onClose={onClose} size="lg" alignment="center" backdrop="static" scrollable>
             <CModalHeader className="bg-brand-navy"><CModalTitle component="span" className="text-white font-oswald">ADJUST IMAGE</CModalTitle></CModalHeader>
             <CModalBody className="d-flex justify-content-center bg-dark p-0 overflow-hidden">
-                {imageSrc && (
-                    <div style={{maxHeight: '60vh'}}>
-                        <ReactCrop crop={crop} onChange={c => setCrop(c)} onComplete={c => setCompletedCrop(c)} aspect={CROP_ASPECT}>
-                            <img src={imageSrc} alt="Crop" style={{ maxWidth: '100%', maxHeight: '60vh' }} crossOrigin="anonymous" onLoad={onImageLoad} />
-                        </ReactCrop>
-                    </div>
-                )}
+                {imageSrc && (<div style={{maxHeight: '60vh'}}><ReactCrop crop={crop} onChange={c => setCrop(c)} onComplete={c => setCompletedCrop(c)} aspect={CROP_ASPECT}><img src={imageSrc} alt="Crop" style={{ maxWidth: '100%', maxHeight: '60vh' }} crossOrigin="anonymous" onLoad={onImageLoad} /></ReactCrop></div>)}
             </CModalBody>
-            <CModalFooter className="bg-dark border-top-0">
-                <CButton color="secondary" variant="ghost" className="text-light" onClick={onClose}>Cancel</CButton>
-                <CButton color="info" onClick={handleApply} disabled={loading || !completedCrop}>{loading ? <CSpinner size="sm"/> : 'Apply Crop'}</CButton>
-            </CModalFooter>
+            <CModalFooter className="bg-dark border-top-0"><CButton color="secondary" variant="ghost" className="text-light" onClick={onClose}>Cancel</CButton><CButton color="info" onClick={handleApply} disabled={loading || !completedCrop}>{loading ? <CSpinner size="sm"/> : 'Apply Crop'}</CButton></CModalFooter>
         </CModal>
     )
 }
 
-// ==================================================================================
-// SUB-COMPONENT: PRODUCT FORM MODAL
-// ==================================================================================
+// --- PRODUCT FORM MODAL ---
 const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose, onSuccess }) => {
     const fileInputRef = useRef(null);
     const [form, setForm] = useState({});
@@ -139,10 +130,7 @@ const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose,
         if (!file.type.startsWith('image/')) return alert('Invalid image file');
         
         const reader = new FileReader();
-        reader.onloadend = () => {
-            setCropSrc(reader.result);
-            setCropVisible(true);
-        }
+        reader.onloadend = () => { setCropSrc(reader.result); setCropVisible(true); }
         reader.readAsDataURL(file);
         if(fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -180,115 +168,22 @@ const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose,
     return (
         <>
             <CModal visible={visible} onClose={onClose} size="lg" alignment="center" backdrop="static" scrollable>
-                <CModalHeader className="bg-brand-navy">
-                    <CModalTitle component="span" className="text-white font-oswald">{isAddMode ? 'ADD NEW PART' : 'EDIT PART DETAILS'}</CModalTitle>
-                </CModalHeader>
+                <CModalHeader className="bg-brand-navy"><CModalTitle component="span" className="text-white font-oswald">{isAddMode ? 'ADD NEW PART' : 'EDIT PART DETAILS'}</CModalTitle></CModalHeader>
                 <CModalBody className="bg-light p-4">
                     <div className="vertical-product-form">
-                        <div className="bg-white p-3 rounded shadow-sm border mb-3">
-                            <h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">1. IDENTIFICATION</h6>
-                            <CRow className="g-3">
-                                <CCol md={12}>
-                                    <CFormLabel className="small fw-bold text-muted">Part Name <span className="text-danger">*</span></CFormLabel>
-                                    <CFormInput value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} />
-                                </CCol>
-                                <CCol md={6}>
-                                    <CFormLabel className="small fw-bold text-muted">Brand</CFormLabel>
-                                    <CFormSelect value={form.brand || ''} onChange={e => setForm({...form, brand: e.target.value})} className="brand-select">
-                                        <option value="">Select Brand</option>{brands.map(b => <option key={b} value={b}>{b}</option>)}
-                                    </CFormSelect>
-                                </CCol>
-                                <CCol md={6}>
-                                    <CFormLabel className="small fw-bold text-muted">Vehicle Fits</CFormLabel>
-                                    <CFormInput value={form.vehicle_compatibility || ''} onChange={e => setForm({...form, vehicle_compatibility: e.target.value})} />
-                                </CCol>
-                                <CCol md={12}>
-                                    <CFormLabel className="small fw-bold text-muted">Detailed Specs</CFormLabel>
-                                    <CFormTextarea rows={2} value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} />
-                                </CCol>
-                            </CRow>
-                        </div>
-
-                        <div className="bg-white p-3 rounded shadow-sm border mb-3">
-                            <h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">2. PRICING & PACKAGING</h6>
-                            <CRow className="g-3">
-                                <CCol md={4}>
-                                    <CFormLabel className="small fw-bold text-muted">Category</CFormLabel>
-                                    <CFormSelect value={form.category || ''} onChange={e => setForm({...form, category: e.target.value})} className="brand-select">
-                                        <option value="">Select Category</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </CFormSelect>
-                                </CCol>
-                                <CCol md={4}>
-                                    <CFormLabel className="small fw-bold text-muted">Unit of Measure</CFormLabel>
-                                    {/* [FIX] Enhanced dropdown to show Full Name */}
-                                    <CFormSelect value={form.unit_tag || 'EA'} onChange={e => setForm({...form, unit_tag: e.target.value})} className="brand-select">
-                                        {UOM_OPTIONS.map(u => <option key={u} value={u}>{u} - {UOM_MAP[u]}</option>)}
-                                    </CFormSelect>
-                                </CCol>
-                                <CCol md={4}>
-                                    <CFormLabel className="small fw-bold text-muted">Retail Price (₱)</CFormLabel>
-                                    <CFormInput type="number" min="0" step="100" value={form.price || ''} onChange={e => setForm({...form, price: e.target.value})} />
-                                </CCol>
-                            </CRow>
-                        </div>
-
-                        <div className="bg-white p-3 rounded shadow-sm border">
-                            <h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">3. VISUALS & SETTINGS</h6>
-                            <CRow className="g-3 align-items-start">
-                                <CCol md={5} className="d-flex flex-column align-items-center border-end pe-4">
-                                    <div 
-                                        className="image-upload-preview mb-2 d-flex flex-column align-items-center justify-content-center" 
-                                        onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} 
-                                        onDragLeave={() => setIsDragging(false)}
-                                        onDrop={(e) => {e.preventDefault(); setIsDragging(false); handleFileSelect({target:{files:e.dataTransfer.files}})}}
-                                        onClick={() => fileInputRef.current?.click()}
-                                        style={{borderColor: isDragging ? 'var(--brand-blue)' : '#dee2e6'}}
-                                    >
-                                        {preview ? <img src={preview} alt="Preview" /> : <div className="text-center text-muted p-3"><CIcon icon={cilCloudUpload} size="xl"/><div className="small mt-1 fw-bold">Click to Upload</div></div>}
-                                    </div>
-                                    <input type="file" accept="image/*" onChange={handleFileSelect} ref={fileInputRef} style={{ display: 'none' }} />
-                                    {(preview || imageFile) && (
-                                        <CButton color="info" variant="ghost" size="sm" className="w-100" onClick={() => { if(!cropSrc && preview) setCropSrc(preview); setCropVisible(true); }}>
-                                            <CIcon icon={cilCrop} className="me-1"/> Crop / Adjust
-                                        </CButton>
-                                    )}
-                                </CCol>
-                                <CCol md={7}>
-                                    <div className="d-flex flex-column gap-3 h-100 justify-content-center ps-2">
-                                        <div className="d-flex justify-content-between align-items-center p-2 border rounded bg-light">
-                                            <div><div className="fw-bold text-brand-navy">Serialized</div><div className="small text-muted">Requires unique serials?</div></div>
-                                            <CFormSwitch size="lg" checked={form.requires_serial || false} disabled={hasUnremovableSerials} onChange={e => setForm({...form, requires_serial: e.target.checked})} />
-                                        </div>
-                                        <div className="d-flex justify-content-between align-items-center p-2 border rounded bg-light">
-                                            <div><div className="fw-bold text-brand-navy">Active</div><div className="small text-muted">Show in catalog?</div></div>
-                                            <CFormSwitch size="lg" checked={form.status === 'Active'} onChange={e => setForm({...form, status: e.target.checked ? 'Active' : 'Inactive'})} />
-                                        </div>
-                                    </div>
-                                </CCol>
-                            </CRow>
-                        </div>
+                        <div className="bg-white p-3 rounded shadow-sm border mb-3"><h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">1. IDENTIFICATION</h6><CRow className="g-3"><CCol md={12}><CFormLabel className="small fw-bold text-muted">Part Name <span className="text-danger">*</span></CFormLabel><CFormInput value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} /></CCol><CCol md={6}><CFormLabel className="small fw-bold text-muted">Brand</CFormLabel><CFormSelect value={form.brand || ''} onChange={e => setForm({...form, brand: e.target.value})} className="brand-select"><option value="">Select Brand</option>{brands.map(b => <option key={b} value={b}>{b}</option>)}</CFormSelect></CCol><CCol md={6}><CFormLabel className="small fw-bold text-muted">Vehicle Fits</CFormLabel><CFormInput value={form.vehicle_compatibility || ''} onChange={e => setForm({...form, vehicle_compatibility: e.target.value})} /></CCol><CCol md={12}><CFormLabel className="small fw-bold text-muted">Detailed Specs</CFormLabel><CFormTextarea rows={2} value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} /></CCol></CRow></div>
+                        <div className="bg-white p-3 rounded shadow-sm border mb-3"><h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">2. PRICING & PACKAGING</h6><CRow className="g-3"><CCol md={4}><CFormLabel className="small fw-bold text-muted">Category</CFormLabel><CFormSelect value={form.category || ''} onChange={e => setForm({...form, category: e.target.value})} className="brand-select"><option value="">Select Category</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</CFormSelect></CCol><CCol md={4}><CFormLabel className="small fw-bold text-muted">Unit of Measure</CFormLabel><CFormSelect value={form.unit_tag || 'EA'} onChange={e => setForm({...form, unit_tag: e.target.value})} className="brand-select">{UOM_OPTIONS.map(u => <option key={u} value={u}>{u} - {UOM_MAP[u]}</option>)}</CFormSelect></CCol><CCol md={4}><CFormLabel className="small fw-bold text-muted">Retail Price (₱)</CFormLabel><CFormInput type="number" min="0" step="100" value={form.price || ''} onChange={e => setForm({...form, price: e.target.value})} /></CCol></CRow></div>
+                        <div className="bg-white p-3 rounded shadow-sm border"><h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">3. VISUALS & SETTINGS</h6><CRow className="g-3 align-items-start"><CCol md={5} className="d-flex flex-column align-items-center border-end pe-4"><div className="image-upload-preview mb-2 d-flex flex-column align-items-center justify-content-center" onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); handleFileSelect({target:{files:e.dataTransfer.files}})}} onClick={() => fileInputRef.current?.click()} style={{borderColor: isDragging ? 'var(--brand-blue)' : '#dee2e6'}}>{preview ? <img src={preview} alt="Preview" /> : <div className="text-center text-muted p-3"><CIcon icon={cilCloudUpload} size="xl"/><div className="small mt-1 fw-bold">Click to Upload</div></div>}</div><input type="file" accept="image/*" onChange={handleFileSelect} ref={fileInputRef} style={{ display: 'none' }} />{(preview || imageFile) && (<CButton color="info" variant="ghost" size="sm" className="w-100" onClick={() => { if(!cropSrc && preview) setCropSrc(preview); setCropVisible(true); }}><CIcon icon={cilCrop} className="me-1"/> Crop / Adjust</CButton>)}</CCol><CCol md={7}><div className="d-flex flex-column gap-3 h-100 justify-content-center ps-2"><div className="d-flex justify-content-between align-items-center p-2 border rounded bg-light"><div><div className="fw-bold text-brand-navy">Serialized</div><div className="small text-muted">Requires unique serials?</div></div><CFormSwitch size="lg" checked={form.requires_serial || false} disabled={hasUnremovableSerials} onChange={e => setForm({...form, requires_serial: e.target.checked})} /></div><div className="d-flex justify-content-between align-items-center p-2 border rounded bg-light"><div><div className="fw-bold text-brand-navy">Active</div><div className="small text-muted">Show in catalog?</div></div><CFormSwitch size="lg" checked={form.status === 'Active'} onChange={e => setForm({...form, status: e.target.checked ? 'Active' : 'Inactive'})} /></div></div></CCol></CRow></div>
                     </div>
                 </CModalBody>
-                <CModalFooter className="bg-light">
-                    <button className="btn-brand btn-brand-outline" onClick={onClose}>Cancel</button>
-                    <button className="btn-brand btn-brand-primary" onClick={handleSubmit} disabled={loading}>{loading ? <CSpinner size="sm" /> : 'Save Changes'}</button>
-                </CModalFooter>
+                <CModalFooter className="bg-light"><button className="btn-brand btn-brand-outline" onClick={onClose}>Cancel</button><button className="btn-brand btn-brand-primary" onClick={handleSubmit} disabled={loading}>{loading ? <CSpinner size="sm" /> : 'Save Changes'}</button></CModalFooter>
             </CModal>
-
-            <ImageCropModal 
-                visible={cropVisible} 
-                imageSrc={cropSrc} 
-                onClose={() => setCropVisible(false)} 
-                onApply={handleCropResult} 
-                loading={false} 
-            />
+            <ImageCropModal visible={cropVisible} imageSrc={cropSrc} onClose={() => setCropVisible(false)} onApply={handleCropResult} loading={false} />
         </>
     )
 }
 
-// ==================================================================================
-// MAIN PAGE COMPONENT
-// ==================================================================================
+// --- MAIN PAGE COMPONENT ---
 const ProductPage = () => {
   const [products, setProducts] = useState([]); const [total, setTotal] = useState(0); const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState(''); const [page, setPage] = useState(1)
@@ -298,6 +193,9 @@ const ProductPage = () => {
   const [formVisible, setFormVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null); 
   const [msg, setMsg] = useState({ show: false, title: '', text: '', color: 'info', confirm: null })
+  
+  // Stats
+  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, categories: 0 });
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -306,7 +204,10 @@ const ProductPage = () => {
            page, limit: ITEMS_PER_PAGE, search, category: cat!=='All Categories'?cat:undefined, 
            brand: brd!=='All Brand'?brd:undefined, status: stat!=='All Status'?stat:undefined, unit: unit!=='All Units'?unit:undefined 
        })
-       if(res.success) { setProducts(res.data.products||[]); setTotal(res.data.pagination?.totalProducts||0) }
+       if(res.success) { 
+           setProducts(res.data.products||[]); 
+           setTotal(res.data.pagination?.totalProducts||0) 
+       }
     } catch(e) { console.error(e) } finally { setLoading(false) }
   }, [page, search, cat, brd, stat, unit])
 
@@ -314,9 +215,11 @@ const ProductPage = () => {
       try {
           const c = await productAPI.getCategories(); if(c.success) setCategories(c.data || [])
           const b = await productAPI.getBrands(); if(b.success) setBrands(b.data || [])
+          setStats(prev => ({ ...prev, categories: (c.data || []).length }));
       } catch(e){}
   }
 
+  useEffect(() => { setStats(prev => ({ ...prev, total: total })); }, [total]);
   useEffect(() => { loadMeta(); const t = setTimeout(loadData, 300); return ()=>clearTimeout(t); }, [loadData])
 
   const handleAdd = () => { setEditingProduct(null); setFormVisible(true); }
@@ -331,72 +234,136 @@ const ProductPage = () => {
   const getImageUrl = (path) => path ? (path.startsWith('http') ? path : `${ASSET_URL}${path.startsWith('/') ? path : `/${path}`}`) : null;
   const totalPages = Math.ceil(total/ITEMS_PER_PAGE);
 
+  // --- PAGINATION RENDERER ---
+  const renderPaginationItems = () => {
+    const items = []; const maxVisible = 5; 
+    let start = Math.max(1, page - Math.floor(maxVisible/2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1);
+
+    const StyledPageItem = ({ active, disabled, onClick, children }) => (
+      <CPaginationItem active={active} disabled={disabled} onClick={onClick} style={{cursor: disabled?'default':'pointer', backgroundColor: active?'#17334e':'transparent', borderColor: active?'#17334e':'#dee2e6', color: active?'#fff':'#17334e', fontWeight: active?'bold':'normal', marginLeft:'4px', borderRadius:'4px'}}>{children}</CPaginationItem>
+    );
+
+    items.push(<StyledPageItem key="prev" disabled={page===1} onClick={()=>setPage(p=>Math.max(1, p-1))}><CIcon icon={cilChevronLeft} size="sm"/></StyledPageItem>);
+    if(start>1){ items.push(<StyledPageItem key={1} onClick={()=>setPage(1)}>1</StyledPageItem>); if(start>2) items.push(<StyledPageItem key="e1" disabled>...</StyledPageItem>); }
+    for(let i=start; i<=end; i++) items.push(<StyledPageItem key={i} active={i===page} onClick={()=>setPage(i)}>{i}</StyledPageItem>);
+    if(end<totalPages){ if(end<totalPages-1) items.push(<StyledPageItem key="e2" disabled>...</StyledPageItem>); items.push(<StyledPageItem key={totalPages} onClick={()=>setPage(totalPages)}>{totalPages}</StyledPageItem>); }
+    items.push(<StyledPageItem key="next" disabled={page===totalPages} onClick={()=>setPage(p=>Math.min(totalPages, p+1))}><CIcon icon={cilChevronRight} size="sm"/></StyledPageItem>);
+    return items;
+  };
+
   return (
     <CContainer fluid className="px-4 py-4">
       <div className="mb-4 d-flex justify-content-between align-items-end">
         <div>
             <h2 className="fw-bold text-brand-navy mb-1" style={{fontFamily: 'Oswald, sans-serif', letterSpacing: '1px'}}>PRODUCT CATALOG</h2>
-            <div className="text-muted fw-semibold">Inventory items and pricing</div>
+            <div className="text-medium-emphasis fw-semibold">Inventory items and pricing</div>
         </div>
         <button className="btn-brand btn-brand-primary" onClick={handleAdd}><CIcon icon={cilPlus} className="me-2"/> Add New Part</button>
       </div>
 
-      <CCard className="mb-4 border-0 shadow-sm"><CCardBody className="p-4 bg-white">
-        <CRow className="g-3">
-           <CCol md={3}><div className="brand-search-wrapper w-100"><span className="brand-search-icon"><CIcon icon={cilMagnifyingGlass}/></span><input type="text" className="brand-search-input" placeholder="Search..." value={search} onChange={e=>{setSearch(e.target.value); setPage(1)}}/></div></CCol>
-           <CCol md={2}><select className="brand-select w-100" value={cat} onChange={e=>{setCat(e.target.value); setPage(1)}}><option>All Categories</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></CCol>
-           <CCol md={2}><select className="brand-select w-100" value={brd} onChange={e=>{setBrd(e.target.value); setPage(1)}}><option>All Brand</option>{brands.map(b=><option key={b} value={b}>{b}</option>)}</select></CCol>
-           <CCol md={2}><select className="brand-select w-100" value={unit} onChange={e=>{setUnit(e.target.value); setPage(1)}}><option>All Units</option>{UOM_OPTIONS.map(u=><option key={u} value={u}>{u}</option>)}</select></CCol>
-           <CCol md={3}><select className="brand-select w-100" value={stat} onChange={e=>{setStat(e.target.value); setPage(1)}}><option>All Status</option><option>Active</option><option>Inactive</option></select></CCol>
-        </CRow>
-      </CCardBody></CCard>
-      
-      <CCard className="mb-4 border-0 shadow-sm overflow-hidden"><CCardBody className="p-0"><div className="admin-table-container"><table className="admin-table">
-        <thead>
-            <tr>
-                <th className="ps-4">Part No.</th>
-                <th>Product Details</th>
-                <th>Category</th>
-                <th>Brand</th>
-                <th>Price</th>
-                <th className="text-center">Unit</th>
-                <th className="text-center">Status</th>
-                <th className="text-end pe-4">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-          {loading ? <tr><td colSpan="8" className="text-center py-5"><CSpinner color="primary"/></td></tr> : 
-           products.length===0 ? <tr><td colSpan="8" className="text-center py-5 text-muted">No results.</td></tr> :
-           products.map(p => {
-             const img = getImageUrl(p.image);
-             return (
-               <tr key={p.product_id}>
-                  <td className="ps-4">
-                      <div className="d-flex flex-column"><span className="fw-bold text-brand-navy font-monospace">{p.product_id}</span>
-                      <div className="mt-1">{p.requires_serial ? <CBadge className="bg-brand-navy border border-dark py-1 px-2">SERIAL</CBadge> : <CBadge className="bg-white text-dark border border-secondary py-1 px-2">STANDARD</CBadge>}</div></div>
-                  </td>
-                  <td><div className="d-flex align-items-center gap-3"><div className="product-thumbnail-container">{img ? <img src={img} alt=""/> : <div className="placeholder-icon"><CIcon icon={cilImage} className="text-secondary opacity-50"/></div>}</div><div className="fw-bold text-dark text-wrap" style={{maxWidth:'250px'}}>{p.name}</div></div></td>
-                  <td><span className="badge bg-light text-dark border fw-normal">{p.category}</span></td><td>{p.brand}</td>
-                  <td><div className="fw-bold text-brand-blue">₱{p.price?.toLocaleString()}</div></td>
-                  <td className="text-center">
-                      {/* [FIX] Tooltip explains the acronym */}
-                      <CTooltip content={UOM_MAP[p.unit_tag] || p.unit_tag}>
-                          <CBadge color="info" shape="rounded-pill" className="px-3" style={{cursor: 'help'}}>{p.unit_tag || 'EA'}</CBadge>
-                      </CTooltip>
-                  </td>
-                  <td className="text-center"><span className={`status-badge ${p.status==='Active'?'active':'cancelled'}`}>{p.status}</span></td>
-                  <td className="text-end pe-4"><div className="d-flex justify-content-end gap-2"><CTooltip content="Edit"><button className="btn-brand btn-brand-outline btn-brand-sm" onClick={()=>handleEdit(p)}><CIcon icon={cilPencil}/></button></CTooltip><CTooltip content="Delete"><button className="btn-brand btn-brand-danger btn-brand-sm" onClick={()=>handleDelete(p)}><CIcon icon={cilTrash}/></button></CTooltip></div></td>
-               </tr>
-             )
-           })}
-        </tbody>
-      </table></div>
-      <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white"><span className="small text-muted fw-semibold">Showing {products.length} of {total} items</span>
-        <AppPagination currentPage={page} totalPages={totalPages} onPageChange={(p) => setPage(p)} />
-      </div></CCardBody></CCard>
+      {/* --- STAT CARDS --- */}
+      <CRow className="mb-4 g-3">
+        <CCol sm={6} lg={3}><StatCard title="Total Products" value={total.toString()} icon={<CIcon icon={cilTags}/>} gradient="linear-gradient(135deg, #17334e 0%, #0f2438 100%)" /></CCol>
+        <CCol sm={6} lg={3}><StatCard title="Active Listings" value={(total).toString()} icon={<CIcon icon={cilCheckCircle}/>} gradient="linear-gradient(135deg, #2eb85c 0%, #1b9e3e 100%)" /></CCol>
+        <CCol sm={6} lg={3}><StatCard title="Categories" value={stats.categories.toString()} icon={<CIcon icon={cilLayers}/>} gradient="linear-gradient(135deg, #f9b115 0%, #f6960b 100%)" textColor="text-brand-navy"/></CCol>
+        <CCol sm={6} lg={3}><StatCard title="Inactive" value="-" icon={<CIcon icon={cilXCircle}/>} gradient="linear-gradient(135deg, #e55353 0%, #b21f2d 100%)" /></CCol>
+      </CRow>
+
+      {/* --- MAIN TABLE CARD --- */}
+      <CCard className="mb-4 border-0 shadow-sm overflow-hidden">
+        {/* COMMAND HEADER (Merged Filters) */}
+        <CCardHeader className="bg-white p-3 border-bottom d-flex flex-wrap gap-3 align-items-center justify-content-between">
+           <div className="d-flex gap-2 flex-grow-1 flex-wrap" style={{maxWidth: '1000px'}}>
+               <div className="bg-light rounded px-3 py-2 d-flex align-items-center border" style={{minWidth: '250px'}}>
+                  <CIcon icon={cilMagnifyingGlass} className="text-muted me-2"/>
+                  <input className="border-0 bg-transparent w-100" style={{outline: 'none', fontSize: '0.9rem'}} placeholder="Search parts..." value={search} onChange={e=>{setSearch(e.target.value); setPage(1)}} />
+               </div>
+               <CFormSelect className="form-select-sm" style={{maxWidth: '160px', borderColor:'#e9ecef'}} value={cat} onChange={e=>{setCat(e.target.value); setPage(1)}}><option>All Categories</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</CFormSelect>
+               <CFormSelect className="form-select-sm" style={{maxWidth: '160px', borderColor:'#e9ecef'}} value={brd} onChange={e=>{setBrd(e.target.value); setPage(1)}}><option>All Brand</option>{brands.map(b=><option key={b} value={b}>{b}</option>)}</CFormSelect>
+               <CFormSelect className="form-select-sm" style={{maxWidth: '140px', borderColor:'#e9ecef'}} value={unit} onChange={e=>{setUnit(e.target.value); setPage(1)}}><option>All Units</option>{UOM_OPTIONS.map(u=><option key={u} value={u}>{u}</option>)}</CFormSelect>
+               <CFormSelect className="form-select-sm" style={{maxWidth: '140px', borderColor:'#e9ecef'}} value={stat} onChange={e=>{setStat(e.target.value); setPage(1)}}><option>All Status</option><option>Active</option><option>Inactive</option></CFormSelect>
+           </div>
+        </CCardHeader>
+
+        <div className="admin-table-container">
+            <table className="admin-table">
+                {/* Sticky Navy Header for Table */}
+                <thead className="bg-brand-navy text-white">
+                    <tr>
+                        <th className="ps-4 text-white" style={{width: '15%'}}>Part No.</th>
+                        <th className="text-white" style={{width: '25%'}}>Product Details</th>
+                        <th className="text-white" style={{width: '15%'}}>Category</th>
+                        <th className="text-white" style={{width: '10%'}}>Brand</th>
+                        <th className="text-end text-white" style={{width: '10%'}}>Price</th>
+                        <th className="text-center text-white" style={{width: '5%'}}>Unit</th>
+                        <th className="text-center text-white" style={{width: '10%'}}>Status</th>
+                        <th className="text-end pe-4 text-white" style={{width: '10%'}}>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                  {loading ? <tr><td colSpan="8" className="text-center py-5"><CSpinner color="primary"/></td></tr> : 
+                   products.length===0 ? <tr><td colSpan="8" className="text-center py-5 text-muted">No results.</td></tr> :
+                   products.map(p => {
+                     const img = getImageUrl(p.image);
+                     return (
+                       <tr key={p.product_id}>
+                          <td className="ps-4">
+                              <div className="d-flex flex-column">
+                                  <span className="fw-bold text-brand-navy font-monospace">{p.product_id}</span>
+                                  <div className="mt-1">{p.requires_serial ? <CBadge color="info" shape="rounded-pill" className="text-white border border-info px-2 py-1" style={{fontSize:'0.65rem'}}>SERIAL</CBadge> : <CBadge color="light" shape="rounded-pill" className="text-dark border px-2 py-1" style={{fontSize:'0.65rem'}}>STANDARD</CBadge>}</div>
+                              </div>
+                          </td>
+                          <td>
+                              <div className="d-flex align-items-center gap-3">
+                                  <div className="product-thumbnail-container" style={{width:'45px', height:'45px', minWidth:'45px'}}>
+                                      {img ? <img src={img} alt="" style={{width:'100%', height:'100%', objectFit:'contain'}}/> : <div className="placeholder-icon"><CIcon icon={cilImage} className="text-secondary opacity-50"/></div>}
+                                  </div>
+                                  <div className="fw-bold text-dark text-wrap" style={{maxWidth:'250px', fontSize:'0.95rem'}}>{p.name}</div>
+                              </div>
+                          </td>
+                          <td><span className="badge bg-light text-dark border fw-normal px-2">{p.category}</span></td>
+                          <td>{p.brand}</td>
+                          <td className="text-end"><div className="fw-bold text-dark" style={{fontFamily:'Oswald'}}>₱{p.price?.toLocaleString()}</div></td>
+                          <td className="text-center"><CTooltip content={UOM_MAP[p.unit_tag] || p.unit_tag}><CBadge color="info" shape="rounded-pill" className="px-2" style={{cursor: 'help'}}>{p.unit_tag || 'EA'}</CBadge></CTooltip></td>
+                          
+                          {/* [UPDATED] SOLID STATUS BADGES */}
+                          <td className="text-center">
+                              {p.status === 'Active' ? 
+                                <CBadge color="success" shape="rounded-pill" className="px-3 text-white">Active</CBadge> : 
+                                <CBadge color="secondary" shape="rounded-pill" className="px-3 text-white">Inactive</CBadge>
+                              }
+                          </td>
+                          
+                          <td className="text-end pe-4">
+                              <div className="d-flex justify-content-end gap-2">
+                                <CTooltip content="Edit">
+                                    <CButton size="sm" className="text-white shadow-sm d-flex align-items-center justify-content-center" style={{width: '32px', height: '32px', padding: 0, backgroundColor: '#17334e', borderColor: '#17334e'}} onClick={()=>handleEdit(p)}>
+                                        <CIcon icon={cilPencil} size="sm"/>
+                                    </CButton>
+                                </CTooltip>
+                                <CTooltip content="Delete">
+                                    <CButton size="sm" color="danger" className="text-white shadow-sm d-flex align-items-center justify-content-center" style={{width: '32px', height: '32px', padding: 0}} onClick={()=>handleDelete(p)}>
+                                        <CIcon icon={cilTrash} size="sm"/>
+                                    </CButton>
+                                </CTooltip>
+                              </div>
+                          </td>
+                       </tr>
+                     )
+                   })}
+                </tbody>
+            </table>
+        </div>
+        
+        <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white">
+            <span className="small text-muted fw-semibold">Showing {products.length} of {total} items</span>
+            <CPagination className="mb-0 justify-content-end">{renderPaginationItems()}</CPagination>
+        </div>
+      </CCard>
 
       <ProductFormModal visible={formVisible} productToEdit={editingProduct} categories={categories} brands={brands} onClose={()=>setFormVisible(false)} onSuccess={(m)=>{ loadData(); setFormVisible(false); }} />
-      
       <CModal visible={msg.show} onClose={()=>setMsg({...msg, show:false})}><CModalHeader className={`bg-${msg.color} text-white`}><CModalTitle className="font-oswald">{msg.title}</CModalTitle></CModalHeader><CModalBody className="py-4">{msg.text}</CModalBody><CModalFooter className="bg-light"><CButton color="secondary" onClick={()=>setMsg({...msg, show:false})}>Cancel</CButton><CButton color={msg.color} className="text-white" onClick={msg.confirm}>Confirm</CButton></CModalFooter></CModal>
     </CContainer>
   )

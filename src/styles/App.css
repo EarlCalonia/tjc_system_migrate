@@ -17,7 +17,7 @@
   /* --- UTILITIES --- */
   --bg-light: #f8f9fa;
   --font-main: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-header: 'Oswald', sans-serif; 
+  --font-header: 'Oswald', sans-serif;
 }
 
 /* --- BASE STYLES --- */
@@ -169,4 +169,69 @@ input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+/* =================================================================== */
+/* COMPONENTS: MODERN PAGINATION                                       */
+/* =================================================================== */
+
+.brand-pagination {
+  gap: 6px;
+  align-items: center;
+}
+
+.brand-pagination .page-item {
+  margin: 0;
+}
+
+.brand-pagination .page-link {
+  border: 1px solid var(--brand-navy); /* Solid Navy Border */
+  border-radius: 4px; 
+  color: var(--brand-navy);
+  font-family: var(--font-header); /* Oswald font for numbers */
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.4rem 0.8rem;
+  transition: all 0.2s ease-in-out;
+  background-color: white;
+  min-width: 36px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(23, 51, 78, 0.1); /* Subtle Navy shadow */
+}
+
+/* Hover State - Industrial Yellow Highlight */
+.brand-pagination .page-link:hover {
+  background-color: var(--brand-yellow);
+  color: var(--brand-navy);
+  border-color: var(--brand-navy);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(241, 206, 68, 0.4);
+  z-index: 2;
+}
+
+/* Active State - Industrial Navy Command Style */
+.brand-pagination .page-item.active .page-link {
+  background-color: var(--brand-navy);
+  border-color: var(--brand-navy);
+  color: var(--brand-yellow); /* Yellow text on Navy bg */
+  font-weight: 700;
+  transform: scale(1.05);
+  box-shadow: 0 4px 10px rgba(23, 51, 78, 0.4);
+}
+
+/* Disabled State */
+.brand-pagination .page-item.disabled .page-link {
+  background-color: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+  box-shadow: none;
+  transform: none;
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+/* Focus Ring */
+.brand-pagination .page-link:focus {
+  box-shadow: 0 0 0 3px rgba(23, 51, 78, 0.25);
+  outline: none;
 }

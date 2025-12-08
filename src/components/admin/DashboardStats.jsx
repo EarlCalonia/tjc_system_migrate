@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { CRow, CCol, CWidgetStatsF } from '@coreui/react';
+import { CRow, CCol, CCard, CCardBody } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import { 
   cilMoney, 
@@ -8,7 +8,7 @@ import {
   cilList, 
   cilClock,
   cilArrowRight,
-  cilArrowTop
+  cilWarning
 } from '@coreui/icons';
 import { dashboardAPI } from '../../utils/api';
 
@@ -42,93 +42,106 @@ const DashboardStats = () => {
   const formatPeso = (amount) => 
     `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  // --- REUSABLE COLORED CARD COMPONENT ---
+  const StatCard = ({ title, value, icon, gradient, textColor = 'text-white', footerLabel, footerLink, footerColor }) => (
+    <CCard 
+      className={`h-100 border-0 shadow-sm overflow-hidden`}
+      style={{ 
+        background: gradient,
+        transition: 'transform 0.2s ease-in-out',
+        cursor: 'default'
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
+      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+    >
+      <CCardBody className="p-4 position-relative d-flex flex-column justify-content-between">
+        
+        {/* Background Watermark Icon */}
+        <div className="position-absolute" style={{ top: '-10px', right: '-15px', opacity: 0.15, transform: 'rotate(15deg)' }}>
+           {React.cloneElement(icon, { height: 120, width: 120, className: textColor })}
+        </div>
+
+        {/* Content */}
+        <div className="position-relative z-1">
+          <div className={`text-uppercase fw-bold small mb-2 ${textColor}`} style={{ opacity: 0.8, letterSpacing: '1px' }}>
+            {title}
+          </div>
+          <div className={`fw-bold ${textColor}`} style={{ fontSize: '2rem', fontFamily: 'Oswald, sans-serif' }}>
+            {value}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-4 pt-3 position-relative z-1" style={{ borderTop: `1px solid ${textColor === 'text-white' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}` }}>
+          {footerLink ? (
+            <Link to={footerLink} className="text-decoration-none">
+              <div className={`d-flex align-items-center small fw-bold text-uppercase ${footerColor || textColor}`}>
+                {footerLabel} <CIcon icon={cilArrowRight} size="sm" className="ms-1" />
+              </div>
+            </Link>
+          ) : (
+            <div className={`d-flex align-items-center small fw-bold text-uppercase ${textColor}`} style={{ opacity: 0.9 }}>
+              {footerLabel}
+            </div>
+          )}
+        </div>
+      </CCardBody>
+    </CCard>
+  );
+
   return (
     <CRow className="g-4 mb-4"> 
-      {/* 1. Today's Sales */}
+      
+      {/* 1. Today's Revenue (Brand Green Gradient) */}
       <CCol sm={6} lg={3}>
-        <CWidgetStatsF
-          className="shadow-sm h-100 border-start border-start-4 border-start-success"
-          color="white"
-          icon={<CIcon icon={cilMoney} height={24} className="text-success"/>}
-          padding={false}
+        <StatCard 
           title="Today's Revenue"
           value={loading ? '-' : formatPeso(stats.todaySales)}
-          footer={
-            <div className="d-flex justify-content-between align-items-center text-medium-emphasis small px-1">
-               <span>Daily Sales</span>
-               <span className="text-success fw-bold">
-                 <CIcon icon={cilArrowTop} size="sm" /> Live
-               </span>
-            </div>
-          }
+          icon={<CIcon icon={cilMoney} />}
+          gradient="linear-gradient(135deg, #2eb85c 0%, #1b9e3e 100%)" // Success Gradient
+          footerLabel="View Daily Sales"
+          footerLink="/sales"
         />
       </CCol>
 
-      {/* 2. Weekly Sales */}
+      {/* 2. Weekly Revenue (Brand Navy Gradient) */}
       <CCol sm={6} lg={3}>
-        <CWidgetStatsF
-          className="shadow-sm h-100 border-start border-start-4 border-start-primary"
-          color="white"
-          icon={<CIcon icon={cilChartLine} height={24} className="text-primary"/>}
-          padding={false}
+        <StatCard 
           title="Weekly Revenue"
           value={loading ? '-' : formatPeso(stats.weekSales)}
-          footer={
-            <Link to="/reports" className="text-decoration-none w-100">
-              <div className="d-flex justify-content-between align-items-center text-primary small cursor-pointer hover-overlay px-1">
-                <span className="text-medium-emphasis">7 Day Performance</span>
-                <span className="fw-bold d-flex align-items-center">
-                  Reports <CIcon icon={cilArrowRight} size="sm" className="ms-1"/>
-                </span>
-              </div>
-            </Link>
-          }
+          icon={<CIcon icon={cilChartLine} />}
+          gradient="linear-gradient(135deg, #17334e 0%, #0f2438 100%)" // Brand Navy Gradient
+          footerLabel="View Performance"
+          footerLink="/reports"
+          footerColor="text-brand-yellow" // Yellow accent on Navy
         />
       </CCol>
 
-      {/* 3. Inventory Alerts */}
+      {/* 3. Critical Inventory (Brand Red Gradient) */}
       <CCol sm={6} lg={3}>
-        <CWidgetStatsF
-          className="shadow-sm h-100 border-start border-start-4 border-start-danger"
-          color="white"
-          icon={<CIcon icon={cilList} height={24} className="text-danger"/>}
-          padding={false}
-          title="Critical Inventory" 
+        <StatCard 
+          title="Critical Alerts" 
           value={loading ? '-' : stats.lowStockItems.toString()}
-          footer={
-            <Link to="/inventory" className="text-decoration-none w-100">
-              <div className="d-flex justify-content-between align-items-center text-danger small cursor-pointer hover-overlay px-1">
-                <span className="text-medium-emphasis">Low Stock / OOS</span>
-                <span className="fw-bold d-flex align-items-center">
-                  Restock <CIcon icon={cilArrowRight} size="sm" className="ms-1"/>
-                </span>
-              </div>
-            </Link>
-          }
+          icon={<CIcon icon={cilWarning} />}
+          gradient="linear-gradient(135deg, #e55353 0%, #b21f2d 100%)" // Danger Gradient
+          footerLabel="Restock Inventory"
+          footerLink="/inventory"
         />
       </CCol>
 
-      {/* 4. Pending Orders */}
+      {/* 4. Pending Orders (Brand Yellow Gradient - Dark Text) */}
       <CCol sm={6} lg={3}>
-        <CWidgetStatsF
-          className="shadow-sm h-100 border-start border-start-4 border-start-warning"
-          color="white"
-          icon={<CIcon icon={cilClock} height={24} className="text-warning"/>}
-          padding={false}
+        <StatCard 
           title="Pending Orders"
           value={loading ? '-' : stats.pendingOrders.toString()}
-          footer={
-            <Link to="/orders" className="text-decoration-none w-100">
-              <div className="d-flex justify-content-between align-items-center text-warning small cursor-pointer hover-overlay px-1">
-                <span className="text-medium-emphasis">Needs Processing</span>
-                <span className="fw-bold d-flex align-items-center">
-                  Process <CIcon icon={cilArrowRight} size="sm" className="ms-1"/>
-                </span>
-              </div>
-            </Link>
-          }
+          icon={<CIcon icon={cilClock} />}
+          gradient="linear-gradient(135deg, #f9b115 0%, #f6960b 100%)" // Warning Gradient
+          textColor="text-brand-navy" // Navy text for contrast on yellow
+          footerLabel="Process Queue"
+          footerLink="/orders"
         />
       </CCol>
+
     </CRow>
   );
 };
