@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   CContainer, CRow, CCol, CCard, CCardBody, CCardHeader, CButton, CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter,
-  CNav, CNavItem, CNavLink, CSpinner, CBadge, CFormSelect, CTooltip, CFormInput // CFormInput is now correctly imported
+  CNav, CNavItem, CNavLink, CSpinner, CBadge, CFormSelect, CFormInput
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
   cilCloudDownload, cilMoney, cilChartLine, cilInbox, cilWarning, cilXCircle, cilArrowThickFromTop, cilCalendar,
-  cilSearch, cilReload, cilBarcode, cilHistory, cilFilterX, cilTag
+  cilSearch, cilReload, cilBarcode, cilHistory, cilFilterX, cilTag, cilClock, cilTruck, cilDollar
 } from '@coreui/icons'
 import { generateSalesReportPDF, generateInventoryReportPDF, generateReturnsReportPDF, generateDeadStockReportPDF } from '../../utils/pdfGenerator'
-import { reportsAPI } from '../../utils/api'
+import { reportsAPI, suppliersAPI, settingsAPI } from '../../utils/api'
 
 import '../../styles/Admin.css'
 import '../../styles/App.css' 
 import '../../styles/ReportsPage.css'
+
+// [NEW] Standardized Row Count
+const ITEMS_PER_PAGE = 10; 
 
 // --- REUSABLE STAT CARD COMPONENT ---
 const StatCard = ({ title, value, icon, gradient, textColor = 'text-white' }) => (
@@ -34,15 +37,14 @@ const ReportsPage = () => {
   // --- STATE ---
   const [activeTab, setActiveTab] = useState('sales')
   const [loading, setLoading] = useState(false)
-  
+  const [storeSettings, setStoreSettings] = useState({})
+
   // FILTERS
   const [reportPeriod, setReportPeriod] = useState('monthly') 
   const [filterDate, setFilterDate] = useState(new Date().toISOString().slice(0, 7)) 
   const [customRange, setCustomRange] = useState({ start: '', end: '' })
   const [dateRange, setDateRange] = useState({ start: '', end: '', label: 'This Month' })
-
-  // Dead Stock Specific Filter
-  const [dormancyMonths, setDormancyMonths] = useState(6) 
+  const [dormancyMonths, setDormancyMonths] = useState(12) 
 
   const initialFilters = {
     stockStatus: 'All Status',
@@ -50,13 +52,17 @@ const ReportsPage = () => {
     category: 'All Categories',
     returnReason: 'All Reasons',
     productType: 'All', 
+    supplier: 'All Suppliers',
+    priceRange: 'All Values',
     search: ''
   }
   const [filters, setFilters] = useState(initialFilters)
-  const [options, setOptions] = useState({ brands: [], categories: [] })
+  const [options, setOptions] = useState({ brands: [], categories: [], suppliers: [] })
   const [reportData, setReportData] = useState([]) 
   const [summary, setSummary] = useState(null)
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, total_pages: 1 })
+  
+  // [UPDATED] Default Limit to 10
+  const [pagination, setPagination] = useState({ page: 1, limit: ITEMS_PER_PAGE, total: 0, total_pages: 1 })
   
   const adminName = localStorage.getItem('username') || 'Admin'
   const [msgModal, setMsgModal] = useState({ visible: false, title: '', message: '', color: 'info' })
@@ -99,17 +105,13 @@ const ReportsPage = () => {
                 if (yearStr && weekStr) {
                     const year = parseInt(yearStr);
                     const week = parseInt(weekStr);
-                    
                     const simpleDate = new Date(year, 0, 1 + (week - 1) * 7);
                     const dayOfWeek = simpleDate.getDay();
                     const weekStart = simpleDate;
-                    
                     if (dayOfWeek <= 4) weekStart.setDate(simpleDate.getDate() - simpleDate.getDay() + 1);
                     else weekStart.setDate(simpleDate.getDate() + 8 - simpleDate.getDay());
-                    
                     const weekEnd = new Date(weekStart);
                     weekEnd.setDate(weekStart.getDate() + 6);
-                    
                     start = formatLocalDate(weekStart); 
                     end = formatLocalDate(weekEnd);
                 }
@@ -144,16 +146,38 @@ const ReportsPage = () => {
       const type = e.target.value;
       setReportPeriod(type);
       const today = new Date();
-      
       if (type === 'daily') setFilterDate(formatLocalDate(today));
       else if (type === 'weekly') setFilterDate(getCurrentISOWeek());
       else if (type === 'monthly') setFilterDate(today.toISOString().slice(0, 7));
       else if (type === 'yearly') setFilterDate(String(today.getFullYear()));
   };
 
-  const handleResetFilters = () => { setFilters(initialFilters); setReportPeriod('monthly'); setFilterDate(new Date().toISOString().slice(0, 7)); setDormancyMonths(6); setPagination(p => ({ ...p, page: 1 })); }
+  const handleResetFilters = () => { 
+      setFilters(initialFilters); 
+      setReportPeriod('monthly'); 
+      setFilterDate(new Date().toISOString().slice(0, 7)); 
+      setDormancyMonths(12);
+      setPagination(p => ({ ...p, page: 1 })); 
+  }
 
-  useEffect(() => { reportsAPI.getFilterOptions().then(res => { if(res.success) setOptions({ brands: res.data.brands, categories: res.data.categories }) }).catch(err => console.error(err)) }, [])
+  useEffect(() => { 
+      const loadOptions = async () => {
+          try {
+              const [filterRes, supplierRes, settingsRes] = await Promise.all([
+                  reportsAPI.getFilterOptions(),
+                  suppliersAPI.getAll(),
+                  settingsAPI.get()
+              ]);
+              setOptions({
+                  brands: filterRes.success ? filterRes.data.brands : [],
+                  categories: filterRes.success ? filterRes.data.categories : [],
+                  suppliers: supplierRes.success ? supplierRes.data : []
+              });
+              if (settingsRes.success) setStoreSettings(settingsRes.data);
+          } catch (err) { console.error(err) }
+      };
+      loadOptions();
+  }, [])
 
   const fetchReportData = useCallback(async () => {
     setLoading(true)
@@ -174,7 +198,13 @@ const ReportsPage = () => {
         if (filters.productType && filters.productType !== 'All') query.type = filters.productType
         if (filters.search) query.search = filters.search
       }
-      if (activeTab === 'dead_stock') query.months = dormancyMonths;
+      
+      if (activeTab === 'dead_stock') {
+          query.months = dormancyMonths;
+          if (filters.supplier !== 'All Suppliers') query.supplier = filters.supplier;
+          if (filters.priceRange !== 'All Values') query.price_range = filters.priceRange;
+      }
+      
       if (activeTab === 'returns' && filters.returnReason !== 'All Reasons') query.returnReason = filters.returnReason;
 
       let res
@@ -195,16 +225,58 @@ const ReportsPage = () => {
   const handleExportPDF = async () => {
     if (!reportData.length) return showMessage('No Data', 'Nothing to export.', 'warning')
     try {
-        const query = { start_date: dateRange.start, end_date: dateRange.end, page: 1, limit: 999999, ...filters }
-        if (activeTab === 'dead_stock') query.months = dormancyMonths;
-        if (activeTab === 'returns' && filters.returnReason !== 'All Reasons') query.returnReason = filters.returnReason;
-        if (activeTab === 'inventory' && filters.productType && filters.productType !== 'All') query.type = filters.productType;
+        const query = { 
+            page: 1, 
+            limit: 999999 
+        };
+
+        if (activeTab === 'sales' || activeTab === 'returns') {
+            query.start_date = dateRange.start;
+            query.end_date = dateRange.end;
+        }
+
+        if (activeTab === 'returns') {
+             if (filters.returnReason !== 'All Reasons') query.returnReason = filters.returnReason;
+        }
+
+        if (activeTab === 'inventory' || activeTab === 'dead_stock') {
+            if (filters.brand !== 'All Brand') query.brand = filters.brand;
+            if (filters.category !== 'All Categories') query.category = filters.category;
+        }
+
+        if (activeTab === 'inventory') {
+            if (filters.stockStatus !== 'All Status') query.stock_status = filters.stockStatus;
+            if (filters.productType && filters.productType !== 'All') query.type = filters.productType;
+            if (filters.search) query.search = filters.search;
+        }
+
+        if (activeTab === 'dead_stock') {
+            query.months = dormancyMonths;
+            if (filters.supplier !== 'All Suppliers') query.supplier = filters.supplier;
+            if (filters.priceRange !== 'All Values') query.price_range = filters.priceRange;
+        }
 
         let doc;
-        if (activeTab === 'sales') { const res = await reportsAPI.getSalesReport(query); doc = await generateSalesReportPDF(res.sales, dateRange.start, dateRange.end, adminName, dateRange.label); doc.save(`Sales_Report.pdf`); }
-        else if (activeTab === 'inventory') { const res = await reportsAPI.getInventoryReport(query); doc = await generateInventoryReportPDF(res.inventory || [], dateRange.start, dateRange.end, adminName); doc.save(`Inventory_Report.pdf`); }
-        else if (activeTab === 'returns') { const res = await reportsAPI.getReturnsReport(query); doc = await generateReturnsReportPDF(res.returns || [], dateRange.start, dateRange.end, adminName); doc.save(`Returns_Report.pdf`); }
-        else if (activeTab === 'dead_stock') { const res = await reportsAPI.getDeadStockReport(query); doc = await generateDeadStockReportPDF(res.deadStock || [], adminName); doc.save(`Dead_Stock_Report.pdf`); }
+        if (activeTab === 'sales') { 
+            const res = await reportsAPI.getSalesReport(query); 
+            doc = await generateSalesReportPDF(res.sales, dateRange.start, dateRange.end, adminName, dateRange.label, storeSettings); 
+            doc.save(`Sales_Report.pdf`); 
+        }
+        else if (activeTab === 'inventory') { 
+            const res = await reportsAPI.getInventoryReport(query); 
+            doc = await generateInventoryReportPDF(res.inventory || [], dateRange.start, dateRange.end, adminName, storeSettings); 
+            doc.save(`Inventory_Report.pdf`); 
+        }
+        else if (activeTab === 'returns') { 
+            const res = await reportsAPI.getReturnsReport(query); 
+            doc = await generateReturnsReportPDF(res.returns || [], dateRange.start, dateRange.end, adminName, storeSettings); 
+            doc.save(`Returns_Report.pdf`); 
+        }
+        else if (activeTab === 'dead_stock') { 
+            const res = await reportsAPI.getDeadStockReport(query); 
+            doc = await generateDeadStockReportPDF(res.deadStock || [], adminName, storeSettings); 
+            doc.save(`Dead_Stock_Report.pdf`); 
+        }
     } catch (e) { showMessage('Export Error', e.message, 'danger') }
   }
 
@@ -283,6 +355,7 @@ const ReportsPage = () => {
                     (<div className="small text-danger fw-bold mt-1"><CIcon icon={cilBarcode} size="sm" className="me-1"/> SN: {row.serialNumber}</div>) : 
                     (<div className="small text-muted mt-1"><CIcon icon={cilTag} size="sm" className="me-1"/> Standard Inventory</div>)
                 }
+                {row.supplier && <div className="small text-muted fst-italic mt-1" style={{fontSize:'0.7rem'}}>From: {row.supplier}</div>}
             </td>
             <td><CBadge className="badge-category" shape="rounded-pill">{row.category}</CBadge></td>
             <td className="text-center font-monospace fs-6 text-dark">{row.currentStock}</td>
@@ -302,56 +375,18 @@ const ReportsPage = () => {
 
   return (
     <CContainer fluid className="px-4 py-4">
-      {/* --- PAGE HEADER --- */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4 gap-3 fade-in-up">
         <div>
             <h2 className="fw-bold text-brand-navy mb-1" style={brandHeaderStyle}>ANALYTICS DASHBOARD</h2>
             <div className="text-medium-emphasis fw-semibold">Real-time system insights and financial reports</div>
         </div>
-        
-        {/* --- COMMAND TOOLBAR ACTIONS --- */}
         <div className="d-flex gap-2">
-            <CButton 
-                color="danger" 
-                className="d-flex align-items-center justify-content-center shadow-sm fw-bold text-white border-0 px-3 transition-all" 
-                onClick={handleResetFilters} 
-                disabled={loading}
-                style={{height:'45px', borderRadius:'6px', letterSpacing: '0.5px'}}
-            >
-                <CIcon icon={cilFilterX} className="me-2"/> RESET
-            </CButton>
-
-            <CButton 
-                className="d-flex align-items-center justify-content-center shadow-sm fw-bold text-white border-0 px-3 transition-all" 
-                onClick={fetchReportData} 
-                disabled={loading}
-                style={{
-                    height:'45px', 
-                    borderRadius:'6px', 
-                    backgroundColor: 'var(--brand-navy)', 
-                    letterSpacing: '0.5px'
-                }}
-            >
-                <CIcon icon={cilReload} className={`me-2 ${loading ? "fa-spin" : ""}`}/> REFRESH
-            </CButton>
-
-           <CButton 
-                className="fw-bold text-white d-flex align-items-center shadow-sm border-0 px-4" 
-                onClick={handleExportPDF}
-                style={{
-                    height: '45px', 
-                    borderRadius: '6px', 
-                    background: 'linear-gradient(135deg, #17334e 0%, #102a43 100%)', 
-                    letterSpacing: '0.5px'
-                }}
-           >
-                <CIcon icon={cilCloudDownload} className="me-2"/> 
-                EXPORT REPORT
-           </CButton>
+            <CButton color="danger" className="d-flex align-items-center justify-content-center shadow-sm fw-bold text-white border-0 px-3 transition-all" onClick={handleResetFilters} disabled={loading} style={{height:'45px', borderRadius:'6px', letterSpacing: '0.5px'}}><CIcon icon={cilFilterX} className="me-2"/> RESET</CButton>
+            <CButton className="d-flex align-items-center justify-content-center shadow-sm fw-bold text-white border-0 px-3 transition-all" onClick={fetchReportData} disabled={loading} style={{height:'45px', borderRadius:'6px', backgroundColor: 'var(--brand-navy)', letterSpacing: '0.5px'}}><CIcon icon={cilReload} className={`me-2 ${loading ? "fa-spin" : ""}`}/> REFRESH</CButton>
+           <CButton className="fw-bold text-white d-flex align-items-center shadow-sm border-0 px-4" onClick={handleExportPDF} style={{height: '45px', borderRadius: '6px', background: 'linear-gradient(135deg, #17334e 0%, #102a43 100%)', letterSpacing: '0.5px'}}><CIcon icon={cilCloudDownload} className="me-2"/> EXPORT REPORT</CButton>
         </div>
       </div>
 
-      {/* --- GRADIENT STAT CARDS --- */}
       {summary && (
         <CRow className="mb-4 g-3 fade-in-up delay-100">
           {activeTab === 'sales' && ( <>
@@ -376,7 +411,6 @@ const ReportsPage = () => {
         </CRow>
       )}
 
-      {/* --- MAIN REPORT CARD --- */}
       <CCard className="border-0 shadow-sm overflow-hidden fade-in-up delay-200" style={{borderRadius: '8px'}}>
         <CCardHeader className="bg-white p-3 border-bottom">
            <div className="d-flex flex-column flex-xl-row gap-3 justify-content-between align-items-xl-center">
@@ -390,25 +424,55 @@ const ReportsPage = () => {
 
               {/* Command Toolbar Filters */}
               <div className="d-flex flex-wrap gap-2 align-items-center justify-content-start justify-content-xl-end" style={{minWidth: '600px'}}>
-                 {/* Dead Stock Specific - UPDATED TERMINOLOGY & LAYOUT */}
+                 {/* Dead Stock Specific - UPDATED WITH FLEXIBLE WIDTHS */}
                  {activeTab === 'dead_stock' && ( 
                     <div className="d-flex gap-2 align-items-center flex-nowrap w-100">
-                        <div className="bg-light px-3 rounded border d-flex align-items-center flex-grow-1" style={{height:'45px'}}>
-                            <span className="text-muted small me-2 fw-bold text-uppercase text-nowrap">DAYS IN STOCK:</span>
-                            <CFormSelect 
-                                className="bg-transparent border-0 fw-bold text-danger w-100" 
-                                value={dormancyMonths} 
-                                onChange={e => setDormancyMonths(e.target.value)} 
-                                style={{outline:'none', cursor:'pointer'}}
-                            >
-                                <option value="3">&gt; 90 Days</option>
-                                <option value="6">&gt; 180 Days</option>
-                                <option value="12">&gt; 365 Days</option>
-                                <option value="24">&gt; 730 Days</option>
-                            </CFormSelect>
+                        {/* 1. Static Criteria (Visual Only) */}
+                        <div className="bg-warning bg-opacity-10 px-3 rounded border border-warning d-flex align-items-center flex-shrink-0" style={{height:'45px'}}>
+                            <CIcon icon={cilClock} className="text-warning me-2"/>
+                            <span className="text-danger small fw-bold text-uppercase text-nowrap ls-1">&gt; 1 YEAR</span>
                         </div>
-                        <CFormSelect className="form-select-sm flex-grow-1" style={{height: '45px', borderColor:'#cbd5e1'}} value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})}><option>All Brand</option>{options.brands.map((b,i) => <option key={i}>{b}</option>)}</CFormSelect>
-                        <CFormSelect className="form-select-sm flex-grow-1" style={{height: '45px', borderColor:'#cbd5e1'}} value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}><option>All Categories</option>{options.categories.map((c,i) => <option key={i}>{c}</option>)}</CFormSelect>
+
+                        {/* 2. Supplier Dropdown (Flexible) */}
+                        <div className="position-relative flex-grow-1" style={{minWidth: '200px'}}>
+                           <CFormSelect 
+                              className="form-select-sm" 
+                              style={{height: '45px', borderColor:'#cbd5e1', paddingLeft:'35px'}} 
+                              value={filters.supplier} 
+                              onChange={e => setFilters({...filters, supplier: e.target.value})}
+                           >
+                              <option>All Suppliers</option>
+                              {options.suppliers.map((s,i) => <option key={i} value={s.supplier_name || s.name} className="text-truncate">{s.supplier_name || s.name}</option>)}
+                           </CFormSelect>
+                           <CIcon icon={cilTruck} className="position-absolute text-muted" style={{left:'10px', top:'13px'}} size="sm"/>
+                        </div>
+
+                        {/* 3. Price/Value Dropdown (Flexible) */}
+                        <div className="position-relative flex-grow-1" style={{minWidth: '150px'}}>
+                           <CFormSelect 
+                              className="form-select-sm" 
+                              style={{height: '45px', borderColor:'#cbd5e1', paddingLeft:'35px'}} 
+                              value={filters.priceRange} 
+                              onChange={e => setFilters({...filters, priceRange: e.target.value})}
+                           >
+                              <option>All Values</option>
+                              <option value="high">High (&gt;5k)</option>
+                              <option value="mid">Mid (1k-5k)</option>
+                              <option value="low">Low (&lt;1k)</option>
+                           </CFormSelect>
+                           <CIcon icon={cilDollar} className="position-absolute text-muted" style={{left:'10px', top:'13px'}} size="sm"/>
+                        </div>
+
+                        {/* 4. Category (Flexible) */}
+                        <CFormSelect 
+                           className="form-select-sm flex-grow-1" 
+                           style={{height: '45px', minWidth: '150px', borderColor:'#cbd5e1'}} 
+                           value={filters.category} 
+                           onChange={e => setFilters({...filters, category: e.target.value})}
+                        >
+                           <option>All Categories</option>
+                           {options.categories.map((c,i) => <option key={i}>{c}</option>)}
+                        </CFormSelect>
                     </div> 
                  )}
 
@@ -443,7 +507,7 @@ const ReportsPage = () => {
                  {activeTab === 'inventory' && ( 
                     <div className="d-flex gap-2 flex-wrap">
                         {/* [MODIFIED WIDTH] Search Input */}
-                        <div className="bg-light rounded px-3 py-0 d-flex align-items-center border" style={{height: '45px', width: '250px'}}>
+                        <div className="bg-light rounded px-3 py-0 d-flex align-items-center border flex-grow-1" style={{height: '45px', minWidth: '220px'}}>
                             <CIcon icon={cilSearch} className="text-muted me-2"/>
                             <CFormInput className="border-0 bg-transparent w-100" style={{outline: 'none', fontSize: '0.9rem'}} placeholder="Search..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
                         </div>

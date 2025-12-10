@@ -12,7 +12,6 @@
   --bg-light: #f8f9fa;
   --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   --sidebar-width: 280px;
-  /* Defining colors locally just in case */
   --brand-yellow: #f1ce44;
   --brand-navy: #17334e;
 }
@@ -33,34 +32,27 @@
   display: inline-block;
 }
 
-/* --- [FIX] HERO SECTION --- */
+/* --- HERO SECTION --- */
 .showroom-hero {
   position: relative;
   width: 100%;
-  min-height: 500px; /* Increased height for better spacing */
-  
-  /* [FIX] Flexbox Centering - Ensures text is exactly in the middle */
+  min-height: 500px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
-  
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   margin-bottom: 40px;
 }
 
-/* Dark Overlay - Now darker (90%) for maximum contrast */
 .showroom-hero::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(23, 51, 78, 0.90); /* Brand Navy @ 90% Opacity */
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(23, 51, 78, 0.90);
   z-index: 1;
 }
 
@@ -69,43 +61,33 @@
   z-index: 2;
   max-width: 900px;
   padding: 0 20px;
-  /* Animation to make it feel polished */
   animation: slideUp 0.8s ease-out;
 }
 
-/* [FIX] H1 Styling - Forced Yellow & Formatting */
 .hero-content h1 {
   font-family: 'Oswald', sans-serif;
   font-size: 3.5rem; 
   font-weight: 700;
   margin-bottom: 20px;
-  
-  /* FORCED COLOR FIX */
   color: #f1ce44 !important; 
-  
   text-transform: uppercase;
   letter-spacing: 2px;
   line-height: 1.2;
-  text-shadow: 0 4px 20px rgba(0,0,0,0.5); /* Strong shadow lifts text off bg */
+  text-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 
-/* [FIX] Paragraph Styling - Forced White */
 .hero-content p {
   font-size: 1.25rem;
-  
-  /* FORCED COLOR FIX */
   color: #ffffff !important;
-  
   margin-bottom: 30px;
   font-weight: 400;
-  opacity: 1; /* Ensure no transparency on the text itself */
+  opacity: 1;
   line-height: 1.6;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
 }
 
-/* Location Banner */
 .store-info-banner {
   display: inline-flex;
   align-items: center;
@@ -115,8 +97,8 @@
   border-radius: 50px;
   backdrop-filter: blur(5px);
   font-weight: 600;
-  border: 1px solid rgba(241, 206, 68, 0.3); /* Subtle yellow border */
-  color: #f1ce44 !important; /* Forced Yellow */
+  border: 1px solid rgba(241, 206, 68, 0.3);
+  color: #f1ce44 !important;
   font-size: 0.95rem;
   letter-spacing: 0.5px;
   transition: transform 0.2s;
@@ -132,13 +114,13 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- REST OF LAYOUT (Sidebar, Grid, etc.) --- */
+/* --- LAYOUT (Full Width) --- */
 .showroom-container {
   display: flex;
-  max-width: 1400px;
+  /* [CHANGED] Removed max-width restriction for wide screen */
   width: 100%;
   margin: 0 auto;
-  padding: 0 20px 40px;
+  padding: 0 40px 40px; /* Increased side padding slightly */
   gap: 30px;
   flex: 1;
   position: relative;
@@ -153,7 +135,7 @@
   height: fit-content;
   box-shadow: var(--card-shadow);
   position: sticky;
-  top: 100px; /* Adjusted for new navbar height */
+  top: 100px;
   transition: transform 0.3s ease;
   z-index: 90;
   border-top: 4px solid var(--brand-navy);
@@ -266,8 +248,10 @@
 }
 .clear-filter-btn:hover { background: #cbd5e1; }
 
+/* [CHANGED] Grid adjustments for wide screen */
 .product-grid {
   display: grid;
+  /* Allows cards to fill width, min 260px wide */
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 25px;
 }
@@ -427,6 +411,8 @@
   border-radius: 12px;
   color: #666;
   border: 1px dashed #ccc;
+  width: 100%;
+  grid-column: 1 / -1; /* Stretch across grid */
 }
 .no-results i { font-size: 3rem; color: #ddd; margin-bottom: 15px; }
 
@@ -569,6 +555,53 @@
 }
 .visit-store-btn:hover { background: #fff; }
 
+/* [NEW] Pagination Controls */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.pagination-btn {
+  background: white;
+  border: 1px solid #ddd;
+  color: var(--brand-navy);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--brand-navy);
+  color: white;
+  border-color: var(--brand-navy);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f5f5f5;
+}
+
+.page-indicator {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.page-indicator span {
+  color: var(--brand-navy);
+}
+
 @keyframes modalSlideUp {
   from { transform: translateY(30px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
@@ -579,7 +612,7 @@
   .showroom-hero { min-height: 350px; padding: 40px 20px; }
   .hero-content h1 { font-size: 2.5rem; }
   
-  .showroom-container { flex-direction: column; }
+  .showroom-container { flex-direction: column; padding: 0 20px 40px; }
   .mobile-filter-toggle { display: flex; }
   .close-filters-btn { display: block; }
   .filters-sidebar {

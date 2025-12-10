@@ -171,9 +171,74 @@ const ProductFormModal = ({ visible, productToEdit, categories, brands, onClose,
                 <CModalHeader className="bg-brand-navy"><CModalTitle component="span" className="text-white font-oswald">{isAddMode ? 'ADD NEW PART' : 'EDIT PART DETAILS'}</CModalTitle></CModalHeader>
                 <CModalBody className="bg-light p-4">
                     <div className="vertical-product-form">
-                        <div className="bg-white p-3 rounded shadow-sm border mb-3"><h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">1. IDENTIFICATION</h6><CRow className="g-3"><CCol md={12}><CFormLabel className="small fw-bold text-muted">Part Name <span className="text-danger">*</span></CFormLabel><CFormInput value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} /></CCol><CCol md={6}><CFormLabel className="small fw-bold text-muted">Brand</CFormLabel><CFormSelect value={form.brand || ''} onChange={e => setForm({...form, brand: e.target.value})} className="brand-select"><option value="">Select Brand</option>{brands.map(b => <option key={b} value={b}>{b}</option>)}</CFormSelect></CCol><CCol md={6}><CFormLabel className="small fw-bold text-muted">Vehicle Fits</CFormLabel><CFormInput value={form.vehicle_compatibility || ''} onChange={e => setForm({...form, vehicle_compatibility: e.target.value})} /></CCol><CCol md={12}><CFormLabel className="small fw-bold text-muted">Detailed Specs</CFormLabel><CFormTextarea rows={2} value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} /></CCol></CRow></div>
-                        <div className="bg-white p-3 rounded shadow-sm border mb-3"><h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">2. PRICING & PACKAGING</h6><CRow className="g-3"><CCol md={4}><CFormLabel className="small fw-bold text-muted">Category</CFormLabel><CFormSelect value={form.category || ''} onChange={e => setForm({...form, category: e.target.value})} className="brand-select"><option value="">Select Category</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</CFormSelect></CCol><CCol md={4}><CFormLabel className="small fw-bold text-muted">Unit of Measure</CFormLabel><CFormSelect value={form.unit_tag || 'EA'} onChange={e => setForm({...form, unit_tag: e.target.value})} className="brand-select">{UOM_OPTIONS.map(u => <option key={u} value={u}>{u} - {UOM_MAP[u]}</option>)}</CFormSelect></CCol><CCol md={4}><CFormLabel className="small fw-bold text-muted">Retail Price (₱)</CFormLabel><CFormInput type="number" min="0" step="100" value={form.price || ''} onChange={e => setForm({...form, price: e.target.value})} /></CCol></CRow></div>
-                        <div className="bg-white p-3 rounded shadow-sm border"><h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">3. VISUALS & SETTINGS</h6><CRow className="g-3 align-items-start"><CCol md={5} className="d-flex flex-column align-items-center border-end pe-4"><div className="image-upload-preview mb-2 d-flex flex-column align-items-center justify-content-center" onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); handleFileSelect({target:{files:e.dataTransfer.files}})}} onClick={() => fileInputRef.current?.click()} style={{borderColor: isDragging ? 'var(--brand-blue)' : '#dee2e6'}}>{preview ? <img src={preview} alt="Preview" /> : <div className="text-center text-muted p-3"><CIcon icon={cilCloudUpload} size="xl"/><div className="small mt-1 fw-bold">Click to Upload</div></div>}</div><input type="file" accept="image/*" onChange={handleFileSelect} ref={fileInputRef} style={{ display: 'none' }} />{(preview || imageFile) && (<CButton color="info" variant="ghost" size="sm" className="w-100" onClick={() => { if(!cropSrc && preview) setCropSrc(preview); setCropVisible(true); }}><CIcon icon={cilCrop} className="me-1"/> Crop / Adjust</CButton>)}</CCol><CCol md={7}><div className="d-flex flex-column gap-3 h-100 justify-content-center ps-2"><div className="d-flex justify-content-between align-items-center p-2 border rounded bg-light"><div><div className="fw-bold text-brand-navy">Serialized</div><div className="small text-muted">Requires unique serials?</div></div><CFormSwitch size="lg" checked={form.requires_serial || false} disabled={hasUnremovableSerials} onChange={e => setForm({...form, requires_serial: e.target.checked})} /></div><div className="d-flex justify-content-between align-items-center p-2 border rounded bg-light"><div><div className="fw-bold text-brand-navy">Active</div><div className="small text-muted">Show in catalog?</div></div><CFormSwitch size="lg" checked={form.status === 'Active'} onChange={e => setForm({...form, status: e.target.checked ? 'Active' : 'Inactive'})} /></div></div></CCol></CRow></div>
+                        <div className="bg-white p-3 rounded shadow-sm border mb-3">
+                            <h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">1. IDENTIFICATION</h6>
+                            <CRow className="g-3">
+                                <CCol md={12}>
+                                    <CFormLabel htmlFor="productName" className="small fw-bold text-muted">Part Name <span className="text-danger">*</span></CFormLabel>
+                                    <CFormInput id="productName" name="name" value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} />
+                                </CCol>
+                                <CCol md={6}>
+                                    <CFormLabel htmlFor="productBrand" className="small fw-bold text-muted">Brand</CFormLabel>
+                                    <CFormSelect id="productBrand" name="brand" value={form.brand || ''} onChange={e => setForm({...form, brand: e.target.value})} className="brand-select">
+                                        <option value="">Select Brand</option>{brands.map(b => <option key={b} value={b}>{b}</option>)}
+                                    </CFormSelect>
+                                </CCol>
+                                <CCol md={6}>
+                                    <CFormLabel htmlFor="vehicleFits" className="small fw-bold text-muted">Vehicle Fits</CFormLabel>
+                                    <CFormInput id="vehicleFits" name="vehicle_compatibility" value={form.vehicle_compatibility || ''} onChange={e => setForm({...form, vehicle_compatibility: e.target.value})} />
+                                </CCol>
+                                <CCol md={12}>
+                                    <CFormLabel htmlFor="description" className="small fw-bold text-muted">Detailed Specs</CFormLabel>
+                                    <CFormTextarea id="description" name="description" rows={2} value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} />
+                                </CCol>
+                            </CRow>
+                        </div>
+                        <div className="bg-white p-3 rounded shadow-sm border mb-3">
+                            <h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">2. PRICING & PACKAGING</h6>
+                            <CRow className="g-3">
+                                <CCol md={4}>
+                                    <CFormLabel htmlFor="category" className="small fw-bold text-muted">Category</CFormLabel>
+                                    <CFormSelect id="category" name="category" value={form.category || ''} onChange={e => setForm({...form, category: e.target.value})} className="brand-select">
+                                        <option value="">Select Category</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </CFormSelect>
+                                </CCol>
+                                <CCol md={4}>
+                                    <CFormLabel htmlFor="unitTag" className="small fw-bold text-muted">Unit of Measure</CFormLabel>
+                                    <CFormSelect id="unitTag" name="unit_tag" value={form.unit_tag || 'EA'} onChange={e => setForm({...form, unit_tag: e.target.value})} className="brand-select">
+                                        {UOM_OPTIONS.map(u => <option key={u} value={u}>{u} - {UOM_MAP[u]}</option>)}
+                                    </CFormSelect>
+                                </CCol>
+                                <CCol md={4}>
+                                    <CFormLabel htmlFor="productPrice" className="small fw-bold text-muted">Retail Price (₱)</CFormLabel>
+                                    <CFormInput id="productPrice" name="price" type="number" min="0" step="100" value={form.price || ''} onChange={e => setForm({...form, price: e.target.value})} />
+                                </CCol>
+                            </CRow>
+                        </div>
+                        <div className="bg-white p-3 rounded shadow-sm border">
+                            <h6 className="fw-bold text-brand-navy mb-3 small ls-1 border-bottom pb-2">3. VISUALS & SETTINGS</h6>
+                            <CRow className="g-3 align-items-start">
+                                <CCol md={5} className="d-flex flex-column align-items-center border-end pe-4">
+                                    <div className="image-upload-preview mb-2 d-flex flex-column align-items-center justify-content-center" onDragOver={(e) => {e.preventDefault(); setIsDragging(true)}} onDragLeave={() => setIsDragging(false)} onDrop={(e) => {e.preventDefault(); setIsDragging(false); handleFileSelect({target:{files:e.dataTransfer.files}})}} onClick={() => fileInputRef.current?.click()} style={{borderColor: isDragging ? 'var(--brand-blue)' : '#dee2e6'}}>
+                                        {preview ? <img src={preview} alt="Preview" /> : <div className="text-center text-muted p-3"><CIcon icon={cilCloudUpload} size="xl"/><div className="small mt-1 fw-bold">Click to Upload</div></div>}
+                                    </div>
+                                    <input type="file" id="imageUpload" name="image" accept="image/*" onChange={handleFileSelect} ref={fileInputRef} style={{ display: 'none' }} />
+                                    {(preview || imageFile) && (<CButton color="info" variant="ghost" size="sm" className="w-100" onClick={() => { if(!cropSrc && preview) setCropSrc(preview); setCropVisible(true); }}><CIcon icon={cilCrop} className="me-1"/> Crop / Adjust</CButton>)}
+                                </CCol>
+                                <CCol md={7}>
+                                    <div className="d-flex flex-column gap-3 h-100 justify-content-center ps-2">
+                                        <div className="d-flex justify-content-between align-items-center p-2 border rounded bg-light">
+                                            <div><div className="fw-bold text-brand-navy">Serialized</div><div className="small text-muted">Requires unique serials?</div></div>
+                                            <CFormSwitch id="requiresSerial" name="requires_serial" size="lg" checked={form.requires_serial || false} disabled={hasUnremovableSerials} onChange={e => setForm({...form, requires_serial: e.target.checked})} />
+                                        </div>
+                                        <div className="d-flex justify-content-between align-items-center p-2 border rounded bg-light">
+                                            <div><div className="fw-bold text-brand-navy">Active</div><div className="small text-muted">Show in catalog?</div></div>
+                                            <CFormSwitch id="productStatus" name="status" size="lg" checked={form.status === 'Active'} onChange={e => setForm({...form, status: e.target.checked ? 'Active' : 'Inactive'})} />
+                                        </div>
+                                    </div>
+                                </CCol>
+                            </CRow>
+                        </div>
                     </div>
                 </CModalBody>
                 <CModalFooter className="bg-light"><button className="btn-brand btn-brand-outline" onClick={onClose}>Cancel</button><button className="btn-brand btn-brand-primary" onClick={handleSubmit} disabled={loading}>{loading ? <CSpinner size="sm" /> : 'Save Changes'}</button></CModalFooter>
@@ -213,20 +278,34 @@ const ProductPage = () => {
 
   const loadMeta = async () => {
       try {
+          // 1. Fetch Filter Options
           const c = await productAPI.getCategories(); if(c.success) setCategories(c.data || [])
           const b = await productAPI.getBrands(); if(b.success) setBrands(b.data || [])
-          setStats(prev => ({ ...prev, categories: (c.data || []).length }));
-      } catch(e){}
+
+          // 2. Fetch Explicit Counts for Stat Cards
+          const [activeRes, inactiveRes] = await Promise.all([
+             productAPI.getProducts({ status: 'Active', limit: 1 }),
+             productAPI.getProducts({ status: 'Inactive', limit: 1 })
+          ]);
+
+          setStats({ 
+             categories: (c.data || []).length,
+             active: activeRes.success ? activeRes.data.pagination.totalProducts : 0,
+             inactive: inactiveRes.success ? inactiveRes.data.pagination.totalProducts : 0,
+             total: (activeRes.data?.pagination?.totalProducts || 0) + (inactiveRes.data?.pagination?.totalProducts || 0) 
+          });
+
+      } catch(e){ console.error("Failed to load stats", e) }
   }
 
-  useEffect(() => { setStats(prev => ({ ...prev, total: total })); }, [total]);
-  useEffect(() => { loadMeta(); const t = setTimeout(loadData, 300); return ()=>clearTimeout(t); }, [loadData])
+  useEffect(() => { loadMeta(); }, [total])
+  useEffect(() => { const t = setTimeout(loadData, 300); return ()=>clearTimeout(t); }, [loadData])
 
   const handleAdd = () => { setEditingProduct(null); setFormVisible(true); }
   const handleEdit = (p) => { setEditingProduct(p); setFormVisible(true); }
   const handleDelete = (p) => {
       setMsg({ show: true, title: 'Confirm Delete', text: `Delete "${p.name}"?`, color: 'danger', confirm: async () => {
-          try { await productAPI.deleteProduct(p.id || p.product_id); setMsg({ show: false }); loadData(); }
+          try { await productAPI.deleteProduct(p.id || p.product_id); setMsg({ show: false }); loadData(); loadMeta(); }
           catch(e) { alert('Failed to delete'); }
       }})
   }
@@ -265,10 +344,10 @@ const ProductPage = () => {
 
       {/* --- STAT CARDS --- */}
       <CRow className="mb-4 g-3">
-        <CCol sm={6} lg={3}><StatCard title="Total Products" value={total.toString()} icon={<CIcon icon={cilTags}/>} gradient="linear-gradient(135deg, #17334e 0%, #0f2438 100%)" /></CCol>
-        <CCol sm={6} lg={3}><StatCard title="Active Listings" value={(total).toString()} icon={<CIcon icon={cilCheckCircle}/>} gradient="linear-gradient(135deg, #2eb85c 0%, #1b9e3e 100%)" /></CCol>
-        <CCol sm={6} lg={3}><StatCard title="Categories" value={stats.categories.toString()} icon={<CIcon icon={cilLayers}/>} gradient="linear-gradient(135deg, #f9b115 0%, #f6960b 100%)" textColor="text-brand-navy"/></CCol>
-        <CCol sm={6} lg={3}><StatCard title="Inactive" value="-" icon={<CIcon icon={cilXCircle}/>} gradient="linear-gradient(135deg, #e55353 0%, #b21f2d 100%)" /></CCol>
+        <CCol sm={6} lg={3}><StatCard title="Total Products" value={stats.total.toLocaleString()} icon={<CIcon icon={cilTags}/>} gradient="linear-gradient(135deg, #17334e 0%, #0f2438 100%)" /></CCol>
+        <CCol sm={6} lg={3}><StatCard title="Active Listings" value={stats.active.toLocaleString()} icon={<CIcon icon={cilCheckCircle}/>} gradient="linear-gradient(135deg, #2eb85c 0%, #1b9e3e 100%)" /></CCol>
+        <CCol sm={6} lg={3}><StatCard title="Categories" value={stats.categories.toLocaleString()} icon={<CIcon icon={cilLayers}/>} gradient="linear-gradient(135deg, #f9b115 0%, #f6960b 100%)" textColor="text-brand-navy"/></CCol>
+        <CCol sm={6} lg={3}><StatCard title="Inactive" value={stats.inactive.toLocaleString()} icon={<CIcon icon={cilXCircle}/>} gradient="linear-gradient(135deg, #e55353 0%, #b21f2d 100%)" /></CCol>
       </CRow>
 
       {/* --- MAIN TABLE CARD --- */}
@@ -278,18 +357,17 @@ const ProductPage = () => {
            <div className="d-flex gap-2 flex-grow-1 flex-wrap" style={{maxWidth: '1000px'}}>
                <div className="bg-light rounded px-3 py-2 d-flex align-items-center border" style={{minWidth: '250px'}}>
                   <CIcon icon={cilMagnifyingGlass} className="text-muted me-2"/>
-                  <input className="border-0 bg-transparent w-100" style={{outline: 'none', fontSize: '0.9rem'}} placeholder="Search parts..." value={search} onChange={e=>{setSearch(e.target.value); setPage(1)}} />
+                  <input id="productSearch" name="search" className="border-0 bg-transparent w-100" style={{outline: 'none', fontSize: '0.9rem'}} placeholder="Search parts..." value={search} onChange={e=>{setSearch(e.target.value); setPage(1)}} />
                </div>
-               <CFormSelect className="form-select-sm" style={{maxWidth: '160px', borderColor:'#e9ecef'}} value={cat} onChange={e=>{setCat(e.target.value); setPage(1)}}><option>All Categories</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</CFormSelect>
-               <CFormSelect className="form-select-sm" style={{maxWidth: '160px', borderColor:'#e9ecef'}} value={brd} onChange={e=>{setBrd(e.target.value); setPage(1)}}><option>All Brand</option>{brands.map(b=><option key={b} value={b}>{b}</option>)}</CFormSelect>
-               <CFormSelect className="form-select-sm" style={{maxWidth: '140px', borderColor:'#e9ecef'}} value={unit} onChange={e=>{setUnit(e.target.value); setPage(1)}}><option>All Units</option>{UOM_OPTIONS.map(u=><option key={u} value={u}>{u}</option>)}</CFormSelect>
-               <CFormSelect className="form-select-sm" style={{maxWidth: '140px', borderColor:'#e9ecef'}} value={stat} onChange={e=>{setStat(e.target.value); setPage(1)}}><option>All Status</option><option>Active</option><option>Inactive</option></CFormSelect>
+               <CFormSelect id="filterCategory" name="category" className="form-select-sm" style={{maxWidth: '160px', borderColor:'#e9ecef'}} value={cat} onChange={e=>{setCat(e.target.value); setPage(1)}}><option>All Categories</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</CFormSelect>
+               <CFormSelect id="filterBrand" name="brand" className="form-select-sm" style={{maxWidth: '160px', borderColor:'#e9ecef'}} value={brd} onChange={e=>{setBrd(e.target.value); setPage(1)}}><option>All Brand</option>{brands.map(b=><option key={b} value={b}>{b}</option>)}</CFormSelect>
+               <CFormSelect id="filterUnit" name="unit" className="form-select-sm" style={{maxWidth: '140px', borderColor:'#e9ecef'}} value={unit} onChange={e=>{setUnit(e.target.value); setPage(1)}}><option>All Units</option>{UOM_OPTIONS.map(u=><option key={u} value={u}>{u}</option>)}</CFormSelect>
+               <CFormSelect id="filterStatus" name="status" className="form-select-sm" style={{maxWidth: '140px', borderColor:'#e9ecef'}} value={stat} onChange={e=>{setStat(e.target.value); setPage(1)}}><option>All Status</option><option>Active</option><option>Inactive</option></CFormSelect>
            </div>
         </CCardHeader>
 
         <div className="admin-table-container">
             <table className="admin-table">
-                {/* Sticky Navy Header for Table */}
                 <thead className="bg-brand-navy text-white">
                     <tr>
                         <th className="ps-4 text-white" style={{width: '15%'}}>Part No.</th>
@@ -328,7 +406,6 @@ const ProductPage = () => {
                           <td className="text-end"><div className="fw-bold text-dark" style={{fontFamily:'Oswald'}}>₱{p.price?.toLocaleString()}</div></td>
                           <td className="text-center"><CTooltip content={UOM_MAP[p.unit_tag] || p.unit_tag}><CBadge color="info" shape="rounded-pill" className="px-2" style={{cursor: 'help'}}>{p.unit_tag || 'EA'}</CBadge></CTooltip></td>
                           
-                          {/* [UPDATED] SOLID STATUS BADGES */}
                           <td className="text-center">
                               {p.status === 'Active' ? 
                                 <CBadge color="success" shape="rounded-pill" className="px-3 text-white">Active</CBadge> : 
@@ -363,7 +440,7 @@ const ProductPage = () => {
         </div>
       </CCard>
 
-      <ProductFormModal visible={formVisible} productToEdit={editingProduct} categories={categories} brands={brands} onClose={()=>setFormVisible(false)} onSuccess={(m)=>{ loadData(); setFormVisible(false); }} />
+      <ProductFormModal visible={formVisible} productToEdit={editingProduct} categories={categories} brands={brands} onClose={()=>setFormVisible(false)} onSuccess={(m)=>{ loadData(); loadMeta(); setFormVisible(false); }} />
       <CModal visible={msg.show} onClose={()=>setMsg({...msg, show:false})}><CModalHeader className={`bg-${msg.color} text-white`}><CModalTitle className="font-oswald">{msg.title}</CModalTitle></CModalHeader><CModalBody className="py-4">{msg.text}</CModalBody><CModalFooter className="bg-light"><CButton color="secondary" onClick={()=>setMsg({...msg, show:false})}>Cancel</CButton><CButton color={msg.color} className="text-white" onClick={msg.confirm}>Confirm</CButton></CModalFooter></CModal>
     </CContainer>
   )

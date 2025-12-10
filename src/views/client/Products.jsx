@@ -7,6 +7,8 @@ import '../../styles/Products.css';
 import bg from '../../assets/image-background.png';
 import noImageFound from '../../assets/no-image-branded.png';
 
+const ITEMS_PER_PAGE = 20;
+
 const ProductSkeleton = () => (
   <div className="skeleton-card">
     <div className="skeleton-image"></div>
@@ -31,6 +33,9 @@ const Products = () => {
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  
+  // [NEW] Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,6 +65,11 @@ const Products = () => {
     fetchData();
   }, []);
 
+  // [NEW] Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter, brandFilter, sortOrder, priceRange]);
+
   const isNewProduct = (dateString) => {
     if (!dateString) return false;
     const productDate = new Date(dateString);
@@ -85,6 +95,17 @@ const Products = () => {
       return new Date(b.created_at) - new Date(a.created_at);
     }) : [];
 
+  // [NEW] Pagination Logic
+  const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
+  const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
+  const currentProducts = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 400, behavior: 'smooth' }); // Scroll to top of grid
+  };
+
   const StockBadge = ({ quantity }) => {
     const qty = parseInt(quantity) || 0;
     if (qty <= 0) return <span className="stock-badge out">Out of Stock</span>;
@@ -100,8 +121,7 @@ const Products = () => {
 
     const handleGetDirections = () => {
       const address = "Gen Hizon Ext, Santa Lucia, City of San Fernando, Pampanga";
-      // Fixed URL string interpolation
-      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank');
+      window.open(`http://maps.google.com/?q=${encodeURIComponent(address)}`, '_blank');
     };
 
     return (
@@ -280,8 +300,8 @@ const Products = () => {
           <div className="product-grid">
             {loading ? (
               [...Array(8)].map((_, i) => <ProductSkeleton key={i} />)
-            ) : filteredProducts.length > 0 ? (
-              filteredProducts.map((product) => (
+            ) : currentProducts.length > 0 ? (
+              currentProducts.map((product) => (
                 <div className="product-card" key={product.id || product._id}>
                   {isNewProduct(product.created_at) && <div className="new-badge">NEW</div>}
                   
@@ -320,6 +340,32 @@ const Products = () => {
               </div>
             )}
           </div>
+
+          {/* [NEW] Pagination Controls */}
+          {filteredProducts.length > ITEMS_PER_PAGE && (
+            <div className="pagination-controls">
+              <button 
+                className="pagination-btn" 
+                onClick={() => handlePageChange(currentPage - 1)} 
+                disabled={currentPage === 1}
+              >
+                <i className="fas fa-chevron-left"></i> Prev
+              </button>
+              
+              <div className="page-indicator">
+                Page <span>{currentPage}</span> of <span>{totalPages}</span>
+              </div>
+              
+              <button 
+                className="pagination-btn" 
+                onClick={() => handlePageChange(currentPage + 1)} 
+                disabled={currentPage === totalPages}
+              >
+                Next <i className="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          )}
+
         </main>
       </div>
       <Footer />

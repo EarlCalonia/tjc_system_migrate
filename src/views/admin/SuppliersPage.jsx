@@ -59,7 +59,8 @@ const SuppliersPage = () => {
     if (!suppliers) return [];
     const lowerQ = searchQuery.toLowerCase();
     return suppliers.filter(s => 
-      (s.supplier_name || '').toLowerCase().includes(lowerQ) ||
+      // [FIX] Check both 'supplier_name' and 'name'
+      ((s.supplier_name || s.name) || '').toLowerCase().includes(lowerQ) ||
       (s.contact_person || '').toLowerCase().includes(lowerQ) ||
       (s.email || '').toLowerCase().includes(lowerQ)
     );
@@ -70,11 +71,16 @@ const SuppliersPage = () => {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const currentSuppliers = filteredSuppliers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-  // --- DERIVED STATS ---
+  // --- DERIVED STATS (FIXED) ---
   const newestSupplierName = useMemo(() => {
       if (!suppliers || suppliers.length === 0) return 'N/A';
-      const newest = suppliers[suppliers.length - 1]; 
-      return newest.supplier_name || 'N/A';
+      
+      // [FIX] Sort by ID descending to find the actual newest added, regardless of name
+      const sorted = [...suppliers].sort((a, b) => (b.id || 0) - (a.id || 0));
+      const newest = sorted[0];
+      
+      // [FIX] Check both property names
+      return newest.supplier_name || newest.name || 'N/A';
   }, [suppliers]);
 
   // --- API CALLS ---
@@ -111,9 +117,10 @@ const SuppliersPage = () => {
 
   const handleEdit = (supplier) => {
     setIsEditMode(true)
+    // [FIX] Map 'name' from backend to form state correctly
     setSelectedSupplier({ 
         id: supplier.id || supplier.supplier_id,
-        name: supplier.supplier_name, 
+        name: supplier.supplier_name || supplier.name, 
         contact_person: supplier.contact_person, 
         email: supplier.email,
         phone: supplier.phone || supplier.contact_number || '', 
@@ -273,7 +280,8 @@ const SuppliersPage = () => {
                    currentSuppliers.map((supplier) => (
                      <tr key={supplier.id || supplier.supplier_id}>
                        <td className="ps-4">
-                          <div className="fw-bold text-brand-navy fs-6">{supplier.supplier_name}</div>
+                          {/* [FIX] Handle possible property mismatch (name vs supplier_name) */}
+                          <div className="fw-bold text-brand-navy fs-6">{supplier.supplier_name || supplier.name}</div>
                           <CBadge color="light" className="text-muted border mt-1 font-monospace" style={{fontSize: '0.65rem'}}>ID: {supplier.id || supplier.supplier_id}</CBadge>
                        </td>
                        <td>

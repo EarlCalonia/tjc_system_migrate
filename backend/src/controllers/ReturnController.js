@@ -20,7 +20,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  // [UPDATED] Increased limit to 50MB to handle high-res raw images
+  limits: { fileSize: 50 * 1024 * 1024 }, 
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -33,7 +34,24 @@ const upload = multer({
   }
 });
 
-export const uploadReturnPhoto = upload.single('photoProof');
+// Wrapped middleware to handle "File Too Large" errors gracefully
+export const uploadReturnPhoto = (req, res, next) => {
+  upload.single('photoProof')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ 
+          success: false, 
+          // [UPDATED] Error message reflects new limit
+          message: 'File is too large. Please upload an image smaller than 50MB.' 
+        });
+      }
+      return res.status(400).json({ success: false, message: err.message });
+    } else if (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+};
 
 export const ReturnController = {
   // Process a return
@@ -73,7 +91,7 @@ export const ReturnController = {
         });
       }
 
-      // Get processed by from session/auth (for now use a default or from body)
+      // Get processed by from session/auth
       const processedBy = req.body.processedBy || req.user?.username || 'Admin';
 
       const result = await Return.processReturn({
