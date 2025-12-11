@@ -7,11 +7,11 @@ import logoUrl from '../assets/tcj_logo.png?url';
 const THEME = {
   primary: '#2c3e50',    // Dark Slate Blue (Headers)
   secondary: '#34495e',  // Lighter Blue (Subheaders)
-  accent: '#f1f5f9',     // Very Light Grey (Zebra stripes)
+  accent: '#f1f5f9',     // Very Light Grey (Info Boxes & Zebra stripes)
   text: '#333333',       // Dark Grey (Body text)
-  lightText: '#7f8c8d',  // Grey (Metadata)
+  lightText: '#7f8c8d',  // Grey (Labels)
   white: '#ffffff',
-  line: '#e2e8f0',       // Light border color
+  line: '#cbd5e1',       // Light border color
 };
 
 const LAYOUT = {
@@ -52,59 +52,110 @@ const formatDate = (dateString) => {
   });
 };
 
-// Helper: Draw Report Header with Logo and Title
-const drawReportHeader = (doc, title, subtitle, adminName, logoDataUrl, storeSettings = {}) => {
-  const HEADER_Y = 15;
-  const LOGO_WIDTH = 30; 
-  const LOGO_HEIGHT = 18;
-  const PAGE_WIDTH = doc.internal.pageSize.getWidth();
-  let y = HEADER_Y;
+const truncateText = (doc, text, maxWidth) => {
+  if (!text) return '';
+  const str = String(text);
+  if (doc.getTextWidth(str) <= maxWidth) return str;
+  
+  let len = str.length;
+  while (len > 0) {
+      const sub = str.substring(0, len) + '...';
+      if (doc.getTextWidth(sub) <= maxWidth) return sub;
+      len--;
+  }
+  return '...';
+};
 
-  // 1. LEFT COLUMN: Logo
+// --- NEW DESIGN HELPERS ---
+
+// 1. Draw Top Header (Logo + Store Info) - Same as Receipt
+const drawHeader = (doc, logoDataUrl, storeSettings = {}) => {
+  const HEADER_Y = 15;
+  const LOGO_WIDTH = 25; 
+  const LOGO_HEIGHT = 15;
+  const PAGE_WIDTH = doc.internal.pageSize.getWidth();
+
   if (logoDataUrl) {
-    doc.addImage(logoDataUrl, 'PNG', LAYOUT.marginX, y, LOGO_WIDTH, LOGO_HEIGHT);
+    doc.addImage(logoDataUrl, 'PNG', LAYOUT.marginX, HEADER_Y, LOGO_WIDTH, LOGO_HEIGHT);
   }
   
-  // 2. RIGHT COLUMN: Business Info
+  let y = HEADER_Y + 2;
   
   // Store Name
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(THEME.primary);
-  doc.text(storeSettings.store_name || 'TJC AUTO SUPPLY', PAGE_WIDTH - LAYOUT.marginX, y + 2, { align: 'right' });
+  doc.text(storeSettings.store_name || 'TJC AUTO SUPPLY', PAGE_WIDTH - LAYOUT.marginX, y, { align: 'right' });
   
-  y += 7;
-  
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(THEME.lightText);
-  
-  // Address
-  doc.text(storeSettings.address || 'San Fernando, Pampanga', PAGE_WIDTH - LAYOUT.marginX, y + 2, { align: 'right' });
-
-  // Contact
-  const contactText = `${storeSettings.email || 'N/A'} | ${storeSettings.contact_number || 'N/A'}`;
-  doc.text(contactText, PAGE_WIDTH - LAYOUT.marginX, y + 6, { align: 'right' });
-  
-  // 3. CENTER SECTION: Report Title (Below Logo/Info Block)
-  y = Math.max(HEADER_Y + LOGO_HEIGHT + 5, y + 10);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(THEME.secondary);
-  doc.text(title, LAYOUT.marginX, y); 
-
   y += 6;
+  
+  // Address & Contact
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(THEME.lightText);
-  doc.text(subtitle, LAYOUT.marginX, y); 
+  doc.text(storeSettings.address || 'San Fernando, Pampanga', PAGE_WIDTH - LAYOUT.marginX, y, { align: 'right' });
   
   y += 5;
-  doc.setDrawColor(THEME.line);
-  doc.line(LAYOUT.marginX, y, PAGE_WIDTH - LAYOUT.marginX, y); // Separator line
+  const contactText = `${storeSettings.email || 'tjautosupply@gmail.com'} | ${storeSettings.contact_number || 'N/A'}`;
+  doc.text(contactText, PAGE_WIDTH - LAYOUT.marginX, y, { align: 'right' });
   
-  return y + 8; // Return new Y position before the table starts
+  return 40; // Return Y position where next element starts
+};
+
+// 2. Draw "Receipt Style" Metadata Box
+const drawMetadataBox = (doc, y, title, leftCol = [], rightCol = []) => {
+  const PAGE_WIDTH = doc.internal.pageSize.getWidth();
+  const BOX_HEIGHT = 28;
+  const CONTENT_WIDTH = PAGE_WIDTH - (LAYOUT.marginX * 2);
+
+  // Background Box
+  doc.setDrawColor(THEME.line);
+  doc.setFillColor(THEME.accent);
+  doc.roundedRect(LAYOUT.marginX, y, CONTENT_WIDTH, BOX_HEIGHT, 2, 2, 'FD'); // Fill and Draw border
+
+  // Report Title (Top Left of Box)
+  let textY = y + 8;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(THEME.primary);
+  doc.text(title.toUpperCase(), LAYOUT.marginX + 5, textY);
+
+  // Divider Line inside Box
+  doc.setDrawColor(THEME.line);
+  doc.line(LAYOUT.marginX + 5, textY + 4, PAGE_WIDTH - LAYOUT.marginX - 5, textY + 4);
+
+  // Columns Data
+  textY += 10;
+  doc.setFontSize(9);
+
+  // Left Column
+  leftCol.forEach((line, i) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(THEME.lightText);
+      const label = line.label + ': ';
+      doc.text(label, LAYOUT.marginX + 5, textY + (i * 5));
+      
+      doc.setFont('helvetica', 'bold'); // Value is bold
+      doc.setTextColor(THEME.text);
+      doc.text(line.value, LAYOUT.marginX + 5 + doc.getTextWidth(label), textY + (i * 5));
+  });
+
+  // Right Column (Aligned to right of box)
+  rightCol.forEach((line, i) => {
+      const label = line.label + ': ';
+      const value = line.value;
+      const xPos = PAGE_WIDTH - LAYOUT.marginX - 5;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(THEME.text);
+      doc.text(value, xPos, textY + (i * 5), { align: 'right' });
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(THEME.lightText);
+      doc.text(label, xPos - doc.getTextWidth(value), textY + (i * 5), { align: 'right' });
+  });
+
+  return y + BOX_HEIGHT + 10; // Return Y for table start
 };
 
 
@@ -121,14 +172,13 @@ const drawFooter = (doc, adminName) => {
     
     doc.setFontSize(8);
     doc.setTextColor(THEME.lightText);
-    doc.text(`Generated by: ${adminName}`, LAYOUT.marginX, footerY);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, LAYOUT.marginX, footerY + 4);
+    doc.text(`Generated by: ${adminName} | ${new Date().toLocaleString()}`, LAYOUT.marginX, footerY);
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - LAYOUT.marginX, footerY, { align: 'right' });
   }
 };
 
 // ==========================================
-// 3. REPORTS (Updated to pass storeSettings)
+// 3. REPORT GENERATORS
 // ==========================================
 
 // --- SALES REPORT ---
@@ -136,12 +186,24 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
   const doc = new jsPDF();
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
   
-  // [UPDATED CALL] Pass storeSettings to the header function
-  let yPos = drawReportHeader(doc, 'Sales Report', `Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, adminName, logoDataUrl, storeSettings);
+  // 1. Header
+  let yPos = drawHeader(doc, logoDataUrl, storeSettings);
+
+  // 2. Info Box (Receipt Aesthetic)
+  const totalSales = salesData.reduce((acc, curr) => acc + Number(curr.totalPrice), 0);
+  yPos = drawMetadataBox(doc, yPos, 'Sales Performance Report', 
+    [
+      { label: 'Date Range', value: `${formatDate(startDate)} - ${formatDate(endDate)}` },
+      { label: 'Filter', value: rangeLabel }
+    ],
+    [
+      { label: 'Total Revenue', value: formatCurrency(totalSales) },
+      { label: 'Transactions', value: salesData.length.toString() }
+    ]
+  );
 
   const filteredOrders = salesData || [];
   
-  // Flatten for table display
   const flattenedData = filteredOrders.map(order => ({
       date: formatDate(order.orderDate),
       name: order.productName, 
@@ -152,17 +214,18 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
       status: order.paymentStatus || 'Paid'
   }));
 
+  // Page Width: 210mm | Margins: 15mm | Working Width: 180mm
   const cols = {
-    date: { x: 15, w: 25 },
-    name: { x: 40, w: 60 },
-    qty: { x: 105, w: 10 },
+    date: { x: 15, w: 22 },
+    name: { x: 38, w: 55 },
+    qty: { x: 100, w: 10 },
     price: { x: 125, w: 20 },
-    total: { x: 150, w: 20 },
-    pay: { x: 175, w: 15 },
-    stat: { x: 195, w: 15 }
+    total: { x: 150, w: 25 },
+    pay: { x: 155, w: 20 },
+    stat: { x: 195, w: 20 }
   };
 
-  const drawHeader = (y) => {
+  const drawTableHeader = (y) => {
     doc.setFillColor(THEME.primary);
     doc.rect(15, y, 180, 8, 'F'); 
     doc.setTextColor(THEME.white);
@@ -178,19 +241,17 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
     doc.text('Status', cols.stat.x, y + 5.5, { align: 'right' });
   };
 
-  drawHeader(yPos);
+  drawTableHeader(yPos);
   yPos += 8;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   
-  let grandTotal = 0;
-
   flattenedData.forEach((item, index) => {
     if (yPos > 270) {
       doc.addPage();
       yPos = 20;
-      drawHeader(yPos);
+      drawTableHeader(yPos);
       yPos += 8;
       doc.setFont('helvetica', 'normal'); 
       doc.setFontSize(8); 
@@ -202,7 +263,7 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
     }
 
     doc.setTextColor(THEME.text);
-    const name = item.name.length > 35 ? item.name.substring(0, 32) + '...' : item.name;
+    const name = truncateText(doc, item.name, cols.name.w - 2);
 
     doc.text(item.date, cols.date.x + 2, yPos + 5);
     doc.text(name, cols.name.x, yPos + 5);
@@ -210,27 +271,15 @@ export const generateSalesReportPDF = async (salesData, startDate, endDate, admi
     doc.text(formatCurrency(item.price).replace('PHP ',''), cols.price.x, yPos + 5, { align: 'right' });
     doc.text(formatCurrency(item.total).replace('PHP ',''), cols.total.x, yPos + 5, { align: 'right' });
     
-    doc.text(item.payment.substring(0,8), cols.pay.x, yPos + 5, { align: 'left' });
+    const payment = truncateText(doc, item.payment, cols.pay.w - 1);
+    doc.text(payment, cols.pay.x, yPos + 5, { align: 'left' });
     
     if(item.status !== 'Paid') doc.setTextColor('#e74c3c'); 
     else doc.setTextColor('#27ae60'); 
     doc.text(item.status, cols.stat.x, yPos + 5, { align: 'right' });
 
-    grandTotal += item.total;
     yPos += 7;
   });
-
-  yPos += 5;
-  doc.setDrawColor(THEME.primary);
-  doc.setLineWidth(0.5);
-  doc.line(130, yPos, 195, yPos); 
-  yPos += 6;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(THEME.primary);
-  doc.text('Grand Total:', 145, yPos, { align: 'right' });
-  doc.text(formatCurrency(grandTotal), 195, yPos, { align: 'right' });
 
   drawFooter(doc, adminName);
   return doc;
@@ -242,18 +291,31 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
   const doc = new jsPDF();
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
   
-  // [UPDATED CALL] Pass storeSettings to the header function
-  let yPos = drawReportHeader(doc, 'Inventory Report', `Status as of: ${formatDate(endDate)}`, adminName, logoDataUrl, storeSettings);
+  let yPos = drawHeader(doc, logoDataUrl, storeSettings);
+
+  const totalValue = inventoryData.reduce((acc, item) => acc + (item.currentStock * item.price), 0);
+  const lowStockCount = inventoryData.filter(i => i.stockStatus === 'Low Stock').length;
+
+  yPos = drawMetadataBox(doc, yPos, 'Current Inventory Valuation', 
+    [
+      { label: 'Date', value: formatDate(new Date()) },
+      { label: 'Total Items', value: inventoryData.length.toString() }
+    ],
+    [
+      { label: 'Total Asset Value', value: formatCurrency(totalValue) },
+      { label: 'Low Stock Alerts', value: lowStockCount.toString() }
+    ]
+  );
 
   const cols = {
-    name: { x: 15 },
-    brand: { x: 80 },
-    qty: { x: 120 },
-    price: { x: 150 },
-    val: { x: 195 }
+    name: { x: 15, w: 65 }, 
+    brand: { x: 82, w: 35 },
+    qty: { x: 120, w: 15 },
+    price: { x: 150, w: 25 },
+    val: { x: 195, w: 25 }
   };
 
-  const drawHeader = (y) => {
+  const drawTableHeader = (y) => {
     doc.setFillColor(THEME.primary);
     doc.rect(15, y, 180, 8, 'F');
     doc.setTextColor(THEME.white);
@@ -267,19 +329,17 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
     doc.text('Total Value', cols.val.x, y + 5.5, { align: 'right' });
   };
 
-  drawHeader(yPos);
+  drawTableHeader(yPos);
   yPos += 8;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
 
-  let totalInventoryValue = 0;
-
   inventoryData.forEach((item, index) => {
     if (yPos > 270) {
       doc.addPage();
       yPos = 20;
-      drawHeader(yPos);
+      drawTableHeader(yPos);
       yPos += 8;
     }
 
@@ -288,15 +348,15 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
       doc.rect(15, yPos, 180, 7, 'F');
     }
 
-    const name = item.productName.length > 35 ? item.productName.substring(0, 32) + '...' : item.productName;
+    const name = truncateText(doc, item.productName, cols.name.w - 2);
+    const brand = truncateText(doc, item.brand || '-', cols.brand.w - 2);
     const value = item.currentStock * item.price;
-    totalInventoryValue += value;
 
     doc.setTextColor(THEME.text);
     doc.setFont('helvetica', 'normal');
     
     doc.text(name, cols.name.x + 2, yPos + 5);
-    doc.text(item.brand || '-', cols.brand.x, yPos + 5);
+    doc.text(brand, cols.brand.x, yPos + 5);
     
     if (item.stockStatus !== 'In Stock') doc.setTextColor('#e74c3c');
     doc.text(item.currentStock.toString(), cols.qty.x, yPos + 5, { align: 'center' });
@@ -308,17 +368,6 @@ export const generateInventoryReportPDF = async (inventoryData, startDate, endDa
     yPos += 7;
   });
 
-  yPos += 5;
-  doc.setDrawColor(THEME.primary);
-  doc.line(130, yPos, 195, yPos);
-  yPos += 6;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(THEME.primary);
-  doc.text('Total Inventory Asset Value:', 140, yPos, { align: 'right' });
-  doc.text(formatCurrency(totalInventoryValue), 195, yPos, { align: 'right' });
-
   drawFooter(doc, adminName);
   return doc;
 };
@@ -329,18 +378,29 @@ export const generateDeadStockReportPDF = async (deadStockData, adminName, store
   const doc = new jsPDF();
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
 
-  // [UPDATED CALL] Pass storeSettings to the header function
-  let yPos = drawReportHeader(doc, 'Dead Stock Report', `As of: ${formatDate(new Date())}`, adminName, logoDataUrl, storeSettings);
+  let yPos = drawHeader(doc, logoDataUrl, storeSettings);
+
+  const totalCapital = deadStockData.reduce((acc, item) => acc + (Number(item.tiedUpValue) || 0), 0);
+
+  yPos = drawMetadataBox(doc, yPos, 'Dormant Inventory Report', 
+    [
+      { label: 'Criteria', value: '> 1 Year Inactivity' },
+      { label: 'Items Flagged', value: deadStockData.length.toString() }
+    ],
+    [
+      { label: 'Tied Up Capital', value: formatCurrency(totalCapital) }
+    ]
+  );
 
   const cols = {
-    name: { x: 15 },
-    category: { x: 95 },
-    qty: { x: 135 },
-    capital: { x: 165 },
-    dormancy: { x: 195 }
+    name: { x: 15, w: 75 },
+    category: { x: 95, w: 35 },
+    qty: { x: 135, w: 15 },
+    capital: { x: 165, w: 25 },
+    dormancy: { x: 195, w: 20 }
   };
 
-  const drawHeader = (y) => {
+  const drawTableHeader = (y) => {
     doc.setFillColor(THEME.primary);
     doc.rect(15, y, 180, 8, 'F');
     doc.setTextColor(THEME.white);
@@ -354,10 +414,8 @@ export const generateDeadStockReportPDF = async (deadStockData, adminName, store
     doc.text('Dormancy', cols.dormancy.x, y + 5.5, { align: 'right' });
   };
 
-  drawHeader(yPos);
+  drawTableHeader(yPos);
   yPos += 8;
-
-  let totalTiedCapital = 0;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
@@ -366,8 +424,10 @@ export const generateDeadStockReportPDF = async (deadStockData, adminName, store
     if (yPos > 270) {
       doc.addPage();
       yPos = 20;
-      drawHeader(yPos);
+      drawTableHeader(yPos);
       yPos += 8;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
     }
 
     if (index % 2 === 0) {
@@ -381,14 +441,13 @@ export const generateDeadStockReportPDF = async (deadStockData, adminName, store
     if(item.type === 'Serial') {
         displayName += ` (SN: ${item.serialNumber})`;
     }
-    if (displayName.length > 45) displayName = displayName.substring(0, 42) + '...';
+    displayName = truncateText(doc, displayName, cols.name.w - 2);
 
     doc.text(displayName, cols.name.x + 2, yPos + 5);
-    doc.text(item.category || '-', cols.category.x, yPos + 5);
+    doc.text(truncateText(doc, item.category || '-', cols.category.w - 2), cols.category.x, yPos + 5);
     doc.text(String(item.currentStock), cols.qty.x, yPos + 5, { align: 'center' });
     
     const cap = Number(item.tiedUpValue) || 0;
-    totalTiedCapital += cap;
     doc.text(formatCurrency(cap).replace('PHP ',''), cols.capital.x, yPos + 5, { align: 'right' });
     
     const days = String(item.daysDormant).replace(' days', '');
@@ -396,17 +455,6 @@ export const generateDeadStockReportPDF = async (deadStockData, adminName, store
 
     yPos += 7;
   });
-
-  yPos += 5;
-  doc.setDrawColor(THEME.primary);
-  doc.line(130, yPos, 195, yPos);
-  yPos += 6;
-  
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(THEME.primary);
-  doc.text('Total Tied Capital:', 155, yPos, { align: 'right' });
-  doc.text(formatCurrency(totalTiedCapital), 195, yPos, { align: 'right' });
 
   drawFooter(doc, adminName);
   return doc;
@@ -418,18 +466,30 @@ export const generateReturnsReportPDF = async (returnsData, startDate, endDate, 
   const doc = new jsPDF();
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
 
-  // [UPDATED CALL] Pass storeSettings to the header function
-  let yPos = drawReportHeader(doc, 'Returns Report', `${formatDate(startDate)} - ${formatDate(endDate)}`, adminName, logoDataUrl, storeSettings);
+  let yPos = drawHeader(doc, logoDataUrl, storeSettings);
 
+  const totalRefunds = returnsData.reduce((acc, item) => acc + (Number(item.refund_amount) || 0), 0);
+
+  yPos = drawMetadataBox(doc, yPos, 'Returns & Refunds Log', 
+    [
+      { label: 'Period', value: `${formatDate(startDate)} - ${formatDate(endDate)}` },
+      { label: 'Total Returns', value: returnsData.length.toString() }
+    ],
+    [
+      { label: 'Total Refunded', value: formatCurrency(totalRefunds) }
+    ]
+  );
+
+  // [FIXED] Updated Column Widths to prevent ID overlapping items
   const cols = {
-    id: { x: 15 },
-    items: { x: 45 },      // [NEW] Items Column
-    customer: { x: 95 },
-    reason: { x: 135 },
-    amount: { x: 195 }
+    id: { x: 15, w: 35 },     // Widened for long IDs (was 20)
+    items: { x: 53, w: 45 },  // Shifted right (was 40, w50)
+    customer: { x: 100, w: 30 }, // Shifted right
+    reason: { x: 133, w: 30 },   // Shifted right
+    amount: { x: 195, w: 25 }    // Right Aligned
   };
 
-  const drawHeader = (y) => {
+  const drawTableHeader = (y) => {
     doc.setFillColor(THEME.primary);
     doc.rect(15, y, 180, 8, 'F');
     doc.setTextColor(THEME.white);
@@ -443,23 +503,19 @@ export const generateReturnsReportPDF = async (returnsData, startDate, endDate, 
     doc.text('Refund', cols.amount.x, y + 5.5, { align: 'right' });
   };
 
-  drawHeader(yPos);
+  drawTableHeader(yPos);
   yPos += 8;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
 
-  let totalRefund = 0;
-
   returnsData.forEach((item, index) => {
-    // 1. Calculate height needed for this row (based on items)
     const itemsList = item.items || [];
     const rowHeight = Math.max(7, (itemsList.length * 4) + 4); 
 
-    // 2. Check Page Break
     if (yPos + rowHeight > 280) {
       doc.addPage();
       yPos = 20;
-      drawHeader(yPos);
+      drawTableHeader(yPos);
       yPos += 8;
       doc.setFont('helvetica', 'normal'); 
       doc.setFontSize(8);
@@ -472,33 +528,27 @@ export const generateReturnsReportPDF = async (returnsData, startDate, endDate, 
 
     doc.setTextColor(THEME.text);
     
-    // 3. Print Data
-    doc.text(`#${item.return_id}`, cols.id.x + 2, yPos + 5);
+    // [UPDATED] Uses wider column 'w' for truncation
+    const idText = truncateText(doc, item.return_id, cols.id.w - 2);
+    doc.text(idText, cols.id.x + 2, yPos + 5);
     
-    // Customer
-    const customer = item.customer_name?.length > 18 ? item.customer_name.substring(0, 15) + '..' : item.customer_name;
+    const customer = truncateText(doc, item.customer_name, cols.customer.w - 2);
     doc.text(customer, cols.customer.x, yPos + 5);
 
-    // Reason
-    doc.text(item.return_reason.substring(0, 20) || 'N/A', cols.reason.x, yPos + 5);
+    const reason = truncateText(doc, item.return_reason || 'N/A', cols.reason.w - 2);
+    doc.text(reason, cols.reason.x, yPos + 5);
     
-    // Amount
     const amt = Number(item.refund_amount) || 0;
-    totalRefund += amt;
     doc.text(formatCurrency(amt), cols.amount.x, yPos + 5, { align: 'right' });
 
-    // 4. Print Items Loop
     let itemY = yPos + 5;
     if (itemsList.length > 0) {
         itemsList.forEach(prod => {
             let line = `• ${prod.product_name}`;
             if(prod.serial_numbers) line += ` (SN: ${prod.serial_numbers})`;
-            
-            // Truncate if too long
-            if(line.length > 35) line = line.substring(0, 32) + '...';
-            
+            line = truncateText(doc, line, cols.items.w - 2);
             doc.text(line, cols.items.x, itemY);
-            itemY += 4; // Spacing for next item
+            itemY += 4; 
         });
     } else {
         doc.text('-', cols.items.x, itemY);
@@ -507,16 +557,12 @@ export const generateReturnsReportPDF = async (returnsData, startDate, endDate, 
     yPos += rowHeight;
   });
 
-  yPos += 5;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Total Refunded:', 150, yPos, { align: 'right' });
-  doc.text(formatCurrency(totalRefund), 195, yPos, { align: 'right' });
-
   drawFooter(doc, adminName);
   return doc;
 };
 
-// Sale Receipt [FIXED: NOW ACCEPTS storeSettings]
+
+// --- RECEIPT GENERATOR (Reference Implementation) ---
 export const generateSaleReceipt = async ({
   saleNumber,
   customerName,
@@ -528,72 +574,29 @@ export const generateSaleReceipt = async ({
   address = '',
   shippingOption = 'In-Store Pickup',
   createdAt = new Date(),
-  storeSettings = {} // Added storeSettings parameter
+  storeSettings = {} 
 }) => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = 210;
-  let y = 15;
   
   const logoDataUrl = await loadImageAsDataURL(logoUrl);
 
-  // 1. Header Section
-  if (logoDataUrl) {
-    doc.addImage(logoDataUrl, 'PNG', 15, y, 25, 18);
-  }
-  
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(THEME.primary);
-  
-  // [FIX] Use Store Name from settings or fallback
-  doc.text(storeSettings.store_name || 'TJC AUTO SUPPLY', 200, y + 5, { align: 'right' });
-  
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(THEME.lightText);
-  
-  // [FIX] Use Address from settings or fallback
-  doc.text(storeSettings.address || 'San Fernando, Pampanga', 200, y + 10, { align: 'right' });
-  
-  // [FIX] Use Contact Info from settings
-  const contactText = `${storeSettings.email || 'tjautosupply@gmail.com'} | ${storeSettings.contact_number || '0912 345 6789'}`;
-  doc.text(contactText, 200, y + 15, { align: 'right' });
+  // 1. Header
+  let y = drawHeader(doc, logoDataUrl, storeSettings);
 
-  y += 30;
+  // 2. Info Box (Receipt Style)
+  y = drawMetadataBox(doc, y, 'Official Receipt', 
+    [
+      { label: 'Customer', value: customerName || 'Walk-in' },
+      { label: 'Date', value: formatDate(createdAt) },
+      { label: 'Address', value: truncateText(doc, address || shippingOption, 80) }
+    ],
+    [
+      { label: 'Receipt #', value: String(saleNumber) },
+      { label: 'Payment', value: paymentMethod }
+    ]
+  );
 
-  // 2. Invoice Details Box
-  doc.setDrawColor(THEME.line);
-  doc.setFillColor(THEME.accent);
-  doc.roundedRect(15, y, 180, 25, 2, 2, 'F');
-  
-  doc.setTextColor(THEME.text);
-  doc.setFontSize(10);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('Bill To:', 20, y + 6);
-  doc.setFont('helvetica', 'normal');
-  doc.text(customerName || 'Walk-in Customer', 20, y + 12);
-  const addr = address ? address.substring(0, 40) : shippingOption;
-  doc.setFontSize(9);
-  doc.setTextColor(THEME.lightText);
-  doc.text(addr, 20, y + 17);
-
-  doc.setTextColor(THEME.text);
-  doc.setFontSize(10);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('Receipt #:', 140, y + 6);
-  doc.text('Date:', 140, y + 12);
-  doc.text('Payment:', 140, y + 18);
-
-  doc.setFont('helvetica', 'normal');
-  doc.text(String(saleNumber), 190, y + 6, { align: 'right' });
-  doc.text(new Date(createdAt).toLocaleDateString(), 190, y + 12, { align: 'right' });
-  doc.text(paymentMethod, 190, y + 18, { align: 'right' });
-
-  y += 35;
-
-  // 3. Item Table
   const cols = {
     desc: { x: 15, w: 90 },
     qty: { x: 130, w: 20 },
@@ -629,32 +632,19 @@ export const generateSaleReceipt = async ({
     const qty = Number(it.quantity);
     const price = Number(it.price || it.unitPrice);
     const total = qty * price;
-    const displayName = name.length > 45 ? name.substring(0, 42) + '...' : name;
+    
+    const displayName = truncateText(doc, name, cols.desc.w - 5);
 
     doc.text(displayName, cols.desc.x + 2, y + 5.5);
     doc.text(String(qty), cols.qty.x, y + 5.5, { align: 'center' });
     doc.text(formatCurrency(price).replace('PHP', ''), cols.price.x, y + 5.5, { align: 'right' });
     doc.text(formatCurrency(total).replace('PHP', ''), cols.total.x, y + 5.5, { align: 'right' });
 
-    const serials = it.serialNumbers || it.serial_numbers || [];
-    if (serials.length > 0) {
-      y += 5;
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(THEME.lightText);
-      doc.text(`SN: ${serials.join(', ')}`, cols.desc.x + 5, y + 5.5);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(THEME.text);
-      y += 3;
-    }
-
     y += 8;
   });
 
   y += 5;
 
-  // 4. Totals
   const totalBoxX = 120;
   const totalBoxW = 75;
   
@@ -693,7 +683,6 @@ export const generateSaleReceipt = async ({
   doc.setTextColor(THEME.lightText);
   doc.setFont('helvetica', 'normal');
   doc.text('Thank you for your business!', pageWidth / 2, footerY, { align: 'center' });
-  doc.text('Returns accepted within 7 days with receipt.', pageWidth / 2, footerY + 4, { align: 'center' });
 
   return doc;
 };

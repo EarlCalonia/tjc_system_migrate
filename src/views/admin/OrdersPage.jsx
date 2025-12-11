@@ -10,57 +10,19 @@ import {
   cilMagnifyingGlass, cilDescription, cilMoney, cilWarning, cilCheckCircle, cilArrowLeft,
   cilSettings, cilTruck, cilBan, cilCalendar, cilLocationPin, cilNotes, cilHome, cilCog, 
   cilBarcode, cilHistory, cilUser, cilChevronLeft, cilChevronRight, cilXCircle, cilCloudUpload, 
-  cilLockLocked, cilShieldAlt
+  cilLockLocked, cilShieldAlt, cilPrint, cilImage, cilX // [ADDED] cilX for custom close buttons
 } from '@coreui/icons'
-import { salesAPI, returnsAPI, serialNumberAPI, activityLogsAPI, authAPI } from '../../utils/api'
+import { salesAPI, returnsAPI, serialNumberAPI, activityLogsAPI, authAPI, settingsAPI } from '../../utils/api'
+import { generateSaleReceipt } from '../../utils/pdfGenerator'
 
-// Import Global Styles
 import '../../styles/Admin.css'
 import '../../styles/App.css'
 import '../../styles/OrdersPage.css' 
 
 const ITEMS_PER_PAGE = 10;
+const ASSET_URL = 'http://localhost:5000'; 
 
-// ==========================================
-// 1. HELPER FUNCTIONS (GLOBAL SCOPE)
-// ==========================================
-
-const getTimelineStep = (status) => {
-  const s = (status || '').toLowerCase();
-  if (['cancelled', 'refunded', 'returned'].some(x => s.includes(x))) return -1;
-  if (s === 'completed') return 3;
-  if (s === 'processing') return 2;
-  return 1; 
-};
-
-const getTimelineStepsConfig = (order) => {
-    const type = order?.delivery_type || order?.sale_type || '';
-    const isDelivery = type.includes('Delivery');
-    return [
-      { label: 'Order Placed', icon: cilDescription },
-      { label: 'Processing', icon: cilCog },
-      { label: isDelivery ? (order?.status === 'Completed' ? 'Delivered' : 'Out for Delivery') : (order?.status === 'Completed' ? 'Picked Up' : 'Ready for Pickup'), icon: isDelivery ? cilTruck : (order?.status === 'Completed' ? cilCheckCircle : cilHome) }
-    ];
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-};
-
-const renderStatusBadge = (status) => {
-    let color = 'secondary';
-    if(['Paid', 'Completed'].includes(status)) color = 'success';
-    else if(['Pending', 'Unpaid'].includes(status)) color = 'warning';
-    else if(status === 'Processing') color = 'info';
-    else if(['Cancelled', 'Refunded', 'Returned'].includes(status)) color = 'danger';
-    return <CBadge color={color} shape="rounded-pill" className="px-2">{status}</CBadge>;
-};
-
-// ==========================================
-// 2. REUSABLE COMPONENTS
-// ==========================================
-
+// --- REUSABLE STAT CARD ---
 const StatCard = ({ title, value, icon, gradient, textColor = 'text-white' }) => (
   <CCard className="h-100 border-0 shadow-sm overflow-hidden" style={{ background: gradient }}>
     <CCardBody className="p-4 position-relative d-flex flex-column justify-content-between">
@@ -75,10 +37,6 @@ const StatCard = ({ title, value, icon, gradient, textColor = 'text-white' }) =>
   </CCard>
 );
 
-// ==========================================
-// 3. MAIN COMPONENT
-// ==========================================
-
 const OrdersPage = () => {
   // --- STATE ---
   const [currentUser, setCurrentUser] = useState(null); 
@@ -86,6 +44,7 @@ const OrdersPage = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total_sales: 0, pendingOrders: 0, paidOrders: 0, total_revenue: 0 });
+  const [storeSettings, setStoreSettings] = useState({});
   
   // Filters
   const [searchQuery, setSearchQuery] = useState(''); 
@@ -127,6 +86,11 @@ const OrdersPage = () => {
     }
     fetchOrdersWithItems();
     fetchOrderStats();
+    
+    settingsAPI.get().then(res => {
+        if(res.success) setStoreSettings(res.data);
+    }).catch(err => console.error("Failed to load settings", err));
+
     const interval = setInterval(() => { fetchOrdersWithItems(true); fetchOrderStats(); }, 15000);
     return () => clearInterval(interval);
   }, []);
@@ -159,18 +123,29 @@ const OrdersPage = () => {
   }
 
   // --- ACTIONS ---
-  const handleManualCompletion = async (orderId) => {
-      if(!window.confirm('Mark this order as PAID and COMPLETED?')) return;
-      try {
-          await salesAPI.updateSale(orderId, { payment_status: 'Paid' });
-          await salesAPI.updateSale(orderId, { status: 'Completed' });
-          setIsModalOpen(false);
-          fetchOrdersWithItems(); 
-          setMsgModal({ visible: true, title: 'Order Completed', message: 'The order has been successfully finalized.', color: 'success', icon: cilCheckCircle });
-      } catch (e) {
-          setMsgModal({ visible: true, title: 'Update Failed', message: 'Could not update the order status.', color: 'danger', icon: cilXCircle });
-      }
-  }
+  const handlePrintReceipt = async () => {
+    if (!selectedOrder) return;
+    try {
+        const doc = await generateSaleReceipt({
+            saleNumber: selectedOrder.sale_number,
+            customerName: selectedOrder.customer_name,
+            items: selectedOrder.items || [],
+            totalAmount: selectedOrder.total,
+            paymentMethod: selectedOrder.payment_method || 'Cash', 
+            tenderedAmount: selectedOrder.amount_tendered || selectedOrder.total,
+            changeAmount: selectedOrder.change_amount || 0,
+            address: selectedOrder.address,
+            shippingOption: selectedOrder.delivery_type,
+            createdAt: selectedOrder.created_at,
+            storeSettings: storeSettings
+        });
+        doc.autoPrint();
+        window.open(doc.output('bloburl'), '_blank');
+    } catch (e) {
+        console.error(e);
+        setMsgModal({ visible: true, title: 'Print Error', message: 'Could not generate receipt PDF.', color: 'danger', icon: cilXCircle });
+    }
+  };
 
   const handleViewDetails = async (order) => {
       setSelectedOrder(order);
@@ -189,10 +164,12 @@ const OrdersPage = () => {
           }
           const logsRes = await activityLogsAPI.getAll({ search: order.sale_number });
           if (logsRes.success) setOrderAuditLogs(logsRes.data.logs || []);
+          
           if (['Returned', 'Partially Returned', 'Completed'].includes(order.status)) {
               const returnRes = await returnsAPI.getReturnsByOrder(order.id);
               if (returnRes.success) setOrderReturnHistory(returnRes.data || []);
           }
+          
           const enrichedItems = order.items.map(item => ({ ...item, serial_numbers: serialsMap[item.id] || [] }));
           setSelectedOrder({ ...order, items: enrichedItems });
       } catch (e) { console.error("Details fetch error", e); } 
@@ -235,7 +212,6 @@ const OrdersPage = () => {
       setReturnItems(newItems);
   }
 
-  // --- VALIDATION & SUBMISSION ---
   const initiateReturnProcess = () => {
     const invalidSerialItem = returnItems.find(i => i.is_serialized && i.return_qty > 0 && i.selected_serials.length !== i.return_qty);
     if (invalidSerialItem) { return setMsgModal({ visible: true, title: 'Validation Error', message: `Select exactly ${invalidSerialItem.return_qty} serials for ${invalidSerialItem.product_name}.`, color: 'warning', icon: cilWarning }); }
@@ -244,7 +220,6 @@ const OrdersPage = () => {
 
     if (!returnForm.file) { return setMsgModal({ visible: true, title: 'Proof Required', message: 'You must upload a photo proof of the item to process a return.', color: 'warning', icon: cilCloudUpload }); }
 
-    // Role Validation (Case Insensitive)
     const userRole = (currentUser?.role || '').toLowerCase();
     const isAdmin = ['admin', 'superadmin', 'administrator'].includes(userRole);
 
@@ -266,7 +241,7 @@ const OrdersPage = () => {
              const role = (userObj.role || '').toLowerCase();
              if (['admin', 'superadmin', 'administrator'].includes(role)) {
                  setIsAuthModalOpen(false);
-                 submitReturn(); // Proceed to submit
+                 submitReturn(); 
              } else { setAdminAuth(prev => ({...prev, error: 'Authorization denied. Account is not an Admin.'})); }
           } else { setAdminAuth(prev => ({...prev, error: 'Invalid credentials.'})); }
       } catch (e) { setAdminAuth(prev => ({...prev, error: 'Authorization failed. Check network.'})); } 
@@ -276,14 +251,13 @@ const OrdersPage = () => {
   const submitReturn = async () => {
       setIsSubmittingReturn(true);
       try {
-          // [FIX] Ensure NO fields are undefined to prevent 500 error
           const itemsToProcess = returnItems
               .filter(i => i.return_qty > 0)
               .map(i => ({ 
                  saleItemId: i.id, 
                  productId: i.product_id, 
-                 productName: i.product_name || i.name || 'Unknown Item', // Fallback for name
-                 sku: i.sku ? i.sku : null, // Explicit NULL if undefined
+                 productName: i.product_name || i.name || 'Unknown Item',
+                 sku: i.sku ? i.sku : null,
                  quantity: Number(i.return_qty), 
                  price: Number(i.price || 0), 
                  serialNumbers: i.selected_serials || [] 
@@ -293,16 +267,13 @@ const OrdersPage = () => {
           formData.append('orderId', orderToReturn.id);
           formData.append('saleNumber', orderToReturn.sale_number);
           formData.append('customerName', orderToReturn.customer_name || 'Walk-in');
-          // Add processedBy for logs
           formData.append('processedBy', currentUser?.username || 'System');
           
           Object.keys(returnForm).forEach(key => { 
              if(key !== 'file') formData.append(key === 'reason' ? 'returnReason' : (key === 'method' ? 'refundMethod' : (key === 'restock' ? 'restocked' : 'additionalNotes')), returnForm[key]); 
           });
           
-          // Stringify the array
           formData.append('returnItems', JSON.stringify(itemsToProcess)); 
-          
           if (returnForm.file) formData.append('photoProof', returnForm.file);
 
           const res = await returnsAPI.processReturn(formData);
@@ -350,6 +321,15 @@ const OrdersPage = () => {
     return items;
   };
 
+  const renderStatusBadge = (status) => {
+    let color = 'secondary';
+    if(['Paid', 'Completed'].includes(status)) color = 'success';
+    else if(['Pending', 'Unpaid'].includes(status)) color = 'warning';
+    else if(status === 'Processing') color = 'info';
+    else if(['Cancelled', 'Refunded', 'Returned'].includes(status)) color = 'danger';
+    return <CBadge color={color} shape="rounded-pill" className="px-3">{status}</CBadge>;
+  };
+
   return (
     <CContainer fluid className="px-4 py-4 order-status-wrapper">
       <div className="mb-4 fade-in-up">
@@ -359,38 +339,60 @@ const OrdersPage = () => {
 
       {/* STAT CARDS */}
       <CRow className="mb-4 g-3 fade-in-up delay-100">
-        <CCol sm={6} lg={3}><StatCard title="Total Orders" value={stats.total_sales} icon={<CIcon icon={cilDescription}/>} gradient="linear-gradient(135deg, #17334e 0%, #0f2438 100%)" /></CCol>
-        <CCol sm={6} lg={3}><StatCard title="Pending" value={stats.pendingOrders} icon={<CIcon icon={cilWarning}/>} gradient="linear-gradient(135deg, #f9b115 0%, #f6960b 100%)" textColor="text-brand-navy"/></CCol>
-        <CCol sm={6} lg={3}><StatCard title="Completed" value={stats.paidOrders} icon={<CIcon icon={cilCheckCircle}/>} gradient="linear-gradient(135deg, #2eb85c 0%, #1b9e3e 100%)" /></CCol>
+        <CCol sm={6} lg={3}><StatCard title="Total Orders" value={stats.total_sales.toLocaleString()} icon={<CIcon icon={cilDescription}/>} gradient="linear-gradient(135deg, #17334e 0%, #0f2438 100%)" /></CCol>
+        <CCol sm={6} lg={3}><StatCard title="Pending" value={stats.pendingOrders.toLocaleString()} icon={<CIcon icon={cilWarning}/>} gradient="linear-gradient(135deg, #f9b115 0%, #f6960b 100%)" textColor="text-brand-navy"/></CCol>
+        <CCol sm={6} lg={3}><StatCard title="Completed" value={stats.paidOrders.toLocaleString()} icon={<CIcon icon={cilCheckCircle}/>} gradient="linear-gradient(135deg, #2eb85c 0%, #1b9e3e 100%)" /></CCol>
         <CCol sm={6} lg={3}><StatCard title="Revenue" value={`₱${Number(stats.total_revenue).toLocaleString()}`} icon={<CIcon icon={cilMoney}/>} gradient="linear-gradient(135deg, #321fdb 0%, #2417a8 100%)" /></CCol>
       </CRow>
 
       {/* --- MAIN TABLE CARD --- */}
       <CCard className="mb-4 border-0 shadow-sm overflow-hidden fade-in-up delay-200">
         <CCardHeader className="bg-white p-3 border-bottom">
-          <div className="d-flex align-items-center gap-3 w-100">
-             <div className="bg-light rounded px-3 py-2 d-flex align-items-center border flex-grow-1">
-                <CIcon icon={cilMagnifyingGlass} className="text-muted me-2"/>
-                <input className="border-0 bg-transparent w-100" style={{outline:'none', fontSize:'0.9rem'}} placeholder="Search orders..." value={searchQuery} onChange={(e) => {setSearchQuery(e.target.value); setCurrentPage(1)}} />
-             </div>
-             <div className="d-flex gap-2 flex-shrink-0">
-                 <CFormSelect className="form-select-sm" value={selectedOrderStatus} onChange={(e) => setSelectedOrderStatus(e.target.value)} style={{width:'220px', borderColor:'#e9ecef', cursor:'pointer'}}>{['All Order Statuses', 'Pending', 'Processing', 'Completed', 'Cancelled', 'Returned'].map(s=><option key={s} value={s}>{s}</option>)}</CFormSelect>
-                 <CFormSelect className="form-select-sm" value={selectedPaymentStatus} onChange={(e) => setSelectedPaymentStatus(e.target.value)} style={{width:'220px', borderColor:'#e9ecef', cursor:'pointer'}}>{['All Payment Statuses', 'Paid', 'Unpaid', 'Refunded'].map(s=><option key={s} value={s}>{s}</option>)}</CFormSelect>
-             </div>
-          </div>
+           <div className="d-flex flex-column flex-md-row gap-3 align-items-center justify-content-between">
+               <div className="bg-light rounded px-3 py-2 d-flex align-items-center border flex-grow-1 w-100" style={{ maxWidth: '100%' }}>
+                  <CIcon icon={cilMagnifyingGlass} className="text-muted me-2"/>
+                  <input className="border-0 bg-transparent w-100" style={{outline: 'none', fontSize: '0.9rem'}} placeholder="Search orders by ID or customer..." value={searchQuery} onChange={(e) => {setSearchQuery(e.target.value); setCurrentPage(1)}} />
+               </div>
+               <div className="d-flex gap-2 w-100 w-md-auto">
+                   <CFormSelect className="form-select-sm flex-grow-1" style={{height: '45px', minWidth: '180px', borderColor:'#cbd5e1'}} value={selectedOrderStatus} onChange={(e) => setSelectedOrderStatus(e.target.value)}>{['All Order Statuses', 'Pending', 'Processing', 'Completed', 'Cancelled', 'Returned'].map(s=><option key={s} value={s}>{s}</option>)}</CFormSelect>
+                   <CFormSelect className="form-select-sm flex-grow-1" style={{height: '45px', minWidth: '180px', borderColor:'#cbd5e1'}} value={selectedPaymentStatus} onChange={(e) => setSelectedPaymentStatus(e.target.value)}>{['All Payment Statuses', 'Paid', 'Unpaid', 'Refunded'].map(s=><option key={s} value={s}>{s}</option>)}</CFormSelect>
+               </div>
+           </div>
         </CCardHeader>
+
         <div className="admin-table-container">
             <table className="admin-table">
-              <thead><tr><th className="ps-4">Order ID</th><th>Customer</th><th>Date</th><th>Items</th><th>Payment</th><th>Status</th><th className="text-end pe-4">Actions</th></tr></thead>
+              <thead className="bg-brand-navy text-white">
+                <tr>
+                    <th className="ps-4 text-white" style={{width:'15%'}}>Order ID</th>
+                    <th className="text-white" style={{width:'25%'}}>Customer</th>
+                    <th className="text-white" style={{width:'15%'}}>Date</th>
+                    <th className="text-center text-white" style={{width:'10%'}}>Items</th>
+                    <th className="text-center text-white" style={{width:'10%'}}>Payment</th>
+                    <th className="text-center text-white" style={{width:'10%'}}>Status</th>
+                    <th className="text-end pe-4 text-white" style={{width:'15%'}}>Actions</th>
+                </tr>
+              </thead>
               <tbody>{loading ? <tr><td colSpan="7" className="text-center py-5"><CSpinner color="primary"/></td></tr> : currentOrders.length === 0 ? <tr><td colSpan="7" className="text-center py-5 text-muted">No orders found matching criteria.</td></tr> : currentOrders.map((order) => (
                   <tr key={order.id}>
                     <td className="ps-4 fw-bold text-brand-blue font-monospace fs-6">{order.sale_number}</td>
                     <td><div className="fw-bold text-dark">{order.customer_name}</div><small className="text-muted">{order.contact || '-'}</small></td>
                     <td className="text-muted small">{new Date(order.created_at).toLocaleDateString()}</td>
-                    <td><CBadge color="light" className="text-dark border px-3 py-2">{order.items ? order.items.length : 0} items</CBadge></td>
-                    <td>{renderStatusBadge(order.payment_status)}</td>
-                    <td>{renderStatusBadge(order.status)}</td>
-                    <td className="text-end pe-4"><div className="d-flex justify-content-end gap-2"><CTooltip content="View Details"><CButton size="sm" className="d-flex align-items-center gap-2 fw-bold text-white shadow-sm" style={{ background: '#17334e', border: 'none', fontSize: '0.75rem', padding: '6px 12px' }} onClick={() => handleViewDetails(order)}><CIcon icon={cilDescription} size="sm"/> VIEW</CButton></CTooltip>{['Completed', 'Partially Returned'].includes(order.status) && (<CTooltip content="Process Return"><CButton size="sm" color="danger" className="d-flex align-items-center gap-2 fw-bold text-white shadow-sm" style={{ fontSize: '0.75rem', padding: '6px 12px' }} onClick={() => handleOpenReturnModal(order)}><CIcon icon={cilArrowLeft} size="sm"/> RETURN</CButton></CTooltip>)}</div></td>
+                    <td className="text-center"><CBadge color="light" className="text-dark border px-2 py-1">{order.items ? order.items.length : 0}</CBadge></td>
+                    <td className="text-center">{renderStatusBadge(order.payment_status)}</td>
+                    <td className="text-center">{renderStatusBadge(order.status)}</td>
+                    <td className="text-end pe-4">
+                        <div className="d-flex justify-content-end gap-2">
+                            <CTooltip content="View Details">
+                                <CButton size="sm" className="d-flex align-items-center justify-content-center text-white shadow-sm" style={{ width: '32px', height: '32px', padding: 0, backgroundColor: '#17334e', border: 'none' }} onClick={() => handleViewDetails(order)}><CIcon icon={cilDescription} size="sm"/></CButton>
+                            </CTooltip>
+                            {['Completed', 'Partially Returned'].includes(order.status) && (
+                                <CTooltip content="Process Return">
+                                    <CButton size="sm" color="danger" className="d-flex align-items-center justify-content-center text-white shadow-sm" style={{ width: '32px', height: '32px', padding: 0 }} onClick={() => handleOpenReturnModal(order)}><CIcon icon={cilArrowLeft} size="sm"/></CButton>
+                                </CTooltip>
+                            )}
+                        </div>
+                    </td>
                   </tr>
                 ))}</tbody>
             </table>
@@ -398,27 +400,62 @@ const OrdersPage = () => {
         <div className="p-3 border-top d-flex justify-content-between align-items-center bg-white"><div className="small text-muted fw-semibold">Showing <span className="text-dark fw-bold">{Math.min(filteredOrders.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span> to <span className="text-dark fw-bold">{Math.min(filteredOrders.length, currentPage * ITEMS_PER_PAGE)}</span> of <span className="text-brand-navy fw-bold">{filteredOrders.length}</span> results</div><CPagination className="mb-0 justify-content-end">{renderPaginationItems()}</CPagination></div>
       </CCard>
 
-      {/* --- ORDER DETAILS MODAL (WITH STEPPER) --- */}
+      {/* --- ORDER DETAILS MODAL (WITH STEPPER & PHOTO PROOF) --- */}
       <CModal visible={isModalOpen} onClose={() => setIsModalOpen(false)} size="lg" alignment="center" scrollable>
          <CModalHeader className="bg-brand-navy"><CModalTitle className="text-white" style={brandHeaderStyle}>ORDER #{selectedOrder?.sale_number}</CModalTitle></CModalHeader>
          <CModalBody className="p-0 bg-light">
             {selectedOrder && (
               <>
-                <div className="timeline-section p-3 bg-white border-bottom">{getTimelineStep(selectedOrder.status) === -1 ? (<div className="text-center text-danger py-3"><CIcon icon={cilBan} size="3xl" className="mb-2"/><div className="fw-bold">Order {selectedOrder.status}</div></div>) : (<div className="stepper-wrapper">{getTimelineStepsConfig(selectedOrder).map((step, i) => { const currentStep = getTimelineStep(selectedOrder.status); const stepNum = i + 1; let cls = 'stepper-item'; if (currentStep > stepNum) cls += ' completed'; else if (currentStep === stepNum) cls += ' active'; return (<div key={i} className={cls}><div className="step-counter"><CIcon icon={step.icon} size="lg"/></div><div className="step-name">{step.label}</div></div>) })}</div>)}</div>
                 <div className="p-4 bg-white border-bottom"><CRow className="g-3"><CCol sm={6}><h6 className="text-muted small fw-bold text-uppercase">Customer Info</h6><div className="fw-bold text-brand-navy fs-5">{selectedOrder.customer_name}</div><div className="d-flex align-items-center gap-2 text-muted small"><CIcon icon={cilLocationPin}/> {selectedOrder.address || 'Walk-in'}</div></CCol><CCol sm={6} className="text-sm-end"><h6 className="text-muted small fw-bold text-uppercase">Order Info</h6><div className="mb-1">{renderStatusBadge(selectedOrder.status)} {renderStatusBadge(selectedOrder.payment_status)}</div><div className="small text-muted">{new Date(selectedOrder.created_at).toLocaleString()}</div></CCol></CRow></div>
                 <div className="p-4"><h6 className="fw-bold text-brand-navy mb-3">ORDERED ITEMS</h6><div className="bg-white rounded border shadow-sm overflow-hidden"><table className="table mb-0"><thead className="bg-light"><tr><th className="ps-4">Product</th><th className="text-center">Qty</th><th className="text-end pe-4">Total</th></tr></thead><tbody>{selectedOrder.items?.map((item, i) => (<tr key={i}><td className="ps-4"><div className="fw-bold">{item.product_name}</div>{item.serial_numbers?.length > 0 && <div className="small text-primary font-monospace mt-1"><CIcon icon={cilBarcode} size="sm"/> {item.serial_numbers.join(', ')}</div>}</td><td className="text-center">{item.quantity}</td><td className="text-end pe-4 fw-bold">₱{Number(item.price * item.quantity).toLocaleString()}</td></tr>))}</tbody><tfoot className="bg-light"><tr><td colSpan="2" className="text-end fw-bold py-3">GRAND TOTAL</td><td className="text-end fw-bold text-brand-navy fs-5 py-3 pe-4">₱{Number(selectedOrder.total || 0).toLocaleString()}</td></tr></tfoot></table></div></div>
-                {!loadingHistory && (<div className="px-4 pb-4">{orderAuditLogs.length > 0 && (<div className="mb-4"><h6 className="fw-bold text-brand-navy mb-3"><CIcon icon={cilHistory} className="me-2"/>AUDIT TRAIL</h6><div className="list-group border-0 shadow-sm">{orderAuditLogs.map((log, idx) => (<div key={idx} className="list-group-item border-start border-start-4 border-start-info p-3"><div className="d-flex justify-content-between"><small className="fw-bold text-brand-navy">{log.action}</small><small className="text-muted">{new Date(log.created_at).toLocaleString()}</small></div><div className="small text-muted mt-1">{log.details} <span className="fw-bold">by {log.username}</span></div></div>))}</div></div>)}{orderReturnHistory.length > 0 && (<div><h6 className="fw-bold text-danger mb-3 border-bottom pb-2"><CIcon icon={cilHistory} className="me-2"/> RETURN HISTORY</h6>{orderReturnHistory.map((ret) => (<div key={ret.return_id} className="bg-white p-3 rounded shadow-sm border mb-2 border-danger border-start-4"><div className="d-flex justify-content-between mb-2"><span className="fw-bold text-danger small">ID: {ret.return_id}</span><span className="text-muted small">{new Date(ret.return_date).toLocaleDateString()}</span></div><div className="small text-dark mb-2"><strong>Reason:</strong> {ret.return_reason}</div></div>))}</div>)}</div>)}
-                <div className="table-footer">{selectedOrder.notes && (<div className="text-start mb-3 p-2 bg-light border rounded"><small className="fw-bold text-muted"><CIcon icon={cilNotes} className="me-1"/> Notes:</small><div className="small text-dark fst-italic">{selectedOrder.notes}</div></div>)}<div className="grand-total">Total: <span>₱{selectedOrder.items?.reduce((acc, item) => acc + (item.price * item.quantity), 0).toLocaleString()}</span></div></div>
+                {!loadingHistory && (<div className="px-4 pb-4">{orderAuditLogs.length > 0 && (<div className="mb-4"><h6 className="fw-bold text-brand-navy mb-3"><CIcon icon={cilHistory} className="me-2"/>AUDIT TRAIL</h6><div className="list-group border-0 shadow-sm">{orderAuditLogs.map((log, idx) => (<div key={idx} className="list-group-item border-start border-start-4 border-start-info p-3"><div className="d-flex justify-content-between"><small className="fw-bold text-brand-navy">{log.action}</small><small className="text-muted">{new Date(log.created_at).toLocaleString()}</small></div><div className="small text-muted mt-1">{log.details} <span className="fw-bold">by {log.username}</span></div></div>))}</div></div>)}
+                
+                {orderReturnHistory.length > 0 && (
+                   <div>
+                       <h6 className="fw-bold text-danger mb-3 border-bottom pb-2"><CIcon icon={cilHistory} className="me-2"/> RETURN HISTORY</h6>
+                       {orderReturnHistory.map((ret) => (
+                           <div key={ret.return_id} className="bg-white p-3 rounded shadow-sm border mb-2 border-danger border-start-4">
+                               <div className="d-flex justify-content-between mb-2"><span className="fw-bold text-danger small">ID: {ret.return_id}</span><span className="text-muted small">{new Date(ret.return_date).toLocaleDateString()}</span></div>
+                               <div className="small text-dark mb-2"><strong>Reason:</strong> {ret.return_reason}</div>
+                               {ret.photo_proof && (
+                                   <div className="mt-2 p-2 bg-light rounded border">
+                                       <small className="text-muted fw-bold d-block mb-2 text-uppercase" style={{fontSize:'0.7rem'}}>Proof of Return</small>
+                                       <a href={`${ASSET_URL}${ret.photo_proof}`} target="_blank" rel="noreferrer" className="text-decoration-none">
+                                           <div className="d-flex align-items-center gap-2">
+                                               <img src={`${ASSET_URL}${ret.photo_proof}`} alt="Return Proof" style={{height: '60px', width: '60px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #dee2e6'}} />
+                                               <span className="small text-primary fw-bold"><CIcon icon={cilImage} className="me-1"/> View Full Image</span>
+                                           </div>
+                                       </a>
+                                   </div>
+                               )}
+                           </div>
+                       ))}
+                   </div>
+                )}
+                </div>)}
               </>
             )}
          </CModalBody>
-         <CModalFooter className="bg-white"><CButton color="secondary" onClick={() => setIsModalOpen(false)}>Close</CButton><CButton color="primary" onClick={() => window.print()} className="d-print-none">Print Invoice</CButton></CModalFooter>
+         <CModalFooter className="bg-white">
+            <CButton color="secondary" onClick={() => setIsModalOpen(false)}>Close</CButton>
+            <CButton color="primary" onClick={handlePrintReceipt} className="d-flex align-items-center gap-2 fw-bold text-white shadow-sm">
+                <CIcon icon={cilPrint} /> PRINT RECEIPT
+            </CButton>
+         </CModalFooter>
       </CModal>
 
       {/* --- RETURN MODAL --- */}
       <CModal visible={isReturnModalOpen} onClose={() => setIsReturnModalOpen(false)} size="lg" alignment="center" backdrop="static" scrollable>
-          <CModalHeader className="text-white" style={{ background: '#e55353' }}>
-              <CModalTitle style={{ fontFamily: 'Oswald', letterSpacing: '1px' }}><CIcon icon={cilArrowLeft} className="me-2"/>PROCESS RETURN</CModalTitle>
+          {/* [FIXED] Custom Header to ensure white text and icon */}
+          <CModalHeader closeButton={false} style={{ backgroundColor: '#e55353' }}>
+              <div className="d-flex w-100 justify-content-between align-items-center">
+                  <CModalTitle style={{ fontFamily: 'Oswald', letterSpacing: '1px', color: '#ffffff !important' }}>
+                      <span className="text-white"><CIcon icon={cilArrowLeft} className="me-2"/>PROCESS RETURN</span>
+                  </CModalTitle>
+                  <button type="button" onClick={() => setIsReturnModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'white', opacity: 0.8, cursor: 'pointer' }}>
+                      <CIcon icon={cilX} size="lg"/> 
+                  </button>
+              </div>
           </CModalHeader>
           <CModalBody className="p-4 bg-light">
               <div className="bg-white p-0 rounded shadow-sm border mb-4 overflow-hidden">
@@ -431,7 +468,42 @@ const OrdersPage = () => {
                                 <tr key={idx} className={item.return_qty > 0 ? 'bg-warning bg-opacity-10' : ''}>
                                     <td className="ps-4"><div className="fw-bold text-dark small">{item.product_name}</div>{item.is_serialized && item.available_serials && (<div className="mt-1">{item.available_serials.map(sn => (<CFormCheck key={sn.id} id={`sn-${sn.id}`} label={<span className="small font-monospace text-muted">{sn.serial_number}</span>} checked={item.selected_serials.includes(sn.serial_number)} onChange={(e) => handleSerialSelection(idx, sn.serial_number, e.target.checked)}/>))}</div>)}</td>
                                     <td className="text-center"><span className="badge bg-light text-dark border">{item.max_qty}</span></td>
-                                    <td className="text-center pe-3">{!item.is_serialized ? (<CFormInput type="number" min="0" max={item.max_qty} value={item.return_qty} onChange={(e) => handleReturnQtyChange(idx, e.target.value)} className="text-center form-control-sm fw-bold text-danger"/>) : (<span className="badge bg-danger">{item.return_qty}</span>)}</td>
+                                    {/* [CONFIRMED] QUANTITY INPUT WITH BUTTONS */}
+                                    <td className="text-center pe-3">
+                                        {!item.is_serialized ? (
+                                            <div className="d-flex align-items-center justify-content-center gap-1">
+                                                <CButton 
+                                                    color="light" 
+                                                    size="sm" 
+                                                    className="border px-2 py-1"
+                                                    onClick={() => handleReturnQtyChange(idx, parseInt(item.return_qty || 0) - 1)}
+                                                    disabled={item.return_qty <= 0}
+                                                >
+                                                    -
+                                                </CButton>
+                                                <CFormInput 
+                                                    type="number" 
+                                                    min="0" 
+                                                    max={item.max_qty} 
+                                                    value={item.return_qty} 
+                                                    onChange={(e) => handleReturnQtyChange(idx, e.target.value)} 
+                                                    className="text-center form-control-sm fw-bold text-danger"
+                                                    style={{ maxWidth: '60px' }}
+                                                />
+                                                <CButton 
+                                                    color="light" 
+                                                    size="sm" 
+                                                    className="border px-2 py-1"
+                                                    onClick={() => handleReturnQtyChange(idx, parseInt(item.return_qty || 0) + 1)}
+                                                    disabled={item.return_qty >= item.max_qty}
+                                                >
+                                                    +
+                                                </CButton>
+                                            </div>
+                                        ) : (
+                                            <span className="badge bg-danger">{item.return_qty}</span>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                          </tbody>
@@ -468,7 +540,6 @@ const OrdersPage = () => {
                    </div>
               </div>
           </CModalBody>
-          {/* [MODERNIZED FOOTER: WCAG + BRANDING] */}
           <CModalFooter className="bg-light border-top">
               <div className="d-flex w-100 justify-content-between">
                   <CButton 
@@ -493,12 +564,24 @@ const OrdersPage = () => {
           </CModalFooter>
       </CModal>
 
-      {/* --- ADMIN AUTH MODAL (MODERNIZED & SECURE LOOK) --- */}
+      {/* --- ADMIN AUTH MODAL (FIXED HEADER VISIBILITY) --- */}
       <CModal visible={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} alignment="center" backdrop="static">
-        <CModalHeader className="border-0 text-white" style={{ backgroundColor: '#17334e' }}>
-            <CModalTitle style={{ fontFamily: 'Oswald', letterSpacing: '1px' }}>
-                <CIcon icon={cilLockLocked} className="me-2 text-warning"/> MANAGER AUTHORIZATION
-            </CModalTitle>
+        {/* [FIXED] Custom Header implementation to force white text and visible close icon */}
+        <CModalHeader closeButton={false} style={{ backgroundColor: '#17334e', borderBottom: '1px solid #2c3e50' }}>
+            <div className="d-flex w-100 justify-content-between align-items-center">
+                <CModalTitle style={{ fontFamily: 'Oswald', letterSpacing: '1px', color: '#ffffff !important' }}>
+                    <span className="text-white">
+                        <CIcon icon={cilLockLocked} className="me-2 text-warning"/> MANAGER AUTHORIZATION
+                    </span>
+                </CModalTitle>
+                <button 
+                    type="button" 
+                    onClick={() => setIsAuthModalOpen(false)} 
+                    style={{ background: 'transparent', border: 'none', color: 'white', opacity: 0.8, cursor: 'pointer' }}
+                >
+                    <CIcon icon={cilX} size="lg"/> 
+                </button>
+            </div>
         </CModalHeader>
         <CModalBody className="p-0">
             <div className="bg-light p-4 border-bottom">

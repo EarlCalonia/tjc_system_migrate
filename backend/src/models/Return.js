@@ -20,7 +20,7 @@ export class Return {
         photoProof,
         additionalNotes,
         processedBy,
-        returnItems // Array of { saleItemId, productId, productName, sku, quantity, price, serialNumbers: [] }
+        returnItems 
       } = returnData;
 
       // Validate that order exists and can be returned
@@ -35,7 +35,6 @@ export class Return {
 
       const order = orderResult[0];
 
-      // Check if order can be returned
       if (order.status === 'Returned') {
         throw new Error('Order has already been fully returned');
       }
@@ -44,8 +43,11 @@ export class Return {
         throw new Error('Cannot return a cancelled order');
       }
 
-      // Generate unique return ID
-      const returnId = `RET-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+      // [FIXED] Standardized Return ID: RET-YYMMDD-XXXX (15 Chars)
+      // Example: RET-231108-4921
+      const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
+      const returnId = `RET-${dateStr}-${randomSuffix}`;
 
       // Calculate total refund amount
       const refundAmount = returnItems.reduce((total, item) => {
@@ -96,12 +98,10 @@ export class Return {
 
       // Insert return items and update sale_items
       for (const returnItem of returnItems) {
-        // [FIX] Prepare Serial Numbers string for storage
         const serialsToStore = (returnItem.serialNumbers && returnItem.serialNumbers.length > 0)
             ? returnItem.serialNumbers.join(', ')
             : null;
 
-        // [FIX] Insert return item WITH serial_numbers
         await connection.execute(
           `INSERT INTO return_items (
             return_id, sale_item_id, product_id, product_name, sku,
@@ -116,21 +116,18 @@ export class Return {
             returnItem.quantity,
             returnItem.price,
             returnItem.quantity * returnItem.price,
-            serialsToStore // New Field
+            serialsToStore
           ]
         );
 
-        // Update returned quantity in sale_items
         await connection.execute(
           'UPDATE sale_items SET returned_quantity = returned_quantity + ? WHERE id = ?',
           [returnItem.quantity, returnItem.saleItemId]
         );
 
-        // --- SERIAL NUMBER HANDLING ---
+        // Serial Number Handling
         if (returnItem.serialNumbers && returnItem.serialNumbers.length > 0) {
-           // Determine the new status for these serial numbers
-           let serialStatus = 'returned'; // Default fallback
-           
+           let serialStatus = 'returned'; 
            if (restocked) {
              serialStatus = 'available';
            } else if (returnReason === 'Defective/Damaged') {
@@ -138,10 +135,6 @@ export class Return {
            }
 
            for (const serial of returnItem.serialNumbers) {
-             // Update the specific serial number
-             // If restocked (available), we must clear sale_id/sale_item_id so it can be sold again
-             // If defective/returned, we usually keep record or clear it depending on policy. 
-             // Here we clear sale linkage to indicate it's back in possession (even if broken).
              await connection.execute(
                `UPDATE serial_numbers 
                 SET status = ?, sale_id = NULL, sale_item_id = NULL, updated_at = NOW(), notes = ?
@@ -150,7 +143,6 @@ export class Return {
              );
            }
         }
-        // ------------------------------
 
         // If restocked, update inventory count
         if (restocked) {
@@ -199,7 +191,6 @@ export class Return {
         item => item.returned_quantity > 0 && item.returned_quantity < item.quantity
       );
 
-      // Determine new order status
       let newStatus = order.status;
       let newPaymentStatus = order.payment_status;
 
@@ -262,16 +253,12 @@ export class Return {
   // Get return history for an order
   static async getReturnsByOrderId(orderId) {
     const pool = getPool();
-    
-    // Get all returns for the order
     const [returns] = await pool.execute(
       `SELECT * FROM returns WHERE order_id = ? ORDER BY return_date DESC`,
       [orderId]
     );
 
-    // Get items for each return
     for (const returnRecord of returns) {
-      // [FIX] Now fetching serial_numbers as well
       const [items] = await pool.execute(
         `SELECT * FROM return_items WHERE return_id = ?`,
         [returnRecord.return_id]
@@ -286,7 +273,7 @@ export class Return {
   static async getAllReturns(filters = {}) {
     const pool = getPool();
     let query = `
-      SELECT r.*, s.customer_name, s.payment
+      SELECT r.*, s.customer_name, s.payment_method as payment
       FROM returns r
       LEFT JOIN sales s ON r.order_id = s.id
       WHERE 1=1
@@ -317,9 +304,11 @@ export class Return {
 
     const [returns] = await pool.execute(query, params);
     
-    // [OPTIONAL] Fetch items for these returns if you want to show serials in the main table
-    // For now, we keep it light to avoid N+1, but if you need to see products immediately:
-    // You would need a JOIN or a second query here.
+    // Fetch Items for returns if needed (optional optimization loop here)
+    for (const ret of returns) {
+         const [items] = await pool.execute('SELECT product_name, serial_numbers FROM return_items WHERE return_id = ?', [ret.return_id]);
+         ret.items = items;
+    }
 
     return returns;
   }
