@@ -44,7 +44,6 @@ export class Return {
       }
 
       // [FIXED] Standardized Return ID: RET-YYMMDD-XXXX (15 Chars)
-      // Example: RET-231108-4921
       const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
       const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
       const returnId = `RET-${dateStr}-${randomSuffix}`;
@@ -272,8 +271,9 @@ export class Return {
   // Get all returns with pagination and filters
   static async getAllReturns(filters = {}) {
     const pool = getPool();
+    // [FIX] Changed 's.payment_method' to 's.payment' to match database schema
     let query = `
-      SELECT r.*, s.customer_name, s.payment_method as payment
+      SELECT r.*, s.customer_name, s.payment as payment
       FROM returns r
       LEFT JOIN sales s ON r.order_id = s.id
       WHERE 1=1
