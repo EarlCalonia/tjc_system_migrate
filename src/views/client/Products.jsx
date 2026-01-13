@@ -7,7 +7,8 @@ import '../../styles/Products.css';
 import bg from '../../assets/image-background.png';
 import noImageFound from '../../assets/no-image-branded.png';
 
-const ITEMS_PER_PAGE = 20;
+// [UPDATED] Set to 15 (Better for 3-column layouts and browsing flow)
+const ITEMS_PER_PAGE = 15;
 
 const ProductSkeleton = () => (
   <div className="skeleton-card">
@@ -34,15 +35,16 @@ const Products = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   
-  // [NEW] Pagination State
+  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        // Fetch ALL products so we can filter/sort/paginate client-side
         const [prodRes, catRes, brandRes] = await Promise.all([
-          productAPI.getProducts(),
+          productAPI.getProducts({ limit: 1000 }), 
           productAPI.getCategories(),
           productAPI.getBrands()
         ]);
@@ -51,7 +53,10 @@ const Products = () => {
         if (prodRes?.data?.products && Array.isArray(prodRes.data.products)) productList = prodRes.data.products;
         else if (prodRes?.data && Array.isArray(prodRes.data)) productList = prodRes.data;
         else if (Array.isArray(prodRes)) productList = prodRes;
-        setProducts(productList);
+        
+        // Filter out inactive products client-side just in case
+        const activeProducts = productList.filter(p => p.status === 'Active');
+        setProducts(activeProducts);
 
         if (catRes?.data) setCategories(catRes.data);
         if (brandRes?.data) setBrands(brandRes.data);
@@ -65,7 +70,7 @@ const Products = () => {
     fetchData();
   }, []);
 
-  // [NEW] Reset page when filters change
+  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, categoryFilter, brandFilter, sortOrder, priceRange]);
@@ -95,7 +100,7 @@ const Products = () => {
       return new Date(b.created_at) - new Date(a.created_at);
     }) : [];
 
-  // [NEW] Pagination Logic
+  // Pagination Logic
   const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
   const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
   const currentProducts = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
@@ -341,7 +346,7 @@ const Products = () => {
             )}
           </div>
 
-          {/* [NEW] Pagination Controls */}
+          {/* Pagination Controls */}
           {filteredProducts.length > ITEMS_PER_PAGE && (
             <div className="pagination-controls">
               <button 

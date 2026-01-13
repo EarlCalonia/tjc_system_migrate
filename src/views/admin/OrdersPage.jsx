@@ -10,7 +10,7 @@ import {
   cilMagnifyingGlass, cilDescription, cilMoney, cilWarning, cilCheckCircle, cilArrowLeft,
   cilSettings, cilTruck, cilBan, cilCalendar, cilLocationPin, cilNotes, cilHome, cilCog, 
   cilBarcode, cilHistory, cilUser, cilChevronLeft, cilChevronRight, cilXCircle, cilCloudUpload, 
-  cilLockLocked, cilShieldAlt, cilPrint, cilImage, cilX // [ADDED] cilX for custom close buttons
+  cilLockLocked, cilShieldAlt, cilPrint, cilImage, cilX 
 } from '@coreui/icons'
 import { salesAPI, returnsAPI, serialNumberAPI, activityLogsAPI, authAPI, settingsAPI } from '../../utils/api'
 import { generateSaleReceipt } from '../../utils/pdfGenerator'
@@ -79,11 +79,29 @@ const OrdersPage = () => {
   const brandHeaderStyle = { fontFamily: 'Oswald, sans-serif', letterSpacing: '1px' };
 
   // --- LIFECYCLE ---
+  // [FIX] Modified useEffect to listen for user updates from AppSidebar
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-        try { setCurrentUser(JSON.parse(storedUser)); } catch (e) {}
-    }
+    const loadUserFromStorage = () => {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            try { 
+                setCurrentUser(JSON.parse(storedUser)); 
+            } catch (e) {
+                console.error("Failed to parse user", e);
+            }
+        }
+    };
+
+    loadUserFromStorage(); // Initial load
+
+    // Listen for the sync event from AppSidebar
+    window.addEventListener('userUpdated', loadUserFromStorage);
+    
+    // Cleanup
+    return () => window.removeEventListener('userUpdated', loadUserFromStorage);
+  }, []);
+
+  useEffect(() => {
     fetchOrdersWithItems();
     fetchOrderStats();
     
@@ -220,7 +238,8 @@ const OrdersPage = () => {
 
     if (!returnForm.file) { return setMsgModal({ visible: true, title: 'Proof Required', message: 'You must upload a photo proof of the item to process a return.', color: 'warning', icon: cilCloudUpload }); }
 
-    const userRole = (currentUser?.role || '').toLowerCase();
+    // [FIXED] Updated check to handle both old and new role formats
+    const userRole = (currentUser?.role || currentUser?.userRole || '').toLowerCase();
     const isAdmin = ['admin', 'superadmin', 'administrator'].includes(userRole);
 
     if (!isAdmin) {
@@ -446,7 +465,6 @@ const OrdersPage = () => {
 
       {/* --- RETURN MODAL --- */}
       <CModal visible={isReturnModalOpen} onClose={() => setIsReturnModalOpen(false)} size="lg" alignment="center" backdrop="static" scrollable>
-          {/* [FIXED] Custom Header to ensure white text and icon */}
           <CModalHeader closeButton={false} style={{ backgroundColor: '#e55353' }}>
               <div className="d-flex w-100 justify-content-between align-items-center">
                   <CModalTitle style={{ fontFamily: 'Oswald', letterSpacing: '1px', color: '#ffffff !important' }}>
@@ -468,7 +486,6 @@ const OrdersPage = () => {
                                 <tr key={idx} className={item.return_qty > 0 ? 'bg-warning bg-opacity-10' : ''}>
                                     <td className="ps-4"><div className="fw-bold text-dark small">{item.product_name}</div>{item.is_serialized && item.available_serials && (<div className="mt-1">{item.available_serials.map(sn => (<CFormCheck key={sn.id} id={`sn-${sn.id}`} label={<span className="small font-monospace text-muted">{sn.serial_number}</span>} checked={item.selected_serials.includes(sn.serial_number)} onChange={(e) => handleSerialSelection(idx, sn.serial_number, e.target.checked)}/>))}</div>)}</td>
                                     <td className="text-center"><span className="badge bg-light text-dark border">{item.max_qty}</span></td>
-                                    {/* [CONFIRMED] QUANTITY INPUT WITH BUTTONS */}
                                     <td className="text-center pe-3">
                                         {!item.is_serialized ? (
                                             <div className="d-flex align-items-center justify-content-center gap-1">
@@ -564,9 +581,8 @@ const OrdersPage = () => {
           </CModalFooter>
       </CModal>
 
-      {/* --- ADMIN AUTH MODAL (FIXED HEADER VISIBILITY) --- */}
+      {/* --- ADMIN AUTH MODAL --- */}
       <CModal visible={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} alignment="center" backdrop="static">
-        {/* [FIXED] Custom Header implementation to force white text and visible close icon */}
         <CModalHeader closeButton={false} style={{ backgroundColor: '#17334e', borderBottom: '1px solid #2c3e50' }}>
             <div className="d-flex w-100 justify-content-between align-items-center">
                 <CModalTitle style={{ fontFamily: 'Oswald', letterSpacing: '1px', color: '#ffffff !important' }}>

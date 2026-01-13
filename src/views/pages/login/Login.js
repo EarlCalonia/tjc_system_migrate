@@ -32,9 +32,15 @@ const Login = () => {
       const result = await authAPI.login(email, password)
       const user = result.data
 
-      // [FIX] Changed to localStorage for persistent session access in ProfilePage
+      // [FIX] Update LocalStorage logic to be consistent
       localStorage.setItem('isAuthenticated', 'true')
-      localStorage.setItem('userRole', user.role)
+      
+      // 1. Store full user object (Required by OrdersPage.jsx return logic)
+      localStorage.setItem('user', JSON.stringify(user)) 
+      
+      // 2. Store specific fields (Required by AppSidebar.js and legacy checks)
+      localStorage.setItem('role', user.role)      // Standard key
+      localStorage.setItem('userRole', user.role)  // Legacy backup
       localStorage.setItem('userId', user.id)
       localStorage.setItem('username', user.username)
       
@@ -43,6 +49,9 @@ const Login = () => {
       } else {
         localStorage.removeItem('userAvatar')
       }
+
+      // [EVENT] Dispatch event to notify listeners (Sidebar, etc.) immediately
+      window.dispatchEvent(new Event('userUpdated'))
 
       if (user.role === 'driver') {
         navigate('/admin/delivery')

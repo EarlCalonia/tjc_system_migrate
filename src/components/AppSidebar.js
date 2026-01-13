@@ -15,7 +15,7 @@ import {
 import { AppSidebarNav } from './AppSidebarNav'
 import navigation from '../_nav'
 import { useNavigate } from 'react-router-dom'
-import { authAPI } from '../utils/api'
+import { authAPI, usersAPI } from '../utils/api' // [UPDATED] Imported usersAPI
 
 // Icons
 import CIcon from '@coreui/icons-react'
@@ -40,11 +40,51 @@ const AppSidebar = () => {
   // Modal State
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
+  // [FIX] Sync Session with Database on Mount
+  useEffect(() => {
+    const syncSession = async () => {
+        const userId = localStorage.getItem('userId');
+        if (userId) {
+            try {
+                // Fetch fresh user data from DB
+                const res = await usersAPI.getById(userId);
+                if (res.success && res.data) {
+                    const freshUser = res.data;
+                    
+                    // Update LocalStorage with fresh DB data
+                    localStorage.setItem('user', JSON.stringify(freshUser));
+                    localStorage.setItem('role', freshUser.role);
+                    localStorage.setItem('userRole', freshUser.role);
+                    localStorage.setItem('username', freshUser.username);
+                    
+                    if (freshUser.avatar) {
+                        localStorage.setItem('userAvatar', freshUser.avatar);
+                    }
+
+                    // Force update local state immediately
+                    setUsername(freshUser.username);
+                    setRole(freshUser.role);
+                    if (freshUser.avatar) {
+                       setAvatar(freshUser.avatar.startsWith('http') ? freshUser.avatar : `${ASSET_URL}${freshUser.avatar}`)
+                    }
+                    
+                    // Notify other components
+                    window.dispatchEvent(new Event('userUpdated'));
+                }
+            } catch (error) {
+                console.error("Session sync failed", error);
+            }
+        }
+    };
+
+    syncSession();
+  }, []);
+
   useEffect(() => {
     const loadUser = () => {
        const storedAvatar = localStorage.getItem('userAvatar')
        const storedName = localStorage.getItem('username')
-       const storedRole = localStorage.getItem('role')
+       const storedRole = localStorage.getItem('role') || localStorage.getItem('userRole') // [FIX] Check both keys
 
        if (storedAvatar) {
            setAvatar(storedAvatar.startsWith('http') ? storedAvatar : `${ASSET_URL}${storedAvatar}`)
@@ -152,8 +192,6 @@ const AppSidebar = () => {
 
                 {/* Actions */}
                 <div className="d-flex gap-2">
-                    {/* [FIXED] Removed redundant Settings button here. It is now only in the Sidebar Nav. */}
-                    
                     {/* LOGOUT BUTTON - Triggers Modal */}
                     <button 
                       className="btn btn-sm btn-ghost-danger text-danger" 
